@@ -1,5 +1,5 @@
 const stories = document.querySelectorAll(".story-card");
-const STALLTALK_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
+const STALLTALK_PUBLIC_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
 
 stories.forEach((story) => {
   const action = story.querySelector(".summary-action");
@@ -24,7 +24,7 @@ adLinks.forEach((link) => {
 
 function readSavedAdSlots() {
   try {
-    return JSON.parse(localStorage.getItem(STALLTALK_AD_STORAGE_KEY)) || {};
+    return JSON.parse(localStorage.getItem(STALLTALK_PUBLIC_AD_STORAGE_KEY)) || {};
   } catch (error) {
     console.warn("Unable to load Stall Talk ad slots", error);
     return {};
@@ -50,18 +50,7 @@ function updateRailAd(card, slotNumber, ad) {
 
   if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSize || ad.adSlotSize || "Custom"}`;
   if (title) title.textContent = ad.businessName || ad.headline;
-  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline;
-  if (link) {
-    link.textContent = ad.ctaButtonText || "Claim offer";
-    link.href = normalizeContactHref(ad.website || ad.contact || ad.phone);
-    link.setAttribute("aria-label", `${ad.ctaButtonText || "Claim offer"} for ${ad.businessName || ad.headline}`);
-  }
-}
-
-function updateMiniAd(card, slotNumber, ad) {
-  if (window.StallTalkGraphicAds && ad.headline) {
-    card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
-    card.dataset.coupon = ad.couponCode || "";
+@@ -65,25 +65,62 @@ function updateMiniAd(card, slotNumber, ad) {
     card.title = `${ad.headline || "Saved graphic ad"} ${ad.couponCode || ""}`.trim();
     return;
   }
@@ -87,3 +76,40 @@ function loadSavedAdSlots() {
 }
 
 loadSavedAdSlots();
+
+const STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
+
+function readPublishedIssueContent() {
+  try {
+    return JSON.parse(localStorage.getItem(STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY)) || null;
+  } catch (error) {
+    console.warn("Unable to load Stall Talk published content", error);
+    return null;
+  }
+}
+
+function updatePublishedIssueContent() {
+  const content = readPublishedIssueContent();
+  if (!content) return;
+
+  Object.entries(content).forEach(([key, value]) => {
+    const target = document.querySelector(`[data-content="${key}"]`);
+    if (!target || typeof value !== "string") return;
+
+    if (key === "trivia") {
+      const facts = value.split(/\n+/).map((fact) => fact.trim()).filter(Boolean);
+      target.replaceChildren(
+        ...facts.map((fact) => {
+          const item = document.createElement("li");
+          item.textContent = fact;
+          return item;
+        }),
+      );
+      return;
+    }
+
+    target.textContent = value;
+  });
+}
+
+updatePublishedIssueContent();
