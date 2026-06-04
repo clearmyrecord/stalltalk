@@ -4,9 +4,7 @@ const saveStatus = document.querySelector("#save-status");
 const previewStage = document.querySelector("#graphic-ad-preview");
 const downloadButton = document.querySelector("#download-png");
 const saveDraftButton = document.querySelector("#save-draft");
-
-const CONTENT_DRAFT_STORAGE_KEY = "stalltalk_content_draft";
-const CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
+const generateButton = document.querySelector("#generate-button");
 
 const outputFields = {
   headline: document.querySelector("#output-headline"),
@@ -15,112 +13,98 @@ const outputFields = {
   designPrompt: document.querySelector("#output-design-prompt"),
 };
 
-const contentFields = Object.fromEntries(
-  Array.from(document.querySelectorAll("[data-content-field]")).map((field) => [field.dataset.contentField, field]),
-);
-
-const contentStatus = document.querySelector("#content-status");
-const contentPreview = document.querySelector("#content-preview");
-const contentLabels = {
-  joke: "Hilariously Funny",
-  trivia: "Did You Know",
-  quote: "Inspirational Quote",
-  word: "Word of the Day",
-  article: "Featured Article",
-  deal: "Local Deal",
-  event: "Event Spotlight",
-};
-
-const defaultContent = {
-  joke: "Why did the restroom magazine get promoted? It had excellent stall presence.",
-  trivia: [
-    "Las Vegas has more hotel rooms than many entire cities.",
-    "The average person checks their phone dozens of times a day.",
-    "Neon signs are made bright by electrified gas in glass tubes.",
-    "QR codes were first invented to track auto parts.",
-    "A sneeze can travel faster than a city bus.",
-    "The word trivia comes from a place where three roads meet.",
-    "Some casinos pump in fresh outside air around the clock.",
-    "A deck of cards has the same number of cards as weeks in a year.",
-    "Bananas are berries, botanically speaking.",
-    "The shortest complete sentence in English is often said to be Go.",
-  ].join("\n"),
-  quote: "“Make the most of the pause; even a quick stop can point you toward the next good thing.”",
-  word: "Serendipity — finding something good while looking for something else.",
-  article: "The best local nights are built from tiny decisions: where to meet, what to try, and which glowing doorway looks interesting enough to investigate.",
-  deal: "Local Deal Template: Show this issue at [Business Name] for [Offer]. Valid [Dates]. Use code STALLTALK.",
-  event: "Event Spotlight: Tonight at [Venue], catch [Event Name] at [Time]. Add a quick local stop before or after the show.",
-};
-
 const toneCopy = {
   Funny: {
     headlinePrefix: "So good it should be illegal",
     subheadline: "A cheeky stop-worthy deal for people who love a little restroom reading with their rewards.",
     cta: "Laugh & Save",
+    template: "coupon",
   },
   Bold: {
     headlinePrefix: "Grab this deal now",
     subheadline: "High-contrast, high-energy creative built to make nearby customers act fast.",
     cta: "Claim It Today",
+    template: "vegas",
   },
   Luxury: {
     headlinePrefix: "Premium perks await",
     subheadline: "A polished black-and-gold offer for guests who expect the night to feel first class.",
     cta: "Unlock VIP Offer",
-  },
-  Local: {
-    headlinePrefix: "Your neighborhood hook-up",
-    subheadline: "A trusted local offer for people already close enough to become regulars.",
-    cta: "Support Local",
+@@ -38,219 +39,351 @@ const toneCopy = {
+    template: "contractor",
   },
   "Family-Friendly": {
     headlinePrefix: "Bring the whole crew",
-    subheadline: "Bright, welcoming creative that keeps the offer simple for families on the move.",
-    cta: "Plan the Fun",
+    subheadline: "Bright, upbeat creative for parents, kids, groups, and easy weekend wins.",
+    cta: "Plan Family Fun",
+    template: "family",
   },
   Nightlife: {
     headlinePrefix: "Keep the night glowing",
-    subheadline: "Neon-paced copy for after-dark guests looking for the next stop.",
-    cta: "Go Tonight",
+    subheadline: "A neon-ready promotion for late crowds, event guests, and after-dark decision makers.",
+    cta: "Start The Night",
+    template: "event",
   },
 };
 
 const templateColorDefaults = {
-  vegas: ["#ff2d2d", "#ffd400", "#7c2cff"],
-  coupon: ["#f97316", "#fef08a", "#111827"],
-  luxury: ["#111111", "#d4af37", "#ffffff"],
-  family: ["#14b8a6", "#fde68a", "#f472b6"],
-  contractor: ["#f59e0b", "#1f2937", "#f8fafc"],
-  event: ["#2563eb", "#f43f5e", "#facc15"],
+  vegas: ["#ff2dff", "#00f5ff", "#ffd400"],
+  coupon: ["#ff2d2d", "#ffd400", "#111827"],
+  luxury: ["#050505", "#d4af37", "#ffffff"],
+  family: ["#2dd4bf", "#ffd166", "#ef476f"],
+  contractor: ["#f97316", "#111827", "#facc15"],
+  event: ["#7c2cff", "#ff2d7a", "#06b6d4"],
 };
+
+const DEFAULT_IMAGE_ENDPOINT = "/api/generate-ad-image";
 
 let activeAd = null;
 
-function cleanValue(value, fallback = "") {
-  return String(value || "").trim() || fallback;
+function cleanValue(value, fallback) {
+  return StallTalkGraphicAds.safeText(value, fallback);
+}
+
+function makeCouponCode(businessName, offer) {
+  const namePart = businessName.replace(/[^a-z0-9]/gi, "").slice(0, 7).toUpperCase() || "STALL";
+  const offerNumber = offer.match(/\d+/)?.[0] || "10";
+  return `${namePart}${offerNumber}`;
 }
 
 function titleCase(value) {
-  return cleanValue(value)
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return cleanValue(value, "").replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+}
+
+function selectedMode() {
+  return form.querySelector('input[name="adMode"]:checked')?.value || "image";
+}
+
+function endpointUrl() {
+  return cleanValue(window.STALLTALK_AD_IMAGE_ENDPOINT, DEFAULT_IMAGE_ENDPOINT);
 }
 
 function collectFormValues() {
   const formData = new FormData(form);
+  const businessName = cleanValue(formData.get("businessName"), "Your Business");
+  const offer = cleanValue(formData.get("offer"), "a limited-time offer");
+  const couponCode = cleanValue(formData.get("couponCode"), makeCouponCode(businessName, offer));
   const template = cleanValue(formData.get("template"), "vegas");
   const colors = templateColorDefaults[template] || templateColorDefaults.vegas;
+  const adSizeKey = StallTalkGraphicAds.adSizeKey(formData.get("adSize"));
+  const adSize = StallTalkGraphicAds.sizes[adSizeKey].label;
 
   return {
-    businessName: cleanValue(formData.get("businessName"), "Your Business"),
-    businessCategory: cleanValue(formData.get("businessCategory"), "Local Favorite"),
-    offer: cleanValue(formData.get("offer"), "Limited-time special"),
-    couponCode: cleanValue(formData.get("couponCode"), "STALL10"),
+    adMode: cleanValue(formData.get("adMode"), selectedMode()),
+    businessName,
+    businessCategory: cleanValue(formData.get("businessCategory"), "Local Business"),
+    offer,
+    couponCode,
     phone: cleanValue(formData.get("phone"), ""),
     website: cleanValue(formData.get("website"), ""),
     targetAudience: cleanValue(formData.get("targetAudience"), "nearby customers"),
-    tone: cleanValue(formData.get("tone"), "Bold"),
-    adSize: cleanValue(formData.get("adSize"), "Banner"),
+    style: cleanValue(formData.get("style"), "Bold"),
+    tone: cleanValue(formData.get("style"), "Bold"),
+    adSize,
+    adSizeKey,
     template,
     primaryColor: cleanValue(formData.get("primaryColor"), colors[0]),
     secondaryColor: cleanValue(formData.get("secondaryColor"), colors[1]),
@@ -129,33 +113,124 @@ function collectFormValues() {
   };
 }
 
+function buildImagePrompt(inputs) {
+  const sizeDetails = StallTalkGraphicAds.sizes[inputs.adSizeKey] || StallTalkGraphicAds.sizes.banner;
+  const footerInstruction = inputs.adSizeKey === "footer" ? "Design as an ultra-wide footer banner in a 1792x512 safe area with no important content outside the center horizontal band." : "";
+
+  return [
+    `Create a complete, polished graphic advertisement for ${inputs.businessName}.`,
+    `Ad size: ${sizeDetails.label}.`,
+    `Business category: ${inputs.businessCategory}.`,
+    `Offer: ${inputs.offer}.`,
+    `Coupon: ${inputs.couponCode}.`,
+    `Style: ${inputs.style}.`,
+    `Target audience: ${inputs.targetAudience}.`,
+    `Required visible contact details: phone ${inputs.phone || "not provided"}, website ${inputs.website || "not provided"}.`,
+    `Use bold legible advertising typography, a finished layout, strong hierarchy, a clear CTA, and brand color inspiration ${inputs.primaryColor}, ${inputs.secondaryColor}, ${inputs.accentColor}.`,
+    inputs.imageUrl ? `If useful, incorporate this logo/reference URL visually: ${inputs.imageUrl}.` : "No external logo is required.",
+    footerInstruction,
+    "Return only the final ad image with the promotional copy integrated into the design; do not include mockup frames or placeholder text.",
+  ].filter(Boolean).join(" ");
+}
+
 function generateGraphicAdLocally(inputs) {
-  const tone = toneCopy[inputs.tone] || toneCopy.Bold;
+  const tone = toneCopy[inputs.style] || toneCopy.Bold;
   const headline = `${tone.headlinePrefix}: ${titleCase(inputs.offer)}`;
   const subheadline = `${tone.subheadline} Designed for ${inputs.targetAudience}.`;
 
   return {
     ...inputs,
+    adMode: "html",
     headline,
     subheadline,
     ctaButtonText: tone.cta,
-    designPrompt: `${StallTalkGraphicAds.templates[inputs.template]} ${inputs.adSize.toLowerCase()} advertisement for ${inputs.businessName}, a ${inputs.businessCategory}, with a ${inputs.tone.toLowerCase()} tone, prominent offer badge for “${inputs.offer}”, coupon code ${inputs.couponCode}, CTA, phone/website, decorative shapes, brand colors ${inputs.primaryColor}, ${inputs.secondaryColor}, and ${inputs.accentColor}.`,
+    designPrompt: `${StallTalkGraphicAds.templates[inputs.template]} ${inputs.adSize.toLowerCase()} advertisement for ${inputs.businessName}, a ${inputs.businessCategory}, with a ${inputs.style.toLowerCase()} style, prominent offer badge for “${inputs.offer}”, coupon code ${inputs.couponCode}, CTA, phone/website, decorative shapes, brand colors ${inputs.primaryColor}, ${inputs.secondaryColor}, and ${inputs.accentColor}.`,
+    imageAdUrl: "",
+    imageAdBase64: "",
     generatedAt: new Date().toISOString(),
   };
 }
 
-function generateGraphicAdWithAI(inputs) {
-@@ -147,149 +183,155 @@ function readJsonStorage(key, fallback = {}) {
+async function generateImageAd(inputs) {
+  const designPrompt = buildImagePrompt(inputs);
+  const response = await fetch(endpointUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...inputs, prompt: designPrompt }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || `Image endpoint returned ${response.status}`);
+  }
+
+  const generatedAd = {
+    ...inputs,
+    adMode: "image",
+    headline: `${inputs.businessName}: ${inputs.offer}`,
+    subheadline: `AI image ad for ${inputs.targetAudience}.`,
+    ctaButtonText: "Claim This Deal",
+    designPrompt: payload.prompt || designPrompt,
+    imageAdUrl: cleanValue(payload.imageUrl || payload.url, ""),
+    imageAdBase64: cleanValue(payload.imageBase64 || payload.b64_json, ""),
+    generatedSize: payload.size || "",
+    requestedSize: payload.requestedSize || inputs.adSize,
+    generatedAt: new Date().toISOString(),
+  };
+
+  if (!StallTalkGraphicAds.imageSource(generatedAd)) {
+    throw new Error("Image endpoint did not return imageUrl or imageBase64.");
+  }
+
+  return generatedAd;
+}
+
+function currentGeneratedAd() {
+  const inputs = collectFormValues();
+
+  return {
+    ...activeAd,
+    ...inputs,
+    adMode: selectedMode(),
+    headline: cleanValue(outputFields.headline.value, activeAd?.headline || "A Deal Worth Stopping For"),
+    subheadline: cleanValue(outputFields.subheadline.value, activeAd?.subheadline || "Made for nearby customers ready to act."),
+    ctaButtonText: cleanValue(outputFields.ctaButtonText.value, activeAd?.ctaButtonText || "Claim This Deal"),
+    designPrompt: cleanValue(outputFields.designPrompt.value, activeAd?.designPrompt || buildImagePrompt(inputs)),
+    imageAdUrl: activeAd?.imageAdUrl || "",
+    imageAdBase64: activeAd?.imageAdBase64 || "",
+    generatedAt: activeAd?.generatedAt || new Date().toISOString(),
+  };
+}
+
+function renderGeneratedAd(ad) {
+  activeAd = ad;
+  outputFields.headline.value = ad.headline || "";
+  outputFields.subheadline.value = ad.subheadline || "";
+  outputFields.ctaButtonText.value = ad.ctaButtonText || "";
+  outputFields.designPrompt.value = ad.designPrompt || "";
+
+  previewStage.replaceChildren(StallTalkGraphicAds.build(ad, { link: false }));
+}
+
+function readSavedSlots() {
+  try {
+    return JSON.parse(localStorage.getItem(StallTalkGraphicAds.storageKey)) || {};
+  } catch (error) {
+    console.warn("Unable to read saved Stall Talk graphic ads", error);
+    return {};
+  }
+}
+
 function saveSlot(slotNumber, ad) {
-  const savedSlots = readJsonStorage(StallTalkGraphicAds.storageKey);
+  const savedSlots = readSavedSlots();
   savedSlots[slotNumber] = { ...ad, savedAt: new Date().toISOString() };
   localStorage.setItem(StallTalkGraphicAds.storageKey, JSON.stringify(savedSlots));
-  saveStatus.textContent = `Applied “${ad.businessName}” graphic ad to paid Ad Slot ${slotNumber}. Open the public issue in this browser to see it.`;
+  saveStatus.textContent = `Applied “${ad.businessName}” ${ad.adMode === "image" ? "AI image" : "HTML/CSS"} ad to paid Ad Slot ${slotNumber}. Open the public issue in this browser to see it.`;
 }
 
 function saveDraft(ad) {
   localStorage.setItem(StallTalkGraphicAds.draftStorageKey, JSON.stringify({ ...ad, savedAt: new Date().toISOString() }));
-  saveStatus.textContent = `Saved “${ad.businessName}” as the current graphic ad draft in localStorage.`;
+  saveStatus.textContent = `Saved “${ad.businessName}” as the current ad draft in localStorage.`;
 }
 
 async function downloadPng() {
@@ -171,22 +246,34 @@ async function downloadPng() {
   }
 
   saveStatus.textContent = "Rendering PNG export…";
-  const canvas = await html2canvas(adNode, { backgroundColor: null });
+  const canvas = await html2canvas(adNode, {
+    backgroundColor: null,
+    scale: 2,
+    useCORS: true,
+  });
+
   const link = document.createElement("a");
-  link.download = `${cleanValue(activeAd?.businessName, "stall-talk-ad").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
+  const fileName = cleanValue(activeAd?.businessName, "stalltalk-ad").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "stalltalk-ad";
+  link.download = `${fileName}-graphic-ad.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
   saveStatus.textContent = "Downloaded the graphic ad PNG.";
 }
 
 function buildSlotButtons() {
-  slotButtons.replaceChildren();
   for (let slotNumber = 1; slotNumber <= 8; slotNumber += 1) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = `${slotNumber}`;
     button.setAttribute("aria-label", `Apply generated graphic ad to Ad Slot ${slotNumber}`);
-    button.addEventListener("click", () => saveSlot(slotNumber, currentGeneratedAd()));
+    button.addEventListener("click", () => {
+      const ad = currentGeneratedAd();
+      if (selectedMode() === "image" && !StallTalkGraphicAds.imageSource(ad)) {
+        saveStatus.textContent = "Generate an AI image ad before applying this mode to a paid slot, or switch to HTML/CSS fallback mode.";
+        return;
+      }
+      saveSlot(slotNumber, ad);
+    });
     slotButtons.append(button);
   }
 }
@@ -201,149 +288,97 @@ function applyTemplateDefaults() {
   document.querySelector("#accent-color").value = colors[2];
 }
 
-function collectContentValues() {
-  return Object.fromEntries(Object.entries(contentFields).map(([key, field]) => [key, cleanValue(field.value, defaultContent[key])]));
+function updateModeControls() {
+  const mode = selectedMode();
+  generateButton.textContent = mode === "image" ? "Generate AI Image Ad" : "Generate HTML/CSS Ad";
+  saveStatus.textContent = mode === "image"
+    ? "AI Image Ad mode sends the prompt to your Vercel endpoint. No OpenAI key is stored in this frontend."
+    : "Fallback mode renders the original browser-only HTML/CSS ad without calling an image API.";
 }
 
-function applyContentValues(content) {
-  Object.entries(contentFields).forEach(([key, field]) => {
-    field.value = cleanValue(content[key], defaultContent[key]);
-  });
-}
-
-function renderContentPreview(content) {
-  const cards = Object.entries(contentLabels).map(([key, label]) => {
-    const article = document.createElement("article");
-    article.className = key === "trivia" || key === "article" ? "studio-story studio-story-wide" : "studio-story";
-
-    const badge = document.createElement("span");
-    badge.textContent = label;
-    const heading = document.createElement("h3");
-    heading.textContent = key === "trivia" ? "10 Fast Facts for the Stall" : label;
-    article.append(badge, heading);
-
-    if (key === "trivia") {
-      const list = document.createElement("ol");
-      cleanValue(content[key], defaultContent[key])
-        .split(/\n+/)
-        .filter(Boolean)
-        .forEach((fact) => {
-          const item = document.createElement("li");
-          item.textContent = fact;
-          list.append(item);
-        });
-      article.append(list);
-    } else {
-      const paragraph = document.createElement("p");
-      paragraph.textContent = cleanValue(content[key], defaultContent[key]);
-      article.append(paragraph);
-    }
-
-    return article;
-  });
-
-  contentPreview.replaceChildren(...cards);
-}
-
-function saveContentDraft(content = collectContentValues(), message = "Saved Content Studio draft to localStorage.") {
-  localStorage.setItem(CONTENT_DRAFT_STORAGE_KEY, JSON.stringify({ ...content, savedAt: new Date().toISOString() }));
-  contentStatus.textContent = message;
-  renderContentPreview(content);
-}
-
-function generateIssueContent() {
-  const generatedContent = {
-    joke: "I asked the restroom mirror for life advice. It said, ‘Reflect on your choices, then wash your hands like you mean it.’",
-    trivia: [
-      "A QR code can store thousands of numeric characters in one tiny square.",
-      "Neon signs glow when electricity excites gas sealed inside glass tubes.",
-      "The word trivia comes from an old term for a place where three roads meet.",
-      "A catchy coupon code is usually easier to remember when it is short and pronounceable.",
-      "Most modern phone cameras can scan QR codes without downloading a separate app.",
-      "A deck of cards has 52 cards, matching the number of weeks in many calendar years.",
-      "Bananas are berries botanically, but strawberries are not true berries.",
-      "Local ads often work best when the offer is clear in one quick sentence.",
-      "People tend to remember surprising facts better when they can repeat them immediately.",
-      "Great restroom reading combines a laugh, a useful tip, and a reason to keep exploring.",
-    ].join("\n"),
-    quote: "“Even a quick pause can become the moment that points the whole day in a better direction.”",
-    word: "Effervescent — lively, bubbly, and so energetic it practically arrives with its own soundtrack.",
-    article: "Featured Article: The best local adventure rarely starts with a grand plan. It starts with one tiny yes: try the odd-looking appetizer, follow the music around the corner, scan the deal that made you smile, or text the friend who always knows where the good lights are. Stall Talk’s advice for tonight is simple: pick one nearby discovery, make it the story, and let the detour do the bragging tomorrow.",
-    deal: "Local Deal: Flash this Stall Talk issue at Nacho Average tonight for 2-for-1 loaded fries after 9 PM. Use code STALLTALK and bring at least one friend willing to share the evidence.",
-    event: "Event Spotlight: Neon Courtyard Laughs kicks off at 8 PM with pop-up comics, patio music, and a photo wall bright enough to make your group chat jealous.",
-  };
-
-  applyContentValues(generatedContent);
-  saveContentDraft(generatedContent, "AI content generated and saved.");
-  return generatedContent;
-}
-
-function publishContent() {
-  const content = collectContentValues();
-  localStorage.setItem(CONTENT_DRAFT_STORAGE_KEY, JSON.stringify({ ...content, savedAt: new Date().toISOString() }));
-  localStorage.setItem(CONTENT_PUBLISHED_STORAGE_KEY, JSON.stringify({ ...content, publishedAt: new Date().toISOString() }));
-  contentStatus.textContent = "Published Content Studio content. The public issue updates immediately in this browser.";
-  renderContentPreview(content);
-}
-
-function initTabs() {
-  document.querySelectorAll(".admin-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".admin-tab").forEach((button) => button.classList.toggle("is-active", button === tab));
-      document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.toggle("is-active", panel.id === tab.dataset.tabTarget));
+function handleModeChange() {
+  const inputs = collectFormValues();
+  if (selectedMode() === "html") {
+    renderGeneratedAd(generateGraphicAdLocally(inputs));
+  } else if (!StallTalkGraphicAds.imageSource(activeAd || {})) {
+    renderGeneratedAd({
+      ...inputs,
+      adMode: "image",
+      headline: `${inputs.businessName}: ${inputs.offer}`,
+      subheadline: `Ready to generate an AI image ad for ${inputs.targetAudience}.`,
+      ctaButtonText: "Claim This Deal",
+      designPrompt: buildImagePrompt(inputs),
+      imageAdUrl: "",
+      imageAdBase64: "",
+      generatedAt: new Date().toISOString(),
     });
-  });
+  }
+  updateModeControls();
 }
 
-function initAdStudio() {
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const generatedAd = generateGraphicAdWithAI(collectFormValues());
+async function handleGenerate(event) {
+  event.preventDefault();
+  const inputs = collectFormValues();
+  const mode = selectedMode();
+
+  generateButton.disabled = true;
+  previewStage.setAttribute("aria-busy", "true");
+  saveStatus.textContent = mode === "image" ? "Generating AI image ad through the secure backend…" : "Generating HTML/CSS fallback ad…";
+
+  try {
+    const generatedAd = mode === "image" ? await generateImageAd(inputs) : generateGraphicAdLocally(inputs);
     renderGeneratedAd(generatedAd);
-    saveStatus.textContent = "Finished graphic ad generated. Edit the copy, download PNG, save, or apply it to a paid slot.";
-@@ -310,48 +352,43 @@ function initAdStudio() {
-    });
-  });
+    saveStatus.textContent = mode === "image"
+      ? "Finished AI image ad generated. Save it to a paid slot so the homepage displays the generated image."
+      : "Finished fallback HTML/CSS ad generated. Edit the copy, download PNG, save, or apply it to a paid slot.";
+  } catch (error) {
+    console.error("Unable to generate AI image ad", error);
+    saveStatus.textContent = `AI image generation failed: ${error.message}. No API key is exposed here; check the Vercel endpoint or switch to HTML/CSS fallback mode.`;
+  } finally {
+    generateButton.disabled = false;
+    previewStage.removeAttribute("aria-busy");
+  }
+}
 
-  document.querySelector("#template").addEventListener("change", () => {
-    applyTemplateDefaults();
-    if (!activeAd) return;
+form.addEventListener("submit", handleGenerate);
+
+Object.values(outputFields).forEach((field) => {
+  field.addEventListener("input", () => {
     activeAd = currentGeneratedAd();
     previewStage.replaceChildren(StallTalkGraphicAds.build(activeAd, { link: false }));
   });
+});
 
-  downloadButton.addEventListener("click", downloadPng);
-  saveDraftButton.addEventListener("click", () => saveDraft(currentGeneratedAd()));
+["#business-name", "#business-category", "#offer", "#coupon-code", "#phone", "#website", "#target-audience", "#style", "#ad-size", "#primary-color", "#secondary-color", "#accent-color", "#image-url"].forEach((selector) => {
+  document.querySelector(selector).addEventListener("input", () => {
+    if (!activeAd) return;
+    activeAd = currentGeneratedAd();
+    if (activeAd.adMode === "image" && StallTalkGraphicAds.imageSource(activeAd)) {
+      activeAd.imageAdUrl = "";
+      activeAd.imageAdBase64 = "";
+      activeAd.designPrompt = buildImagePrompt(activeAd);
+      outputFields.designPrompt.value = activeAd.designPrompt;
+      saveStatus.textContent = "Ad details changed. Click Generate AI Image Ad again to create a fresh image before saving to a slot.";
+    } else if (activeAd.adMode !== "image") {
+      activeAd = generateGraphicAdLocally(activeAd);
+    }
+    previewStage.replaceChildren(StallTalkGraphicAds.build(activeAd, { link: false }));
+  });
+});
 
-  buildSlotButtons();
+form.querySelectorAll('input[name="adMode"]').forEach((field) => field.addEventListener("change", handleModeChange));
+
+document.querySelector("#template").addEventListener("change", () => {
   applyTemplateDefaults();
-  renderGeneratedAd(generateGraphicAdWithAI(collectFormValues()));
-}
+  if (!activeAd) return;
+  activeAd = currentGeneratedAd();
+  previewStage.replaceChildren(StallTalkGraphicAds.build(activeAd, { link: false }));
+});
 
-function initContentStudio() {
-  const storedDraft = readJsonStorage(CONTENT_DRAFT_STORAGE_KEY, null);
-  const published = readJsonStorage(CONTENT_PUBLISHED_STORAGE_KEY, null);
-  const initialContent = storedDraft || published || defaultContent;
-  applyContentValues(initialContent);
-  renderContentPreview(initialContent);
+downloadButton.addEventListener("click", downloadPng);
+saveDraftButton.addEventListener("click", () => saveDraft(currentGeneratedAd()));
 
-  document.querySelector("#ai-generate-content").addEventListener("click", generateIssueContent);
-
-  document.querySelector("#preview-content").addEventListener("click", () => {
-    renderContentPreview(collectContentValues());
-    contentStatus.textContent = "Preview refreshed from current Content Studio fields.";
-  });
-
-  document.querySelector("#save-content").addEventListener("click", () => saveContentDraft());
-  document.querySelector("#publish-content").addEventListener("click", publishContent);
-
-  Object.values(contentFields).forEach((field) => {
-    field.addEventListener("input", () => renderContentPreview(collectContentValues()));
-  });
-}
-
-initTabs();
-initAdStudio();
-initContentStudio();
-script.js
-script.js
+buildSlotButtons();
+applyTemplateDefaults();
+updateModeControls();
+renderGeneratedAd(generateGraphicAdLocally(collectFormValues()));
