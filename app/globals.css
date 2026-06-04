@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #08070a; color: #08070a; }
+::selection { background: #ffd400; color: #08070a; }
+
+.halftone {
+  background-image: radial-gradient(circle at 1px 1px, rgba(8,7,10,.22) 1px, transparent 0);
+  background-size: 12px 12px;
+}
+
+.ad-gradient-1 { background: linear-gradient(135deg, #ffd400, #ff2d2d); }
+.ad-gradient-2 { background: linear-gradient(135deg, #7c2cff, #ffd400); }
+.ad-gradient-3 { background: linear-gradient(135deg, #111827, #ff2d2d); }
+.ad-gradient-4 { background: linear-gradient(135deg, #10b981, #ffd400); }
+.ad-gradient-5 { background: linear-gradient(135deg, #7c2cff, #ff2d2d); }
+.ad-gradient-6 { background: linear-gradient(135deg, #f97316, #fff8df); }
+.ad-gradient-7 { background: linear-gradient(135deg, #06b6d4, #7c2cff); }
+.ad-gradient-8 { background: linear-gradient(135deg, #08070a, #ffd400); }
+
+.issue-shell {
+  background:
+    linear-gradient(90deg, rgba(255,212,0,.14) 1px, transparent 1px),
+    linear-gradient(rgba(255,45,45,.12) 1px, transparent 1px),
+    #fff8df;
+  background-size: 26px 26px;
+}
+
+@media (max-width: 767px) {
+  .mobile-ad-tray { scrollbar-width: none; }
+  .mobile-ad-tray::-webkit-scrollbar { display: none; }
+}
