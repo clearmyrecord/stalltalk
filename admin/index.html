@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Phase 1 Stall Talk admin with a simulated AI ad generator for GitHub Pages."
+    />
+    <title>Stall Talk | Phase 1 Admin</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body class="admin-page">
+    <header class="site-header" aria-label="Admin masthead">
+      <p class="eyebrow">Stall Talk • Phase 1 Admin • GitHub Pages Safe</p>
+      <h1>Admin</h1>
+      <p class="issue-meta"><a href="../index.html">View public issue</a> • Local browser storage only</p>
+    </header>
+
+    <main class="admin-layout">
+      <section class="admin-panel" aria-labelledby="ai-ad-generator-title">
+        <div class="section-heading">
+          <p>Simulated creative studio</p>
+          <h2 id="ai-ad-generator-title">AI Ad Generator</h2>
+        </div>
+
+        <form id="ad-generator-form" class="generator-form">
+          <label>
+            Business name
+            <input id="business-name" name="businessName" type="text" autocomplete="organization" placeholder="Nacho Average" required />
+          </label>
+
+          <label>
+            Business type
+            <input id="business-type" name="businessType" type="text" placeholder="Late-night restaurant" required />
+          </label>
+
+          <label>
+            Offer
+            <input id="offer" name="offer" type="text" placeholder="Half-price loaded fries after 9 PM" required />
+          </label>
+
+          <label>
+            Target customer
+            <input id="target-customer" name="targetCustomer" type="text" placeholder="Concert crowds and casino guests" required />
+          </label>
+
+          <label>
+            Tone
+            <select id="tone" name="tone">
+              <option>Funny</option>
+              <option>Classy</option>
+              <option>Bold</option>
+              <option>Local</option>
+              <option>Luxury</option>
+              <option>Family-Friendly</option>
+            </select>
+          </label>
+
+          <label>
+            CTA
+            <input id="cta" name="cta" type="text" placeholder="Get the deal" required />
+          </label>
+
+          <label>
+            Phone or website
+            <input id="contact" name="contact" type="text" placeholder="nacho.example.com" required />
+          </label>
+
+          <label>
+            Ad slot size
+            <select id="ad-slot-size" name="adSlotSize">
+              <option>Banner</option>
+              <option>Square</option>
+              <option>Tall</option>
+              <option>Footer</option>
+            </select>
+          </label>
+
+          <button class="primary-button" type="submit">Generate Ad</button>
+        </form>
+      </section>
+
+      <section class="admin-panel output-panel" aria-labelledby="generated-ad-title">
+        <div class="section-heading compact-heading">
+          <p>Editable generated output</p>
+          <h2 id="generated-ad-title">Generated Ad</h2>
+        </div>
+
+        <div class="editable-output" aria-label="Editable generated ad fields">
+          <label>
+            Headline
+            <input id="output-headline" data-output-field="headline" type="text" />
+          </label>
+          <label>
+            Subheadline
+            <input id="output-subheadline" data-output-field="subheadline" type="text" />
+          </label>
+          <label>
+            Offer text
+            <textarea id="output-offer-text" data-output-field="offerText" rows="3"></textarea>
+          </label>
+          <label>
+            CTA button text
+            <input id="output-cta" data-output-field="ctaButtonText" type="text" />
+          </label>
+          <label>
+            Coupon code
+            <input id="output-coupon" data-output-field="couponCode" type="text" />
+          </label>
+          <label>
+            Short disclaimer
+            <textarea id="output-disclaimer" data-output-field="disclaimer" rows="2"></textarea>
+          </label>
+          <label>
+            Suggested image prompt
+            <textarea id="output-image-prompt" data-output-field="imagePrompt" rows="4"></textarea>
+          </label>
+        </div>
+
+        <article id="finished-ad-preview" class="generated-ad-preview ad-size-banner" aria-label="Finished ad preview card">
+          <span id="preview-kicker">AI Ad Preview • Banner</span>
+          <h3 id="preview-headline">Ready when you are.</h3>
+          <p id="preview-subheadline">Fill out the form and generate an editable ad.</p>
+          <strong id="preview-offer">Your offer text will appear here.</strong>
+          <a id="preview-cta" href="#">Generate Ad</a>
+          <small id="preview-disclaimer">Coupon code and disclaimer will appear after generation.</small>
+        </article>
+
+        <div class="slot-actions" aria-label="Apply generated ad to public ad slots">
+          <p>Apply to Ad Slot</p>
+          <div id="slot-buttons" class="slot-button-grid"></div>
+        </div>
+        <p id="save-status" class="save-status" aria-live="polite">Generate an ad, edit it, then apply it to slot 1–8.</p>
+      </section>
+    </main>
+
+    <script src="../script.js" defer></script>
+    <script src="admin.js" defer></script>
+  </body>
+</html>
