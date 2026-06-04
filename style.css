@@ -359,3 +359,217 @@ a {
   transform: translate(2px, 2px) scale(0.98);
   filter: saturate(1.25);
 }
+
+
+.admin-page .site-header a {
+  text-decoration-thickness: 0.18em;
+  text-underline-offset: 0.18em;
+}
+
+.admin-layout {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 84rem);
+  margin: 0 auto;
+  padding: 1rem 0.8rem 2rem;
+}
+
+.admin-panel {
+  display: grid;
+  gap: 1rem;
+  border: 4px solid var(--ink);
+  border-radius: 2rem;
+  background: var(--white);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.compact-heading h2 {
+  font-size: clamp(2.7rem, 12vw, 4.8rem);
+}
+
+.generator-form,
+.editable-output {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.generator-form label,
+.editable-output label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 1000;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.generator-form input,
+.generator-form select,
+.editable-output input,
+.editable-output textarea {
+  width: 100%;
+  border: 3px solid var(--ink);
+  border-radius: 0.85rem;
+  background: var(--paper);
+  padding: 0.8rem;
+  color: var(--ink);
+  font: 900 1rem/1.35 Arial, Helvetica, sans-serif;
+}
+
+.editable-output textarea {
+  resize: vertical;
+}
+
+.primary-button,
+.slot-button-grid button {
+  cursor: pointer;
+  border: 3px solid var(--ink);
+  border-radius: 0.9rem;
+  background: var(--stall-red);
+  padding: 0.85rem 1rem;
+  color: var(--white);
+  font: 1000 0.9rem/1 Impact, Haettenschweiler, "Arial Narrow Bold", system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.primary-button:hover,
+.slot-button-grid button:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.generated-ad-preview {
+  display: grid;
+  gap: 0.65rem;
+  overflow: hidden;
+  border: 4px solid var(--ink);
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, var(--stall-yellow), var(--stall-red));
+  padding: 1rem;
+  color: var(--white);
+  text-shadow: 1px 1px 0 var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.generated-ad-preview span {
+  width: max-content;
+  border-radius: 999px;
+  background: var(--ink);
+  padding: 0.26rem 0.55rem;
+  color: var(--stall-yellow);
+  font-size: 0.68rem;
+  font-weight: 1000;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.generated-ad-preview h3 {
+  margin: 0;
+  font-size: clamp(2.4rem, 12vw, 4.3rem);
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.generated-ad-preview p,
+.generated-ad-preview strong,
+.generated-ad-preview small {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.generated-ad-preview a {
+  width: max-content;
+  border: 3px solid var(--ink);
+  border-radius: 0.8rem;
+  background: var(--white);
+  padding: 0.55rem 0.8rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-shadow: none;
+  text-transform: uppercase;
+}
+
+.ad-size-square {
+  aspect-ratio: 1;
+  align-content: center;
+}
+
+.ad-size-tall {
+  min-height: 28rem;
+  align-content: space-between;
+}
+
+.ad-size-footer {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.ad-size-footer h3,
+.ad-size-footer p,
+.ad-size-footer strong,
+.ad-size-footer small {
+  grid-column: 1;
+}
+
+.ad-size-footer a {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+}
+
+.slot-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.slot-actions p,
+.save-status {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.slot-button-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.slot-button-grid button {
+  background: var(--stall-purple);
+  font-size: 1.1rem;
+}
+
+.save-status {
+  border: 3px dashed var(--ink);
+  border-radius: 1rem;
+  background: var(--paper);
+  padding: 0.75rem;
+}
+
+@media (min-width: 56rem) {
+  .admin-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: start;
+    padding: 1.25rem;
+  }
+
+  .generator-form,
+  .editable-output {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .generator-form label:nth-child(3),
+  .generator-form label:nth-child(4),
+  .editable-output label:nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+}
