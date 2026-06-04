@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: stalltalk
+      POSTGRES_USER: stalltalk
+      POSTGRES_PASSWORD: stalltalk
+    ports:
+      - "5432:5432"
+    volumes:
+      - stalltalk-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stalltalk -d stalltalk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  stalltalk-postgres:
