@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum IssueStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentBlockType {
+  ARTICLE
+  QUOTE
+  FACT
+  JOKE
+  CALENDAR
+  EVENT
+  COUPON
+  ADVERTISEMENT
+}
+
+enum AdStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AdScope {
+  GLOBAL
+  CITY
+  VENUE
+  RESTROOM
+}
+
+enum AnalyticsEventType {
+  SCAN
+  PAGE_VIEW
+  TIME_ON_PAGE
+  AD_IMPRESSION
+  AD_CLICK
+  COUPON_REDEMPTION
+}
+
+enum QrCodeStatus {
+  INVENTORY
+  ASSIGNED
+  RETIRED
+}
+
+enum StripeSubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+model Publisher {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  contactEmail String
+  status       AccountStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  distributors Distributor[]
+  advertisers  Advertiser[]
+  venues       Venue[]
+  articles     Article[]
+  categories   Category[]
+  ads          Ad[]
+  issues       Issue[]
+  qrCodes      QrCode[]
+  events       AnalyticsEvent[]
+}
+
+model Distributor {
+  id              String             @id @default(cuid())
+  publisherId     String
+  name            String
+  slug            String
+  contactEmail    String
+  commissionRate  Decimal            @default(0.15)
+  status          AccountStatus      @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  publisher       Publisher          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venues          Venue[]
+  commissionReports CommissionReport[]
+
+  @@unique([publisherId, slug])
+}
+
+model Advertiser {
+  id           String        @id @default(cuid())
+  publisherId  String
+  name         String
+  slug         String
+  contactEmail String
+  status       AccountStatus @default(ACTIVE)
+  portalNote   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  publisher    Publisher     @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  ads          Ad[]
+  subscriptions StripeSubscription[]
+  couponCampaigns CouponCampaign[]
+
+  @@unique([publisherId, slug])
+}
+
+model Venue {
+  id            String        @id @default(cuid())
+  publisherId   String
+  distributorId String?
+  name          String
+  slug          String        @unique
+  city          String
+  state         String
+  address       String
+  status        AccountStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  publisher     Publisher     @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  distributor   Distributor?  @relation(fields: [distributorId], references: [id], onDelete: SetNull)
+  restrooms     Restroom[]
+  issues        Issue[]
+  qrCodes       QrCode[]
+  ads           Ad[]
+  events        AnalyticsEvent[]
+}
+
+model Restroom {
+  id          String        @id @default(cuid())
+  venueId     String
+  name        String
+  floor       String?
+  placement   String?
+  status      AccountStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  venue       Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  qrCodes     QrCode[]
+  issues      Issue[]
+  ads         Ad[]
+  events      AnalyticsEvent[]
+}
+
+model QrCode {
+  id          String       @id @default(cuid())
+  publisherId String
+  venueId     String?
+  restroomId  String?
+  code        String       @unique
+  label       String
+  destination String
+  status      QrCodeStatus @default(INVENTORY)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  publisher   Publisher    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue       Venue?       @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom    Restroom?    @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  issues      Issue[]
+  events      AnalyticsEvent[]
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  publisherId String
+  name        String
+  slug        String
+  color       String    @default("#ffd400")
+  publisher   Publisher @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  articles    Article[]
+
+  @@unique([publisherId, slug])
+}
+
+model Article {
+  id          String      @id @default(cuid())
+  publisherId String
+  categoryId  String?
+  title       String
+  slug        String
+  excerpt     String
+  body        String
+  imageUrl    String?
+  status      IssueStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  publisher   Publisher   @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  blocks      IssueContentBlock[]
+
+  @@unique([publisherId, slug])
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  publisherId String
+  venueId     String
+  restroomId  String?
+  qrCodeId    String?
+  title       String
+  month       String
+  year        Int
+  issueNumber Int
+  status      IssueStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  publisher   Publisher   @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue       Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  restroom    Restroom?   @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  qrCode      QrCode?     @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  contentBlocks IssueContentBlock[]
+  adSlots     IssueAdSlot[]
+  events      AnalyticsEvent[]
+}
+
+model IssueContentBlock {
+  id        String           @id @default(cuid())
+  issueId   String
+  articleId String?
+  type      ContentBlockType
+  title     String
+  body      String
+  imageUrl  String?
+  layout    Json?
+  sortOrder Int              @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  issue     Issue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  article   Article?         @relation(fields: [articleId], references: [id], onDelete: SetNull)
+}
+
+model Ad {
+  id           String        @id @default(cuid())
+  publisherId  String
+  advertiserId String
+  businessName String
+  title        String
+  offer        String
+  artworkUrl   String?
+  ctaText      String
+  targetUrl    String
+  phone        String?
+  couponCode   String?
+  status       AdStatus      @default(ACTIVE)
+  scope        AdScope       @default(GLOBAL)
+  city         String?
+  state        String?
+  venueId      String?
+  restroomId   String?
+  monthlyPriceCents Int      @default(0)
+  stripePriceId String?
+  campaignStartsAt DateTime?
+  campaignEndsAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  publisher    Publisher     @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  advertiser   Advertiser    @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  venue        Venue?        @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom     Restroom?     @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  issueSlots   IssueAdSlot[]
+  events       AnalyticsEvent[]
+  subscriptions StripeSubscription[]
+}
+
+model IssueAdSlot {
+  id         String @id @default(cuid())
+  issueId    String
+  adId       String
+  slotNumber Int
+  source     AdScope @default(GLOBAL)
+  issue      Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  ad         Ad     @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, slotNumber])
+}
+
+model AnalyticsEvent {
+  id          String             @id @default(cuid())
+  publisherId String?
+  venueId     String?
+  restroomId  String?
+  qrCodeId    String?
+  issueId     String?
+  advertiserId String?
+  adId        String?
+  type        AnalyticsEventType
+  slotNumber  Int?
+  visitorId   String?
+  sessionId   String?
+  durationMs  Int?
+  path        String?
+  metadata    Json?
+  createdAt   DateTime           @default(now())
+  publisher   Publisher?         @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  advertiser  Advertiser?        @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
+  venue       Venue?             @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom    Restroom?          @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  qrCode      QrCode?            @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  issue       Issue?             @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  ad          Ad?                @relation(fields: [adId], references: [id], onDelete: SetNull)
+}
+
+model StripeSubscription {
+  id                   String                   @id @default(cuid())
+  advertiserId          String
+  adId                  String?
+  stripeCustomerId      String
+  stripeSubscriptionId  String
+  status               StripeSubscriptionStatus @default(TRIALING)
+  locations            Int                      @default(1)
+  monthlyAmountCents   Int
+  currentPeriodEndsAt  DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  advertiser           Advertiser               @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  ad                   Ad?                      @relation(fields: [adId], references: [id], onDelete: SetNull)
+}
+
+model CouponCampaign {
+  id              String      @id @default(cuid())
+  advertiserId    String
+  name            String
+  couponCode      String
+  budgetCents     Int         @default(0)
+  redemptionLimit Int?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdAt       DateTime    @default(now())
+  advertiser      Advertiser  @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+}
+
+model CommissionReport {
+  id              String      @id @default(cuid())
+  distributorId   String
+  month           String
+  year            Int
+  grossRevenueCents Int
+  commissionCents Int
+  status          String      @default("OPEN")
+  createdAt       DateTime    @default(now())
+  distributor     Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+}
