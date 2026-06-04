@@ -5,151 +5,244 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Phase 1 Stall Talk admin with an AI-style graphic ad generator for GitHub Pages."
+      content="Static Stall Talk admin with ad tools and a localStorage Content Studio for GitHub Pages."
     />
-    <title>Stall Talk | Graphic Ad Admin</title>
+    <title>Stall Talk | Admin Content Studio</title>
     <link rel="stylesheet" href="../style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
   </head>
   <body class="admin-page">
     <header class="site-header" aria-label="Admin masthead">
-      <p class="eyebrow">Stall Talk • Phase 1 Admin • GitHub Pages Safe</p>
+      <p class="eyebrow">Stall Talk • Static Admin • GitHub Pages Safe</p>
       <h1>Admin</h1>
       <p class="issue-meta"><a href="../index.html">View public issue</a> • Local browser storage only</p>
     </header>
 
-    <main class="admin-layout graphic-admin-layout">
-      <section class="admin-panel" aria-labelledby="ai-ad-generator-title">
-        <div class="section-heading">
-          <p>Visual creative studio</p>
-          <h2 id="ai-ad-generator-title">AI Graphic Ad Generator</h2>
-        </div>
+    <main class="admin-layout studio-admin-layout">
+      <nav class="admin-tabs" aria-label="Content Studio sections">
+        <button class="admin-tab is-active" type="button" data-tab-target="ads-tab">Ads</button>
+        <button class="admin-tab" type="button" data-tab-target="content-tab">Content</button>
+        <button class="admin-tab" type="button" data-tab-target="calendar-tab">Calendar</button>
+        <button class="admin-tab" type="button" data-tab-target="analytics-tab">Analytics</button>
+      </nav>
 
-        <form id="ad-generator-form" class="generator-form graphic-generator-form">
-          <label>
-            Business name
-            <input id="business-name" name="businessName" type="text" autocomplete="organization" placeholder="Nacho Average" required />
-          </label>
+      <section id="ads-tab" class="tab-panel is-active" aria-labelledby="ads-tab-title">
+        <section class="admin-panel" aria-labelledby="ai-ad-generator-title">
+          <div class="section-heading">
+            <p>Visual creative studio</p>
+            <h2 id="ai-ad-generator-title">AI Graphic Ad Generator</h2>
+          </div>
 
-          <label>
-            Business category
-            <input id="business-category" name="businessCategory" type="text" placeholder="Late-night restaurant" required />
-          </label>
+          <form id="ad-generator-form" class="generator-form graphic-generator-form">
+            <label>
+              Business name
+              <input id="business-name" name="businessName" type="text" autocomplete="organization" placeholder="Nacho Average" required />
+            </label>
 
-          <label>
-            Offer
-            <input id="offer" name="offer" type="text" placeholder="Half-price loaded fries after 9 PM" required />
-          </label>
+            <label>
+              Business category
+              <input id="business-category" name="businessCategory" type="text" placeholder="Late-night restaurant" required />
+            </label>
 
-          <label>
-            Coupon code
-            <input id="coupon-code" name="couponCode" type="text" placeholder="NACHO50" />
-          </label>
+            <label>
+              Offer
+              <input id="offer" name="offer" type="text" placeholder="Half-price loaded fries after 9 PM" required />
+            </label>
 
-          <label>
-            Phone
-            <input id="phone" name="phone" type="tel" placeholder="702-555-0199" />
-          </label>
+            <label>
+              Coupon code
+              <input id="coupon-code" name="couponCode" type="text" placeholder="NACHO50" />
+            </label>
 
-          <label>
-            Website
-            <input id="website" name="website" type="text" placeholder="nacho.example.com" />
-          </label>
+            <label>
+              Phone
+              <input id="phone" name="phone" type="tel" placeholder="702-555-0199" />
+            </label>
 
-          <label>
-            Target audience
-            <input id="target-audience" name="targetAudience" type="text" placeholder="Concert crowds and casino guests" required />
-          </label>
+            <label>
+              Website
+              <input id="website" name="website" type="text" placeholder="nacho.example.com" />
+            </label>
 
-          <label>
-            Tone
-            <select id="tone" name="tone">
-              <option>Funny</option>
-              <option>Bold</option>
-              <option>Luxury</option>
-              <option>Local</option>
-              <option>Family-Friendly</option>
-              <option>Nightlife</option>
-            </select>
-          </label>
+            <label>
+              Target audience
+              <input id="target-audience" name="targetAudience" type="text" placeholder="Concert crowds and casino guests" required />
+            </label>
 
-          <label>
-            Ad size
-            <select id="ad-size" name="adSize">
-              <option>Square</option>
-              <option selected>Banner</option>
-              <option>Tall</option>
-              <option>Footer</option>
-            </select>
-          </label>
+            <label>
+              Tone
+              <select id="tone" name="tone">
+                <option>Funny</option>
+                <option>Bold</option>
+                <option>Luxury</option>
+                <option>Local</option>
+                <option>Family-Friendly</option>
+                <option>Nightlife</option>
+              </select>
+            </label>
 
-          <label>
-            Template
-            <select id="template" name="template">
-              <option value="vegas">Vegas Neon</option>
-              <option value="coupon">Coupon Blast</option>
-              <option value="luxury">Luxury Black Gold</option>
-              <option value="family">Family Fun</option>
-              <option value="contractor">Contractor Pro</option>
-              <option value="event">Event Promo</option>
-            </select>
-          </label>
+            <label>
+              Ad size
+              <select id="ad-size" name="adSize">
+                <option>Square</option>
+                <option selected>Banner</option>
+                <option>Tall</option>
+                <option>Footer</option>
+              </select>
+            </label>
 
-          <label>
-            Brand colors
-            <div class="brand-color-grid">
-              <input id="primary-color" name="primaryColor" type="color" value="#ff2d2d" aria-label="Primary brand color" />
-              <input id="secondary-color" name="secondaryColor" type="color" value="#ffd400" aria-label="Secondary brand color" />
-              <input id="accent-color" name="accentColor" type="color" value="#7c2cff" aria-label="Accent brand color" />
-            </div>
-          </label>
+            <label>
+              Template
+              <select id="template" name="template">
+                <option value="vegas">Vegas Neon</option>
+                <option value="coupon">Coupon Blast</option>
+                <option value="luxury">Luxury Black Gold</option>
+                <option value="family">Family Fun</option>
+                <option value="contractor">Contractor Pro</option>
+                <option value="event">Event Promo</option>
+              </select>
+            </label>
 
-          <label>
-            Optional image URL/logo URL
-            <input id="image-url" name="imageUrl" type="url" placeholder="https://example.com/logo.png" />
-          </label>
+            <label>
+              Brand colors
+              <div class="brand-color-grid">
+                <input id="primary-color" name="primaryColor" type="color" value="#ff2d2d" aria-label="Primary brand color" />
+                <input id="secondary-color" name="secondaryColor" type="color" value="#ffd400" aria-label="Secondary brand color" />
+                <input id="accent-color" name="accentColor" type="color" value="#7c2cff" aria-label="Accent brand color" />
+              </div>
+            </label>
 
-          <button class="primary-button" type="submit">Generate Graphic Ad</button>
-        </form>
+            <label>
+              Optional image URL/logo URL
+              <input id="image-url" name="imageUrl" type="url" placeholder="https://example.com/logo.png" />
+            </label>
+
+            <button class="primary-button" type="submit">Generate Graphic Ad</button>
+          </form>
+        </section>
+
+        <section class="admin-panel output-panel" aria-labelledby="generated-ad-title">
+          <div class="section-heading compact-heading">
+            <p>Finished visual advertisement</p>
+            <h2 id="generated-ad-title">Graphic Preview</h2>
+          </div>
+
+          <div id="graphic-ad-preview" class="graphic-preview-stage" aria-live="polite"></div>
+
+          <div class="export-actions" aria-label="Graphic ad export tools">
+            <button id="download-png" class="primary-button secondary-button" type="button">Download ad as PNG</button>
+            <button id="save-draft" class="primary-button secondary-button" type="button">Save ad to localStorage</button>
+          </div>
+
+          <div class="editable-output" aria-label="Editable generated ad copy">
+            <label>
+              Big headline
+              <input id="output-headline" data-output-field="headline" type="text" />
+            </label>
+            <label>
+              CTA button text
+              <input id="output-cta" data-output-field="ctaButtonText" type="text" />
+            </label>
+            <label>
+              Subheadline
+              <textarea id="output-subheadline" data-output-field="subheadline" rows="2"></textarea>
+            </label>
+            <label>
+              Future AI design prompt
+              <textarea id="output-design-prompt" data-output-field="designPrompt" rows="3"></textarea>
+            </label>
+          </div>
+
+          <div class="slot-actions" aria-label="Apply generated ad to public ad slots">
+            <p>Apply ad to slot 1–8</p>
+            <div id="slot-buttons" class="slot-button-grid"></div>
+          </div>
+          <p id="save-status" class="save-status" aria-live="polite">Generate a finished graphic ad, then download it or apply it to one of the 8 paid ad slots.</p>
+        </section>
       </section>
 
-      <section class="admin-panel output-panel" aria-labelledby="generated-ad-title">
-        <div class="section-heading compact-heading">
-          <p>Finished visual advertisement</p>
-          <h2 id="generated-ad-title">Graphic Preview</h2>
-        </div>
+      <section id="content-tab" class="tab-panel" aria-labelledby="content-studio-title">
+        <section class="admin-panel content-studio-panel">
+          <div class="section-heading">
+            <p>Issue copy desk</p>
+            <h2 id="content-studio-title">Content Studio</h2>
+          </div>
 
-        <div id="graphic-ad-preview" class="graphic-preview-stage" aria-live="polite"></div>
+          <div class="content-actions" aria-label="Content Studio actions">
+            <button id="ai-generate-content" class="primary-button" type="button">AI Generate Content</button>
+            <button id="preview-content" class="primary-button secondary-button" type="button">Preview</button>
+            <button id="save-content" class="primary-button secondary-button" type="button">Save</button>
+            <button id="publish-content" class="primary-button" type="button">Publish</button>
+          </div>
 
-        <div class="export-actions" aria-label="Graphic ad export tools">
-          <button id="download-png" class="primary-button secondary-button" type="button">Download ad as PNG</button>
-          <button id="save-draft" class="primary-button secondary-button" type="button">Save ad to localStorage</button>
-        </div>
+          <form id="content-studio-form" class="content-studio-form">
+            <label>
+              Hilariously Funny
+              <textarea id="content-joke" name="joke" rows="4" data-content-field="joke"></textarea>
+            </label>
 
-        <div class="editable-output" aria-label="Editable generated ad copy">
-          <label>
-            Big headline
-            <input id="output-headline" data-output-field="headline" type="text" />
-          </label>
-          <label>
-            CTA button text
-            <input id="output-cta" data-output-field="ctaButtonText" type="text" />
-          </label>
-          <label>
-            Subheadline
-            <textarea id="output-subheadline" data-output-field="subheadline" rows="2"></textarea>
-          </label>
-          <label>
-            Future AI design prompt
-            <textarea id="output-design-prompt" data-output-field="designPrompt" rows="3"></textarea>
-          </label>
-        </div>
+            <label>
+              Did You Know
+              <textarea id="content-trivia" name="trivia" rows="8" data-content-field="trivia" aria-describedby="trivia-help"></textarea>
+              <small id="trivia-help">Use one trivia fact per line. Placeholder AI generates 10 facts.</small>
+            </label>
 
-        <div class="slot-actions" aria-label="Apply generated ad to public ad slots">
-          <p>Apply ad to slot 1–8</p>
-          <div id="slot-buttons" class="slot-button-grid"></div>
-        </div>
-        <p id="save-status" class="save-status" aria-live="polite">Generate a finished graphic ad, then download it or apply it to one of the 8 paid ad slots.</p>
+            <label>
+              Inspirational Quote
+              <textarea id="content-quote" name="quote" rows="3" data-content-field="quote"></textarea>
+            </label>
+
+            <label>
+              Word of the Day
+              <textarea id="content-word" name="word" rows="3" data-content-field="word"></textarea>
+            </label>
+
+            <label>
+              Featured Article
+              <textarea id="content-article" name="article" rows="7" data-content-field="article"></textarea>
+            </label>
+
+            <label>
+              Local Deal
+              <textarea id="content-deal" name="deal" rows="4" data-content-field="deal"></textarea>
+            </label>
+
+            <label>
+              Event Spotlight
+              <textarea id="content-event" name="event" rows="4" data-content-field="event"></textarea>
+            </label>
+          </form>
+
+          <p id="content-status" class="save-status" aria-live="polite">Drafts save to localStorage. Publish updates the public issue in this browser immediately.</p>
+        </section>
+
+        <section class="admin-panel content-preview-panel" aria-labelledby="content-preview-title">
+          <div class="section-heading compact-heading">
+            <p>Public issue simulation</p>
+            <h2 id="content-preview-title">Preview</h2>
+          </div>
+          <div id="content-preview" class="content-preview-grid" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section id="calendar-tab" class="tab-panel" aria-labelledby="calendar-title">
+        <section class="admin-panel">
+          <div class="section-heading">
+            <p>Static planning board</p>
+            <h2 id="calendar-title">Calendar</h2>
+          </div>
+          <p class="admin-placeholder">Plan issue dates, event drops, and sponsor campaigns here. This tab is GitHub Pages compatible and ready for future localStorage scheduling tools.</p>
+        </section>
+      </section>
+
+      <section id="analytics-tab" class="tab-panel" aria-labelledby="analytics-title">
+        <section class="admin-panel">
+          <div class="section-heading">
+            <p>Browser-only insights</p>
+            <h2 id="analytics-title">Analytics</h2>
+          </div>
+          <p class="admin-placeholder">No backend analytics are connected. Use this tab for static placeholders, QR campaign notes, and manually recorded issue performance.</p>
+        </section>
       </section>
     </main>
 
@@ -157,145 +250,3 @@
     <script src="admin.js" defer></script>
   </body>
 </html>
-graphic-ad.js
-graphic-ad.js
-New
-+136
--0
-
-const STALLTALK_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
-const STALLTALK_DRAFT_STORAGE_KEY = "stalltalk_graphic_ad_draft_v1";
-
-const STALLTALK_TEMPLATE_NAMES = {
-  vegas: "Vegas Neon",
-  coupon: "Coupon Blast",
-  luxury: "Luxury Black Gold",
-  family: "Family Fun",
-  contractor: "Contractor Pro",
-  event: "Event Promo",
-};
-
-function stallTalkSafeText(value, fallback = "") {
-  return String(value || "").trim() || fallback;
-}
-
-function stallTalkNormalizeUrl(value) {
-  const url = stallTalkSafeText(value);
-  if (!url) return "";
-  if (/^https?:\/\//i.test(url)) return url;
-  return `https://${url}`;
-}
-
-function stallTalkContactHref(ad) {
-  const website = stallTalkNormalizeUrl(ad.website);
-  if (website) return website;
-
-  const phone = stallTalkSafeText(ad.phone);
-  if (/^[+\d][\d\s().-]+$/.test(phone)) return `tel:${phone.replace(/\s/g, "")}`;
-
-  return "#sponsor-wall";
-}
-
-function stallTalkClassToken(value, fallback) {
-  return stallTalkSafeText(value, fallback).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback;
-}
-
-function stallTalkBuildGraphicAd(ad, options = {}) {
-  const slotNumber = options.slotNumber ? `Slot ${options.slotNumber}` : STALLTALK_TEMPLATE_NAMES[ad.template] || "Graphic Ad";
-  const size = stallTalkClassToken(ad.adSize, "banner");
-  const template = stallTalkClassToken(ad.template, "vegas");
-  const primary = stallTalkSafeText(ad.primaryColor, "#ff2d2d");
-  const secondary = stallTalkSafeText(ad.secondaryColor, "#ffd400");
-  const accent = stallTalkSafeText(ad.accentColor, "#7c2cff");
-  const wrapper = document.createElement(options.link === false ? "div" : "a");
-
-  wrapper.className = `graphic-ad graphic-template-${template} graphic-size-${size}${options.compact ? " graphic-ad-compact" : ""}`;
-  wrapper.style.setProperty("--graphic-primary", primary);
-  wrapper.style.setProperty("--graphic-secondary", secondary);
-  wrapper.style.setProperty("--graphic-accent", accent);
-  wrapper.setAttribute("aria-label", `${stallTalkSafeText(ad.businessName, "Sponsor")} advertisement`);
-
-  if (wrapper.tagName === "A") {
-    wrapper.href = stallTalkContactHref(ad);
-    wrapper.target = wrapper.href.startsWith("http") ? "_blank" : "";
-    wrapper.rel = wrapper.href.startsWith("http") ? "noopener" : "";
-  }
-
-  const shapes = document.createElement("div");
-  shapes.className = "graphic-shapes";
-  shapes.setAttribute("aria-hidden", "true");
-  shapes.innerHTML = "<span></span><span></span><span></span><span></span>";
-
-  const top = document.createElement("div");
-  top.className = "graphic-topline";
-  const slot = document.createElement("span");
-  slot.textContent = slotNumber;
-  const category = document.createElement("span");
-  category.textContent = stallTalkSafeText(ad.businessCategory, "Local Favorite");
-  top.append(slot, category);
-
-  const logo = document.createElement("div");
-  logo.className = "graphic-logo";
-  const imageUrl = stallTalkSafeText(ad.imageUrl);
-  if (imageUrl) {
-    const img = document.createElement("img");
-    img.src = imageUrl;
-    img.alt = `${stallTalkSafeText(ad.businessName, "Business")} logo or featured image`;
-    img.crossOrigin = "anonymous";
-    logo.append(img);
-  } else {
-    logo.textContent = stallTalkSafeText(ad.businessName, "AD").slice(0, 2).toUpperCase();
-  }
-
-  const body = document.createElement("div");
-  body.className = "graphic-body";
-
-  const name = document.createElement("p");
-  name.className = "graphic-business";
-  name.textContent = stallTalkSafeText(ad.businessName, "Your Business");
-
-  const headline = document.createElement("h3");
-  headline.className = "graphic-headline";
-  headline.textContent = stallTalkSafeText(ad.headline, "A Deal Worth Stopping For");
-
-  const audience = document.createElement("p");
-  audience.className = "graphic-audience";
-  audience.textContent = stallTalkSafeText(ad.subheadline, "Made for nearby customers ready to act.");
-
-  const offer = document.createElement("div");
-  offer.className = "graphic-offer-badge";
-  const offerLabel = document.createElement("span");
-  offerLabel.textContent = "Offer";
-  const offerText = document.createElement("strong");
-  offerText.textContent = stallTalkSafeText(ad.offer, "Limited-time special");
-  offer.append(offerLabel, offerText);
-
-  const coupon = document.createElement("div");
-  coupon.className = "graphic-coupon";
-  coupon.innerHTML = "<span>Use code</span>";
-  const couponCode = document.createElement("strong");
-  couponCode.textContent = stallTalkSafeText(ad.couponCode, "STALL10");
-  coupon.append(couponCode);
-
-  const cta = document.createElement("span");
-  cta.className = "graphic-cta";
-  cta.textContent = stallTalkSafeText(ad.ctaButtonText, "Claim This Deal");
-
-  const contact = document.createElement("p");
-  contact.className = "graphic-contact";
-  contact.textContent = [stallTalkSafeText(ad.phone), stallTalkSafeText(ad.website)].filter(Boolean).join(" • ") || "Ask for details today";
-
-  body.append(name, headline, audience, offer, coupon, cta, contact);
-  wrapper.append(shapes, top, logo, body);
-
-  return wrapper;
-}
-
-window.StallTalkGraphicAds = {
-  storageKey: STALLTALK_AD_STORAGE_KEY,
-  draftStorageKey: STALLTALK_DRAFT_STORAGE_KEY,
-  templates: STALLTALK_TEMPLATE_NAMES,
-  build: stallTalkBuildGraphicAd,
-  safeText: stallTalkSafeText,
-  normalizeUrl: stallTalkNormalizeUrl,
-};
