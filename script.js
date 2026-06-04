@@ -37,31 +37,42 @@ function normalizeContactHref(contact) {
   if (/^[+\d][\d\s().-]+$/.test(contact)) return `tel:${contact.replace(/\s/g, "")}`;
   return `https://${contact}`;
 }
-
 function updateRailAd(card, slotNumber, ad) {
+  if (window.StallTalkGraphicAds && ad.headline) {
+    card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
+    return;
+  }
+
   const label = card.querySelector(".ad-label");
   const title = card.querySelector("strong");
   const copy = card.querySelector("p");
   const link = card.querySelector("a");
 
-  if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSlotSize || "Custom"}`;
+  if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSize || ad.adSlotSize || "Custom"}`;
   if (title) title.textContent = ad.businessName || ad.headline;
-  if (copy) copy.textContent = ad.offerText || ad.subheadline;
+  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline;
   if (link) {
     link.textContent = ad.ctaButtonText || "Claim offer";
-    link.href = normalizeContactHref(ad.contact);
+    link.href = normalizeContactHref(ad.website || ad.contact || ad.phone);
     link.setAttribute("aria-label", `${ad.ctaButtonText || "Claim offer"} for ${ad.businessName || ad.headline}`);
   }
 }
 
 function updateMiniAd(card, slotNumber, ad) {
+  if (window.StallTalkGraphicAds && ad.headline) {
+    card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
+    card.dataset.coupon = ad.couponCode || "";
+    card.title = `${ad.headline || "Saved graphic ad"} ${ad.couponCode || ""}`.trim();
+    return;
+  }
+
   const title = card.querySelector("strong");
   const copy = card.querySelector("small");
 
   card.dataset.coupon = ad.couponCode || "";
   card.title = `${ad.headline || "Saved ad"} ${ad.disclaimer || ""}`.trim();
   if (title) title.textContent = ad.businessName || ad.headline;
-  if (copy) copy.textContent = ad.offerText || ad.subheadline || `Saved slot ${slotNumber}`;
+  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || `Saved slot ${slotNumber}`;
 }
 
 function loadSavedAdSlots() {
