@@ -5,8 +5,8 @@ const previewStage = document.querySelector("#graphic-ad-preview");
 const downloadButton = document.querySelector("#download-png");
 const saveDraftButton = document.querySelector("#save-draft");
 
-const CONTENT_DRAFT_STORAGE_KEY = "stalltalk_content_studio_draft_v1";
-const CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_studio_published_v1";
+const CONTENT_DRAFT_STORAGE_KEY = "stalltalk_content_draft";
+const CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
 
 const outputFields = {
   headline: document.querySelector("#output-headline"),
@@ -15,15 +15,9 @@ const outputFields = {
   designPrompt: document.querySelector("#output-design-prompt"),
 };
 
-const contentFields = {
-  joke: document.querySelector("#content-joke"),
-  trivia: document.querySelector("#content-trivia"),
-  quote: document.querySelector("#content-quote"),
-  word: document.querySelector("#content-word"),
-  article: document.querySelector("#content-article"),
-  deal: document.querySelector("#content-deal"),
-  event: document.querySelector("#content-event"),
-};
+const contentFields = Object.fromEntries(
+  Array.from(document.querySelectorAll("[data-content-field]")).map((field) => [field.dataset.contentField, field]),
+);
 
 const contentStatus = document.querySelector("#content-status");
 const contentPreview = document.querySelector("#content-preview");
@@ -63,27 +57,69 @@ const toneCopy = {
     headlinePrefix: "So good it should be illegal",
     subheadline: "A cheeky stop-worthy deal for people who love a little restroom reading with their rewards.",
     cta: "Laugh & Save",
-    template: "coupon",
   },
   Bold: {
     headlinePrefix: "Grab this deal now",
     subheadline: "High-contrast, high-energy creative built to make nearby customers act fast.",
     cta: "Claim It Today",
-    template: "vegas",
   },
   Luxury: {
     headlinePrefix: "Premium perks await",
     subheadline: "A polished black-and-gold offer for guests who expect the night to feel first class.",
     cta: "Unlock VIP Offer",
-    template: "luxury",
   },
   Local: {
     headlinePrefix: "Your neighborhood hook-up",
     subheadline: "A trusted local offer for people already close enough to become regulars.",
     cta: "Support Local",
-    template: "contractor",
   },
-@@ -96,93 +142,87 @@ function collectFormValues() {
+  "Family-Friendly": {
+    headlinePrefix: "Bring the whole crew",
+    subheadline: "Bright, welcoming creative that keeps the offer simple for families on the move.",
+    cta: "Plan the Fun",
+  },
+  Nightlife: {
+    headlinePrefix: "Keep the night glowing",
+    subheadline: "Neon-paced copy for after-dark guests looking for the next stop.",
+    cta: "Go Tonight",
+  },
+};
+
+const templateColorDefaults = {
+  vegas: ["#ff2d2d", "#ffd400", "#7c2cff"],
+  coupon: ["#f97316", "#fef08a", "#111827"],
+  luxury: ["#111111", "#d4af37", "#ffffff"],
+  family: ["#14b8a6", "#fde68a", "#f472b6"],
+  contractor: ["#f59e0b", "#1f2937", "#f8fafc"],
+  event: ["#2563eb", "#f43f5e", "#facc15"],
+};
+
+let activeAd = null;
+
+function cleanValue(value, fallback = "") {
+  return String(value || "").trim() || fallback;
+}
+
+function titleCase(value) {
+  return cleanValue(value)
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function collectFormValues() {
+  const formData = new FormData(form);
+  const template = cleanValue(formData.get("template"), "vegas");
+  const colors = templateColorDefaults[template] || templateColorDefaults.vegas;
+
+  return {
+    businessName: cleanValue(formData.get("businessName"), "Your Business"),
+    businessCategory: cleanValue(formData.get("businessCategory"), "Local Favorite"),
+    offer: cleanValue(formData.get("offer"), "Limited-time special"),
+    couponCode: cleanValue(formData.get("couponCode"), "STALL10"),
+    phone: cleanValue(formData.get("phone"), ""),
+    website: cleanValue(formData.get("website"), ""),
+    targetAudience: cleanValue(formData.get("targetAudience"), "nearby customers"),
+    tone: cleanValue(formData.get("tone"), "Bold"),
     adSize: cleanValue(formData.get("adSize"), "Banner"),
     template,
     primaryColor: cleanValue(formData.get("primaryColor"), colors[0]),
@@ -109,41 +145,7 @@ function generateGraphicAdLocally(inputs) {
 }
 
 function generateGraphicAdWithAI(inputs) {
-  return generateGraphicAdLocally(inputs);
-}
-
-function currentGeneratedAd() {
-  const inputs = collectFormValues();
-
-  return {
-    ...inputs,
-    headline: cleanValue(outputFields.headline.value, activeAd?.headline || "A Deal Worth Stopping For"),
-    subheadline: cleanValue(outputFields.subheadline.value, activeAd?.subheadline || "Made for nearby customers ready to act."),
-    ctaButtonText: cleanValue(outputFields.ctaButtonText.value, activeAd?.ctaButtonText || "Claim This Deal"),
-    designPrompt: cleanValue(outputFields.designPrompt.value, activeAd?.designPrompt || "Future AI design prompt will appear here."),
-    generatedAt: activeAd?.generatedAt || new Date().toISOString(),
-  };
-}
-
-function renderGeneratedAd(ad) {
-  activeAd = ad;
-  outputFields.headline.value = ad.headline || "";
-  outputFields.subheadline.value = ad.subheadline || "";
-  outputFields.ctaButtonText.value = ad.ctaButtonText || "";
-  outputFields.designPrompt.value = ad.designPrompt || "";
-
-  previewStage.replaceChildren(StallTalkGraphicAds.build(ad, { link: false }));
-}
-
-function readJsonStorage(key, fallback = {}) {
-  try {
-    return JSON.parse(localStorage.getItem(key)) || fallback;
-  } catch (error) {
-    console.warn(`Unable to read ${key}`, error);
-    return fallback;
-  }
-}
-
+@@ -147,149 +183,155 @@ function readJsonStorage(key, fallback = {}) {
 function saveSlot(slotNumber, ad) {
   const savedSlots = readJsonStorage(StallTalkGraphicAds.storageKey);
   savedSlots[slotNumber] = { ...ad, savedAt: new Date().toISOString() };
@@ -169,14 +171,16 @@ async function downloadPng() {
   }
 
   saveStatus.textContent = "Rendering PNG export…";
-  const canvas = await html2canvas(adNode, {
-    backgroundColor: null,
-@@ -197,60 +237,183 @@ async function downloadPng() {
+  const canvas = await html2canvas(adNode, { backgroundColor: null });
+  const link = document.createElement("a");
+  link.download = `${cleanValue(activeAd?.businessName, "stall-talk-ad").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
+  link.href = canvas.toDataURL("image/png");
   link.click();
   saveStatus.textContent = "Downloaded the graphic ad PNG.";
 }
 
 function buildSlotButtons() {
+  slotButtons.replaceChildren();
   for (let slotNumber = 1; slotNumber <= 8; slotNumber += 1) {
     const button = document.createElement("button");
     button.type = "button";
@@ -210,21 +214,24 @@ function applyContentValues(content) {
 function renderContentPreview(content) {
   const cards = Object.entries(contentLabels).map(([key, label]) => {
     const article = document.createElement("article");
-    article.className = "studio-story";
+    article.className = key === "trivia" || key === "article" ? "studio-story studio-story-wide" : "studio-story";
 
     const badge = document.createElement("span");
     badge.textContent = label;
     const heading = document.createElement("h3");
-    heading.textContent = label;
+    heading.textContent = key === "trivia" ? "10 Fast Facts for the Stall" : label;
     article.append(badge, heading);
 
     if (key === "trivia") {
       const list = document.createElement("ol");
-      cleanValue(content[key], defaultContent[key]).split(/\n+/).filter(Boolean).forEach((fact) => {
-        const item = document.createElement("li");
-        item.textContent = fact;
-        list.append(item);
-      });
+      cleanValue(content[key], defaultContent[key])
+        .split(/\n+/)
+        .filter(Boolean)
+        .forEach((fact) => {
+          const item = document.createElement("li");
+          item.textContent = fact;
+          list.append(item);
+        });
       article.append(list);
     } else {
       const paragraph = document.createElement("p");
@@ -238,36 +245,37 @@ function renderContentPreview(content) {
   contentPreview.replaceChildren(...cards);
 }
 
-function generatePlaceholderContent() {
-  const facts = [
-    "A QR code can store thousands of numeric characters in a tiny square.",
-    "The first neon sign in Las Vegas appeared long before social media made signs famous.",
-    "Most people remember short, funny copy better than long formal notices.",
-    "Restroom ads work because every visitor eventually takes a pause.",
-    "The word magazine originally referred to a storehouse.",
-    "A catchy coupon code is easier to use when it is short and pronounceable.",
-    "Local deals convert best when the reward is clear in one sentence.",
-    "The average smartphone can scan QR codes directly through the camera app.",
-    "Trivia feels stickier when it includes a surprising comparison.",
-    "Great issue content mixes laughs, utility, and something worth sharing.",
-  ];
-
-  return {
-    trivia: facts.join("\n"),
-    joke: "I tried to write a restroom joke, but every punchline was occupied.",
-    quote: "“A good pause is not wasted time; it is where the next good idea catches up.”",
-    word: "Effervescent — lively, bubbly, and full of energy.",
-    article: "Featured Article: The fastest way to upgrade a night out is to add one local discovery. Pick a nearby snack, a photo stop, or a tiny show you did not plan for, then let the detour become the story.",
-    deal: "Local Deal Template: Bring this Stall Talk issue to [Business Name] for [Discount/Bonus] today only. Mention code STALLTALK at checkout.",
-    event: "Event Spotlight: [Event Name] lights up [Venue] at [Time]. Arrive early for [Pre-show Idea] and keep this issue handy for nearby offers.",
-  };
+function saveContentDraft(content = collectContentValues(), message = "Saved Content Studio draft to localStorage.") {
+  localStorage.setItem(CONTENT_DRAFT_STORAGE_KEY, JSON.stringify({ ...content, savedAt: new Date().toISOString() }));
+  contentStatus.textContent = message;
+  renderContentPreview(content);
 }
 
-function saveContentDraft() {
-  const content = collectContentValues();
-  localStorage.setItem(CONTENT_DRAFT_STORAGE_KEY, JSON.stringify({ ...content, savedAt: new Date().toISOString() }));
-  contentStatus.textContent = "Saved Content Studio draft to localStorage.";
-  renderContentPreview(content);
+function generateIssueContent() {
+  const generatedContent = {
+    joke: "I asked the restroom mirror for life advice. It said, ‘Reflect on your choices, then wash your hands like you mean it.’",
+    trivia: [
+      "A QR code can store thousands of numeric characters in one tiny square.",
+      "Neon signs glow when electricity excites gas sealed inside glass tubes.",
+      "The word trivia comes from an old term for a place where three roads meet.",
+      "A catchy coupon code is usually easier to remember when it is short and pronounceable.",
+      "Most modern phone cameras can scan QR codes without downloading a separate app.",
+      "A deck of cards has 52 cards, matching the number of weeks in many calendar years.",
+      "Bananas are berries botanically, but strawberries are not true berries.",
+      "Local ads often work best when the offer is clear in one quick sentence.",
+      "People tend to remember surprising facts better when they can repeat them immediately.",
+      "Great restroom reading combines a laugh, a useful tip, and a reason to keep exploring.",
+    ].join("\n"),
+    quote: "“Even a quick pause can become the moment that points the whole day in a better direction.”",
+    word: "Effervescent — lively, bubbly, and so energetic it practically arrives with its own soundtrack.",
+    article: "Featured Article: The best local adventure rarely starts with a grand plan. It starts with one tiny yes: try the odd-looking appetizer, follow the music around the corner, scan the deal that made you smile, or text the friend who always knows where the good lights are. Stall Talk’s advice for tonight is simple: pick one nearby discovery, make it the story, and let the detour do the bragging tomorrow.",
+    deal: "Local Deal: Flash this Stall Talk issue at Nacho Average tonight for 2-for-1 loaded fries after 9 PM. Use code STALLTALK and bring at least one friend willing to share the evidence.",
+    event: "Event Spotlight: Neon Courtyard Laughs kicks off at 8 PM with pop-up comics, patio music, and a photo wall bright enough to make your group chat jealous.",
+  };
+
+  applyContentValues(generatedContent);
+  saveContentDraft(generatedContent, "AI content generated and saved.");
+  return generatedContent;
 }
 
 function publishContent() {
@@ -293,20 +301,7 @@ function initAdStudio() {
     const generatedAd = generateGraphicAdWithAI(collectFormValues());
     renderGeneratedAd(generatedAd);
     saveStatus.textContent = "Finished graphic ad generated. Edit the copy, download PNG, save, or apply it to a paid slot.";
-  });
-
-  Object.values(outputFields).forEach((field) => {
-    field.addEventListener("input", () => {
-      activeAd = currentGeneratedAd();
-      previewStage.replaceChildren(StallTalkGraphicAds.build(activeAd, { link: false }));
-    });
-  });
-
-  ["#business-name", "#business-category", "#offer", "#coupon-code", "#phone", "#website", "#target-audience", "#tone", "#ad-size", "#primary-color", "#secondary-color", "#accent-color", "#image-url"].forEach((selector) => {
-    document.querySelector(selector).addEventListener("input", () => {
-      if (!activeAd) return;
-      activeAd = currentGeneratedAd();
-      previewStage.replaceChildren(StallTalkGraphicAds.build(activeAd, { link: false }));
+@@ -310,48 +352,43 @@ function initAdStudio() {
     });
   });
 
@@ -332,19 +327,14 @@ function initContentStudio() {
   applyContentValues(initialContent);
   renderContentPreview(initialContent);
 
-  document.querySelector("#ai-generate-content").addEventListener("click", () => {
-    const generatedContent = generatePlaceholderContent();
-    applyContentValues(generatedContent);
-    renderContentPreview(generatedContent);
-    contentStatus.textContent = "Generated placeholder AI content locally. Review, save, or publish it.";
-  });
+  document.querySelector("#ai-generate-content").addEventListener("click", generateIssueContent);
 
   document.querySelector("#preview-content").addEventListener("click", () => {
     renderContentPreview(collectContentValues());
     contentStatus.textContent = "Preview refreshed from current Content Studio fields.";
   });
 
-  document.querySelector("#save-content").addEventListener("click", saveContentDraft);
+  document.querySelector("#save-content").addEventListener("click", () => saveContentDraft());
   document.querySelector("#publish-content").addEventListener("click", publishContent);
 
   Object.values(contentFields).forEach((field) => {
@@ -355,3 +345,5 @@ function initContentStudio() {
 initTabs();
 initAdStudio();
 initContentStudio();
+script.js
+script.js
