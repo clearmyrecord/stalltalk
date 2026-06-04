@@ -49,8 +49,17 @@ function updateRailAd(card, slotNumber, ad) {
   const link = card.querySelector("a");
 
   if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSize || ad.adSlotSize || "Custom"}`;
-  if (title) title.textContent = ad.businessName || ad.headline;
-@@ -65,25 +65,62 @@ function updateMiniAd(card, slotNumber, ad) {
+  if (title) title.textContent = ad.businessName || ad.headline || "Saved sponsor";
+  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || "Saved local offer.";
+  if (link) {
+    link.href = normalizeContactHref(ad.website || ad.phone);
+    link.textContent = ad.ctaButtonText || "Claim offer";
+  }
+}
+
+function updateMiniAd(card, slotNumber, ad) {
+  if (window.StallTalkGraphicAds && ad.headline) {
+    card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
     card.title = `${ad.headline || "Saved graphic ad"} ${ad.couponCode || ""}`.trim();
     return;
   }
@@ -60,7 +69,7 @@ function updateRailAd(card, slotNumber, ad) {
 
   card.dataset.coupon = ad.couponCode || "";
   card.title = `${ad.headline || "Saved ad"} ${ad.disclaimer || ""}`.trim();
-  if (title) title.textContent = ad.businessName || ad.headline;
+  if (title) title.textContent = ad.businessName || ad.headline || `Saved slot ${slotNumber}`;
   if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || `Saved slot ${slotNumber}`;
 }
 
@@ -88,8 +97,7 @@ function readPublishedIssueContent() {
   }
 }
 
-function updatePublishedIssueContent() {
-  const content = readPublishedIssueContent();
+function updatePublishedIssueContent(content = readPublishedIssueContent()) {
   if (!content) return;
 
   Object.entries(content).forEach(([key, value]) => {
@@ -113,3 +121,12 @@ function updatePublishedIssueContent() {
 }
 
 updatePublishedIssueContent();
+
+window.addEventListener("storage", (event) => {
+  if (event.key !== STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY) return;
+  try {
+    updatePublishedIssueContent(JSON.parse(event.newValue) || null);
+  } catch (error) {
+    console.warn("Unable to refresh Stall Talk published content", error);
+  }
+});
