@@ -284,7 +284,7 @@
               <label>Year <input name="year" /></label>
               <label>City <input name="city" /></label>
               <label>Venue <select name="venueId" id="issue-venue-select"></select></label>
-              <label>Status <select name="status"><option>draft</option><option selected>published</option><option>archived</option></select></label>
+              <label>Status <select name="status"><option>draft</option><option selected>published</option><option>archived</option></select></label><label>Issue scope <select name="issueType"><option value="venue" selected>Venue Content Override</option><option value="city">City Content Override</option><option value="standard">Standard Monthly Issue</option></select></label>
             </div>
             <label>Content blocks <textarea name="contentBlocks" rows="6" placeholder="One block per line"></textarea></label>
             <label>Assigned ad slots <input name="assignedSlots" placeholder="1,2,3,8" /></label>
@@ -323,7 +323,7 @@
         <form id="settings-form" class="admin-card studio-form">
           <div class="section-heading compact-heading">
             <p>Settings</p>
-            <h2>Issue identity</h2>
+            <h2>Publication strategy</h2>
           </div>
           <fieldset class="brand-toggle">
             <legend>Active brand</legend>
@@ -338,12 +338,17 @@
             <label>City <input name="city" type="text" /></label>
             <label>Venue <input name="venue" type="text" /></label>
             <label>Month/year <input name="monthYear" type="text" /></label>
+            <label>Standard Monthly Issue <select name="standardMonthlyIssue"><option selected>Enabled</option><option>Draft only</option><option>Disabled</option></select></label>
+            <label>Venue Content Override <select name="venueContentOverride"><option selected>Use when published</option><option>Always prefer standard</option><option>Draft only</option></select></label>
+            <label>City Content Override <select name="cityContentOverride"><option selected>Use when published</option><option>Always prefer standard</option><option>Draft only</option></select></label>
+            <label>Ad Targeting Mode <select name="adTargetingMode"><option selected>QR/Venue</option><option>City/IP</option><option>Global fallback</option></select></label>
             <label>AI Image API Endpoint <input name="apiBaseUrl" type="url" placeholder="https://your-vercel-app.vercel.app" /></label>
           </div>
           <div class="button-row">
             <button id="save-settings" class="primary-button success-button" type="button">Save Settings</button>
             <button id="test-openai" class="primary-button secondary-button" type="button">Test Endpoint</button>
           </div>
+          <p class="help-copy">Public content falls back from venue issue to city issue to standard monthly issue to demo content. Ads target separately by QR, venue, city/IP, state, then global inventory.</p>
           <p id="settings-status" class="form-status" aria-live="polite"></p>
           <div id="openai-test-status" class="form-status" aria-live="polite"></div>
         </form>
