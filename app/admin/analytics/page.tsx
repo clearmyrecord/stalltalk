@@ -1,6 +1,7 @@
 import { percent } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
 export default async function AnalyticsPage() {
   const [totalScans, adImpressions, adClicks, couponRedemptions, visitors, sessions, timeEvents, topVenueRows, topAdRows] = await Promise.all([
     prisma.analyticsEvent.count({ where: { type: "SCAN" } }),
