@@ -155,22 +155,31 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    } catch (error) {
+      console.error("generate-ad-image request JSON parse error", error);
+      res.status(400).json({ error: `Request JSON parse error: ${error.message}`, diagnostic: { apiStatus: "failed", openAiStatus: "unknown", errorType: "json_parse_error" } });
+      return;
+    }
     const sizeKey = adSizeKey(body.adSizeKey || body.adSize);
     const size = AD_SIZES[sizeKey];
     const copy = buildCopy(body);
     const promptUsed = buildPrompt(body, sizeKey, copy);
 
     if (!process.env.OPENAI_API_KEY) {
+      console.error("generate-ad-image missing OPENAI_API_KEY");
       res.status(500).json({
         error: "OPENAI_API_KEY is not configured on the Vercel backend.",
+        diagnostic: { apiStatus: "failed", openAiStatus: "not_configured", model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5", errorType: "missing_api_key" },
         promptUsed,
         ...copy,
       });
       return;
     }
 
-    const model = process.env.OPENAI_IMAGE_MODEL || "dall-e-3";
+    const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
     const requestBody = imageRequestBody({ model, prompt: promptUsed, size });
 
     const openAiResponse = await fetch("https://api.openai.com/v1/images/generations", {
@@ -182,11 +191,22 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify(requestBody),
     });
 
-    const data = await openAiResponse.json();
+    const raw = await openAiResponse.text();
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      console.error("generate-ad-image OpenAI JSON parse error", { status: openAiResponse.status, error, raw: raw.slice(0, 500) });
+      res.status(502).json({ error: `OpenAI JSON parse error: ${error.message}`, diagnostic: { apiStatus: "failed", openAiStatus: "failed", model, errorType: "openai_json_parse_error", openAiStatusCode: openAiResponse.status } });
+      return;
+    }
 
     if (!openAiResponse.ok) {
+      const message = data?.error?.message || "OpenAI image generation failed.";
+      console.error("generate-ad-image OpenAI API error", { status: openAiResponse.status, model, message });
       res.status(openAiResponse.status).json({
-        error: data?.error?.message || "OpenAI image generation failed.",
+        error: message,
+        diagnostic: { apiStatus: "failed", openAiStatus: "failed", model, errorType: openAiResponse.status === 429 ? "rate_limit" : data?.error?.type || "openai_api_error", openAiStatusCode: openAiResponse.status, rateLimited: openAiResponse.status === 429 },
         promptUsed,
         ...copy,
       });
@@ -212,10 +232,11 @@ module.exports = async function handler(req, res) {
       openAiSize: requestBody.size,
       revisedPrompt: image.revised_prompt || "",
       model,
+      diagnostic: { apiStatus: "ok", openAiStatus: "connected", model },
     });
   } catch (error) {
-    console.error("generate-ad-image failed", error);
-    res.status(500).json({ error: "Unable to generate image ad." });
+    console.error("generate-ad-image Vercel function/fetch failed", error);
+    res.status(500).json({ error: error.message || "Unable to generate image ad.", diagnostic: { apiStatus: "failed", openAiStatus: "failed", model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5", errorType: "vercel_function_or_fetch_error" } });
   }
 };
 

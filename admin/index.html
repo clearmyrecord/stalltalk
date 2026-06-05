@@ -244,8 +244,12 @@
             <label>Venue <input name="venue" type="text" /></label>
             <label>Month/year <input name="monthYear" type="text" /></label>
           </div>
-          <button id="save-settings" class="primary-button success-button" type="button">Save Settings</button>
+          <div class="button-row">
+            <button id="save-settings" class="primary-button success-button" type="button">Save Settings</button>
+            <button id="test-openai" class="primary-button secondary-button" type="button">Test OpenAI Connection</button>
+          </div>
           <p id="settings-status" class="form-status" aria-live="polite"></p>
+          <div id="openai-test-status" class="form-status" aria-live="polite"></div>
         </form>
       </section>
     </main>

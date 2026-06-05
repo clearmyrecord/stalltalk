@@ -92,13 +92,13 @@ function HomeSlot({ slotNumber, slot }: HomeSlotProps) {
       </div>
       <div className="h-40 overflow-hidden rounded-xl border-2 border-ink bg-ink">
         {slot?.creativeType === "VIDEO" && slot.videoUrl ? <video className="h-full w-full object-cover" src={slot.videoUrl} autoPlay muted loop playsInline /> : null}
-        {slot?.creativeType === "HTML" && slot.htmlCreative ? <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: slot.htmlCreative }} /> : null}
-        {(!slot?.creativeType || slot.creativeType === "IMAGE") && slot?.image ? <img className="h-full w-full object-cover" src={slot.image} alt={`${slot.business} ad`} /> : null}
+        {slot?.creativeType === "IMAGE" && slot?.image ? <img className="h-full w-full object-cover" src={slot.image} alt={`${slot.business} ad`} /> : null}
+        {slot && slot.creativeType !== "IMAGE" ? <div className="grid h-full place-items-center p-4 text-center font-black uppercase text-stallRed">Image creative required</div> : null}
         {!slot ? <div className={`ad-gradient-${slotNumber} grid h-full place-items-center p-4 text-center font-display text-4xl uppercase text-white`}>Open Slot</div> : null}
       </div>
-      <h3 className="mt-3 font-display text-3xl uppercase leading-none">{slot?.business || "Available Sponsor"}</h3>
-      <p className="font-black uppercase text-stallRed">{slot?.headline || "Generate an AI ad"}</p>
-      <p className="text-sm font-bold">{slot?.subheadline || "Publish from the AI Creative Studio."}</p>
+      <h3 className="mt-3 truncate font-display text-3xl uppercase leading-none" title={slot?.business || "Available Sponsor"}>{slot?.business || "Available Sponsor"}</h3>
+      <p className="line-clamp-2 break-words font-black uppercase text-stallRed">{slot?.headline || "Generate an AI ad"}</p>
+      <p className="line-clamp-2 break-words text-sm font-bold">{slot?.subheadline || "Publish from the AI Creative Studio."}</p>
       <p className="mt-2 rounded-lg bg-stallYellow px-2 py-1 text-center text-xs font-black uppercase">{slot?.ctaText || "Claim Slot"} {slot?.couponCode ? `• ${slot.couponCode}` : ""}</p>
     </article>
   );

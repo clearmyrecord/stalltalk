@@ -108,7 +108,7 @@ function collectAdValues() {
   const sizeLabel = formValue(formData, "adSize", "Banner");
 
   return {
-    adMode: "html",
+    adMode: "pending",
     businessName,
     businessCategory: formValue(formData, "businessCategory", "Local Favorite"),
     category: formValue(formData, "businessCategory", "Local Favorite"),
@@ -208,14 +208,13 @@ function renderAdPreview(ad) {
 function generateCopy() {
   activeAd = collectAdValues();
   renderAdPreview(activeAd);
-  document.querySelector("#ad-status").textContent = "Generated editable ad copy and HTML/CSS fallback creative. Generate Graphic Ad when ready.";
+  document.querySelector("#ad-status").textContent = "Generated editable ad copy. Generate Graphic Ad to create an OpenAI image file; no HTML/CSS fallback will be published.";
 }
 
 async function generateGraphicAd() {
   if (isGeneratingGraphic) return;
-  const fallbackAd = collectAdValues();
-  activeAd = fallbackAd;
-  renderAdPreview(activeAd);
+  const draftAd = collectAdValues();
+  activeAd = draftAd;
   setGraphicLoading(true);
   document.querySelector("#ad-status").textContent = "Generating finished graphic ad with the Vercel AI endpoint…";
 
@@ -223,34 +222,30 @@ async function generateGraphicAd() {
     const response = await fetch(window.STALLTALK_AD_IMAGE_ENDPOINT || "/api/generate-ad-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fallbackAd),
+      body: JSON.stringify(draftAd),
     });
     const data = await response.json();
 
     if (!response.ok) {
-      fallbackAd.promptUsed = safeText(data?.promptUsed, fallbackAd.promptUsed);
-      fallbackAd.headline = safeText(data?.headline, fallbackAd.headline);
-      fallbackAd.subheadline = safeText(data?.subheadline, fallbackAd.subheadline);
-      fallbackAd.ctaText = safeText(data?.ctaText, fallbackAd.ctaText);
-      fallbackAd.ctaButtonText = fallbackAd.ctaText;
-      fallbackAd.couponCode = safeText(data?.couponCode, fallbackAd.couponCode);
-      throw new Error(data?.error || "AI image generation failed.");
+      const diagnostic = data?.diagnostic || {};
+      const details = [data?.error || "AI image generation failed.", diagnostic.apiStatus ? `API: ${diagnostic.apiStatus}` : "", diagnostic.openAiStatus ? `OpenAI: ${diagnostic.openAiStatus}` : "", diagnostic.model ? `Model: ${diagnostic.model}` : "", diagnostic.errorType ? `Type: ${diagnostic.errorType}` : "", diagnostic.openAiStatusCode ? `HTTP: ${diagnostic.openAiStatusCode}` : ""].filter(Boolean).join(" • ");
+      throw new Error(details);
     }
 
     const imageUrl = safeText(data.imageUrl);
     const imageBase64 = safeText(data.imageBase64);
     activeAd = {
-      ...fallbackAd,
-      adMode: imageUrl || imageBase64 ? "image" : "html",
+      ...draftAd,
+      adMode: imageUrl || imageBase64 ? "image" : "pending",
       imageAdUrl: imageUrl,
       imageAdBase64: imageBase64,
       promptUsed: safeText(data.promptUsed || data.prompt),
-      headline: safeText(data.headline, fallbackAd.headline),
-      subheadline: safeText(data.subheadline, fallbackAd.subheadline),
-      ctaText: safeText(data.ctaText, fallbackAd.ctaText),
-      ctaButtonText: safeText(data.ctaText, fallbackAd.ctaButtonText),
-      couponCode: safeText(data.couponCode, fallbackAd.couponCode),
-      disclaimer: safeText(data.disclaimer, fallbackAd.disclaimer),
+      headline: safeText(data.headline, draftAd.headline),
+      subheadline: safeText(data.subheadline, draftAd.subheadline),
+      ctaText: safeText(data.ctaText, draftAd.ctaText),
+      ctaButtonText: safeText(data.ctaText, draftAd.ctaButtonText),
+      couponCode: safeText(data.couponCode, draftAd.couponCode),
+      disclaimer: safeText(data.disclaimer, draftAd.disclaimer),
       generatedAt: timestamp(),
       createdAt: createdAt(),
     };
@@ -259,13 +254,8 @@ async function generateGraphicAd() {
     document.querySelector("#ad-status").textContent = "Generated finished image ad. Review copy, save, or publish to slots 1–8.";
   } catch (error) {
     console.error("Graphic ad generation failed", error);
-    activeAd = {
-      ...fallbackAd,
-      adMode: "html",
-      promptUsed: fallbackAd.promptUsed || "Fallback HTML/CSS preview generated because the AI image endpoint was unavailable.",
-    };
-    renderAdPreview(activeAd);
-    document.querySelector("#ad-status").textContent = `${error.message} Showing the HTML/CSS fallback ad preview instead.`;
+    activeAd = { ...draftAd, adMode: "pending", promptUsed: draftAd.promptUsed || "OpenAI image generation did not complete." };
+    document.querySelector("#ad-status").textContent = `${error.message} No HTML/CSS fallback was generated. Fix the API status, then retry OpenAI image generation.`;
   } finally {
     setGraphicLoading(false);
   }
@@ -274,6 +264,10 @@ async function generateGraphicAd() {
 function publishToSlot(slotNumber) {
   if (!activeAd) generateCopy();
   applyEditableCopyToActiveAd();
+  if (activeAd.adMode !== "image") {
+    document.querySelector("#ad-status").textContent = "OpenAI image creative required before publishing. No HTML/CSS fallback can be published.";
+    return;
+  }
   const slots = getAdSlots();
   const publishedAd = { ...activeAd, slotPublishedTo: String(slotNumber), savedAt: timestamp() };
   slots[String(slotNumber)] = publishedAd;
@@ -311,7 +305,7 @@ function renderDashboard() {
     const slotNumber = String(index + 1);
     const pill = document.createElement("span");
     pill.className = slots[slotNumber] ? "slot-pill is-filled" : "slot-pill";
-    const mode = slots[slotNumber]?.adMode === "image" ? "image" : "HTML";
+    const mode = slots[slotNumber]?.adMode === "image" ? "image" : "not generated";
     pill.textContent = `Ad Slot ${slotNumber}: ${slots[slotNumber]?.businessName || "Open"}${slots[slotNumber] ? ` (${mode})` : ""}`;
     return pill;
   }));
@@ -346,7 +340,7 @@ function renderCampaignHistory() {
   list.replaceChildren(...campaigns.map((campaign) => {
     const item = document.createElement("article");
     item.className = "campaign-history-item";
-    const mode = campaign.adMode === "image" ? "Image ad" : "HTML fallback";
+    const mode = campaign.adMode === "image" ? "Image ad" : "Not generated";
     item.innerHTML = `
       <div>
         <strong>${safeText(campaign.businessName, "Untitled campaign")}</strong>
@@ -435,6 +429,25 @@ function saveSettings() {
   refreshAdmin();
 }
 
+async function testOpenAiConnection() {
+  const status = document.querySelector("#openai-test-status");
+  status.textContent = "Testing OpenAI image generation…";
+  try {
+    const response = await fetch("/api/system-health?runImageTest=1", { cache: "no-store" });
+    const data = await response.json();
+    const openAi = data.openAi || {};
+    status.textContent = [
+      `API key detected: ${Boolean(openAi.apiKeyDetected)}`,
+      `Model detected: ${openAi.model || "unknown"}`,
+      `Successful image generation test: ${openAi.imageGenerationTest === "successful" ? "yes" : "no"}`,
+      `OpenAI status: ${openAi.status || "Failed"}`,
+      openAi.error ? `Exact error: ${openAi.error}` : ""
+    ].filter(Boolean).join(" • ");
+  } catch (error) {
+    status.textContent = `OpenAI connection test failed: ${error.message}`;
+  }
+}
+
 function init() {
   setContentValues(readJson(STORAGE_KEYS.draft, readJson(STORAGE_KEYS.published, DEMO_CONTENT)));
   loadSettingsForm();
@@ -455,6 +468,7 @@ function init() {
   document.querySelector("#apply-slot").addEventListener("click", applySlot);
   document.querySelector("#clear-slot").addEventListener("click", clearSlot);
   document.querySelector("#save-settings").addEventListener("click", saveSettings);
+  document.querySelector("#test-openai")?.addEventListener("click", testOpenAiConnection);
   document.querySelectorAll("[data-publish-slot]").forEach((button) => button.addEventListener("click", () => publishToSlot(button.dataset.publishSlot)));
   document.querySelectorAll("#preview-headline, #preview-subheadline, #preview-cta, #preview-coupon").forEach((field) => {
     field.addEventListener("input", () => {
