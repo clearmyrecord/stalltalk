@@ -34,6 +34,7 @@ const DEFAULT_CONTENT = {
   trivia: "Las Vegas has more hotel rooms than many entire cities.\nNeon signs glow through electrified gas in glass tubes.\nA good restroom publication should be readable in under two minutes.",
   word: "Serendipity — finding something good while looking for something else.",
   deal: "Show this issue at a participating local spot for a surprise restroom-reader perk.",
+  quote: "“Make the most of the pause; even a quick stop can point you toward the next good thing.”",
 };
 
 const DEMO_NETWORK = {
@@ -142,13 +143,19 @@ function renderIssueSettings(settings = { ...DEFAULT_SETTINGS, ...readJson(STORA
   const brandName = settings.logoText || settings.brand || settings.activeBrand || "Potty Favor";
   const cityState = venue ? `${venue.city}, ${venue.state}` : (issue?.city || settings.city);
   setText('[data-issue-field="brand"]', settings.activeBrand || brandName);
-  setText('[data-brand-title]', brandName);
+  document.querySelectorAll('[data-brand-title]').forEach((node) => {
+    node.replaceChildren(document.createTextNode(brandName));
+    const partner = document.createElement("span");
+    partner.textContent = "/ Stall Talk";
+    node.append(document.createTextNode(" "), partner);
+  });
   setText('[data-issue-field="city"]', cityState);
   setText('[data-issue-field="venue"]', venue?.name || issue?.venueName || settings.venue);
   setText('[data-issue-field="monthYear"]', issue ? `${issue.month} ${issue.year}` : settings.monthYear);
   setText('[data-issue-field="issueNumber"]', settings.issueNumber);
-  const tagline = document.querySelector(".pf-tagline");
-  if (tagline) tagline.textContent = settings.tagline || DEFAULT_SETTINGS.tagline;
+  document.querySelectorAll(".pf-tagline").forEach((tagline) => {
+    tagline.textContent = "Scan. Read. Save.";
+  });
   document.body.dataset.theme = settings.colorTheme || "vegas-neon";
   document.title = `${brandName} by Stall Talk`;
 }
@@ -163,18 +170,20 @@ function renderPublishedContent(content = readJson(STORAGE_KEYS.published, DEFAU
     merged.featuredTitle = issue.title || merged.featuredTitle;
   }
   Object.entries(merged).forEach(([key, value]) => {
-    const target = document.querySelector(`[data-content="${key}"]`);
-    if (!target || typeof value !== "string") return;
-    if (key === "trivia") {
-      const facts = value.split(/\n+/).map((fact) => fact.trim()).filter(Boolean);
-      target.replaceChildren(...facts.map((fact) => {
-        const item = document.createElement("li");
-        item.textContent = fact;
-        return item;
-      }));
-      return;
-    }
-    target.textContent = value;
+    const targets = document.querySelectorAll(`[data-content="${key}"]`);
+    if (!targets.length || typeof value !== "string") return;
+    targets.forEach((target) => {
+      if (key === "trivia") {
+        const facts = value.split(/\n+/).map((fact) => fact.trim()).filter(Boolean);
+        target.replaceChildren(...facts.map((fact) => {
+          const item = document.createElement("li");
+          item.textContent = fact;
+          return item;
+        }));
+        return;
+      }
+      target.textContent = value;
+    });
   });
 }
 
@@ -192,11 +201,21 @@ function campaignForSlot(slotNumber) {
   return campaigns.find((campaign) => campaign.status === "active" && (campaign.selectedSlots || []).includes(String(slotNumber)) && (!campaign.selectedVenues?.length || campaign.selectedVenues.includes(venueId))) || null;
 }
 
+function buildAdSlotBadge(slotNumber, ad) {
+  const badge = document.createElement("span");
+  badge.className = "ad-slot-badge";
+  badge.textContent = `Ad Slot ${slotNumber} · ${ad?.businessName || ad?.advertiserName || "Sponsor"} · ${ad?.ctaText || ad?.ctaButtonText || "Tap"}`;
+  return badge;
+}
+
 function updateAdCard(card, slotNumber, ad) {
   card.dataset.campaignId = ad?.id || ad?.campaignId || "";
+  card.classList.toggle("pf-empty-ad", !ad);
   if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName || window.StallTalkGraphicAds.imageSource(ad))) {
+    const creative = window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true });
+    creative.append(buildAdSlotBadge(slotNumber, ad));
     card.classList.add("pf-ad-card-generated");
-    card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
+    card.replaceChildren(creative);
     recordAdImpressionOnce(slotNumber, card.dataset.campaignId);
     return;
   }
@@ -208,14 +227,16 @@ function updateAdCard(card, slotNumber, ad) {
   if (title) title.textContent = ad?.businessName || ad?.advertiserName || ad?.headline || title.textContent;
   if (copy) copy.textContent = ad?.offer || ad?.subheadline || copy.textContent;
   if (link) {
-    link.href = normalizeContactHref(ad?.website || ad?.phone || ad?.contact || ad?.contactUrl);
-    link.textContent = ad?.ctaText || ad?.ctaButtonText || "Claim offer";
-    link.setAttribute("aria-label", `View ${ad?.businessName || ad?.advertiserName || "sponsor"} offer`);
+    link.href = ad ? normalizeContactHref(ad?.website || ad?.phone || ad?.contact || ad?.contactUrl) : `#ad-${slotNumber}`;
+    link.textContent = ad?.ctaText || ad?.ctaButtonText || "Reserve slot";
+    link.setAttribute("aria-label", `View ${ad?.businessName || ad?.advertiserName || `Ad Slot ${slotNumber}`} offer`);
   }
-  if (ad) recordAdImpressionOnce(slotNumber, card.dataset.campaignId);
+  recordAdImpressionOnce(slotNumber, card.dataset.campaignId);
 }
 
 function updateMiniAd(card, slotNumber, ad) {
+  card.classList.toggle("pf-empty-ad", !ad);
+  card.dataset.campaignId = ad?.id || ad?.campaignId || "";
   const slot = card.querySelector("span");
   const title = card.querySelector("strong");
   const copy = card.querySelector("small");
@@ -227,12 +248,9 @@ function updateMiniAd(card, slotNumber, ad) {
 function renderAdSlots() {
   for (let slotNumber = 1; slotNumber <= 8; slotNumber += 1) {
     const ad = campaignForSlot(slotNumber);
-    if (!ad) {
-      recordAdImpressionOnce(slotNumber);
-      continue;
-    }
     document.querySelectorAll(`[data-ad="${slotNumber}"]`).forEach((card) => updateAdCard(card, slotNumber, ad));
     document.querySelectorAll(`[data-mini-ad="${slotNumber}"], #ad-${slotNumber}`).forEach((card) => updateMiniAd(card, slotNumber, ad));
+    if (!document.querySelector(`[data-ad="${slotNumber}"], [data-mini-ad="${slotNumber}"]`)) recordAdImpressionOnce(slotNumber, ad?.id || ad?.campaignId || "");
   }
 }
 
@@ -261,7 +279,7 @@ function wireTapFeedback() {
       const card = link.closest("[data-ad], [data-mini-ad]");
       const slot = card?.dataset.ad || card?.dataset.miniAd || "";
       const campaignId = card?.dataset.campaignId || "";
-      recordEvent(link.textContent.toLowerCase().includes("coupon") || link.textContent.toLowerCase().includes("claim") ? "coupon_click" : "ad_click", { adSlot: slot, campaignId });
+      recordEvent("ad_click", { adSlot: slot, campaignId });
       link.classList.add("was-tapped");
       window.setTimeout(() => link.classList.remove("was-tapped"), 500);
     });
