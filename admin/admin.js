@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   draft: "stalltalk_content_draft",
   published: "stalltalk_content_published",
   ads: window.StallTalkGraphicAds?.storageKey || "stalltalk_ad_slots",
+  campaigns: "stalltalk_campaign_history",
   settings: "stalltalk_issue_settings",
 };
 
@@ -27,6 +28,7 @@ const DEMO_CONTENT = {
 };
 
 let activeAd = null;
+let isGeneratingGraphic = false;
 
 function readJson(key, fallback) {
   try {
@@ -43,6 +45,14 @@ function saveJson(key, value) {
 
 function timestamp() {
   return new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function createdAt() {
+  return new Date().toISOString();
+}
+
+function safeText(value, fallback = "") {
+  return String(value || "").trim() || fallback;
 }
 
 function getSettings() {
@@ -66,6 +76,226 @@ function getAdSlots() {
   return readJson(STORAGE_KEYS.ads, {});
 }
 
+function getCampaignHistory() {
+  return readJson(STORAGE_KEYS.campaigns, []);
+}
+
+function formValue(formData, key, fallback = "") {
+  return safeText(formData.get(key), fallback);
+}
+
+function adSizeKey(value) {
+  return window.StallTalkGraphicAds?.adSizeKey(value) || "banner";
+}
+
+function buildCouponCode(businessName, value) {
+  return safeText(value, `${businessName.replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase() || "STALL"}10`);
+}
+
+function collectAdValues() {
+  const formData = new FormData(document.querySelector("#ad-form"));
+  const businessName = formValue(formData, "businessName", "Potty Favor Sponsor");
+  const offer = formValue(formData, "offer", "A reader-only local offer");
+  const tone = formValue(formData, "tone", "Bold");
+  const audience = formValue(formData, "audience", "nearby readers");
+  const brandColors = formValue(formData, "brandColors", "#ff2d2d, #ffd400, #7c2cff");
+  const colors = brandColors.split(",").map((color) => color.trim()).filter(Boolean);
+  const primaryColor = colors[0] || "#ff2d2d";
+  const secondaryColor = colors[1] || "#ffd400";
+  const accentColor = colors[2] || "#7c2cff";
+  const couponCode = buildCouponCode(businessName, formData.get("couponCode"));
+  const ctaText = formValue(formData, "cta", "Claim This Deal");
+  const sizeLabel = formValue(formData, "adSize", "Banner");
+
+  return {
+    adMode: "html",
+    businessName,
+    businessCategory: formValue(formData, "businessCategory", "Local Favorite"),
+    category: formValue(formData, "businessCategory", "Local Favorite"),
+    offer,
+    couponCode,
+    expiration: formValue(formData, "expiration"),
+    website: formValue(formData, "website"),
+    phone: formValue(formData, "phone"),
+    audience,
+    targetAudience: audience,
+    tone,
+    style: tone,
+    visualStyle: formValue(formData, "visualStyle", "Polished modern editorial"),
+    optionalLogoUrl: formValue(formData, "optionalLogoUrl"),
+    brandColors,
+    template: tone === "Luxury" ? "luxury" : tone === "Funny" ? "coupon" : "vegas",
+    adSize: sizeLabel,
+    adSizeKey: adSizeKey(sizeLabel),
+    primaryColor,
+    secondaryColor,
+    accentColor,
+    headline: `${businessName}: ${offer}`,
+    subheadline: `A ${tone.toLowerCase()} offer built for ${audience}.`,
+    ctaButtonText: ctaText,
+    ctaText,
+    disclaimer: "Valid while supplies last. Terms may apply.",
+    generatedAt: timestamp(),
+    createdAt: createdAt(),
+  };
+}
+
+function campaignSummary(ad) {
+  return {
+    businessName: ad.businessName,
+    offer: ad.offer,
+    adSize: ad.adSize,
+    imageUrl: ad.imageAdUrl || ad.imageUrl || "",
+    imageBase64: ad.imageAdBase64 || "",
+    promptUsed: ad.promptUsed || "",
+    createdAt: ad.createdAt || createdAt(),
+    slotPublishedTo: ad.slotPublishedTo,
+    headline: ad.headline,
+    subheadline: ad.subheadline,
+    ctaText: ad.ctaText || ad.ctaButtonText,
+    couponCode: ad.couponCode,
+    adMode: ad.adMode,
+  };
+}
+
+function saveCampaign(ad = activeAd) {
+  if (!ad) return;
+  const history = getCampaignHistory();
+  const next = [campaignSummary(ad), ...history].slice(0, 24);
+  saveJson(STORAGE_KEYS.campaigns, next);
+  renderCampaignHistory();
+  document.querySelector("#ad-status").textContent = `Saved ${ad.businessName} to campaign history.`;
+}
+
+function setGraphicLoading(loading) {
+  isGeneratingGraphic = loading;
+  const generateButton = document.querySelector("#generate-ad");
+  const regenerateButton = document.querySelector("#regenerate-ad");
+  [generateButton, regenerateButton].forEach((button) => {
+    if (!button) return;
+    button.disabled = loading;
+    button.classList.toggle("is-loading", loading);
+  });
+  if (generateButton) generateButton.textContent = loading ? "Generating Graphic…" : "Generate Graphic Ad";
+}
+
+function applyEditableCopyToActiveAd() {
+  if (!activeAd) return;
+  activeAd.headline = safeText(document.querySelector("#preview-headline")?.value, activeAd.headline);
+  activeAd.subheadline = safeText(document.querySelector("#preview-subheadline")?.value, activeAd.subheadline);
+  activeAd.ctaText = safeText(document.querySelector("#preview-cta")?.value, activeAd.ctaText || activeAd.ctaButtonText);
+  activeAd.ctaButtonText = activeAd.ctaText;
+  activeAd.couponCode = safeText(document.querySelector("#preview-coupon")?.value, activeAd.couponCode);
+}
+
+function renderPrompt(prompt) {
+  const promptBox = document.querySelector("#prompt-used");
+  if (!promptBox) return;
+  promptBox.hidden = !prompt;
+  promptBox.textContent = prompt ? `Prompt used: ${prompt}` : "";
+}
+
+function renderAdPreview(ad) {
+  const preview = document.querySelector("#ad-preview");
+  preview.replaceChildren(window.StallTalkGraphicAds.build(ad, { link: false }));
+  document.querySelector("#preview-headline").value = ad.headline || "";
+  document.querySelector("#preview-subheadline").value = ad.subheadline || "";
+  document.querySelector("#preview-cta").value = ad.ctaText || ad.ctaButtonText || "";
+  document.querySelector("#preview-coupon").value = ad.couponCode || "";
+  renderPrompt(ad.promptUsed || "");
+}
+
+function generateCopy() {
+  activeAd = collectAdValues();
+  renderAdPreview(activeAd);
+  document.querySelector("#ad-status").textContent = "Generated editable ad copy and HTML/CSS fallback creative. Generate Graphic Ad when ready.";
+}
+
+async function generateGraphicAd() {
+  if (isGeneratingGraphic) return;
+  const fallbackAd = collectAdValues();
+  activeAd = fallbackAd;
+  renderAdPreview(activeAd);
+  setGraphicLoading(true);
+  document.querySelector("#ad-status").textContent = "Generating finished graphic ad with the Vercel AI endpoint…";
+
+  try {
+    const response = await fetch(window.STALLTALK_AD_IMAGE_ENDPOINT || "/api/generate-ad-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fallbackAd),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      fallbackAd.promptUsed = safeText(data?.promptUsed, fallbackAd.promptUsed);
+      fallbackAd.headline = safeText(data?.headline, fallbackAd.headline);
+      fallbackAd.subheadline = safeText(data?.subheadline, fallbackAd.subheadline);
+      fallbackAd.ctaText = safeText(data?.ctaText, fallbackAd.ctaText);
+      fallbackAd.ctaButtonText = fallbackAd.ctaText;
+      fallbackAd.couponCode = safeText(data?.couponCode, fallbackAd.couponCode);
+      throw new Error(data?.error || "AI image generation failed.");
+    }
+
+    const imageUrl = safeText(data.imageUrl);
+    const imageBase64 = safeText(data.imageBase64);
+    activeAd = {
+      ...fallbackAd,
+      adMode: imageUrl || imageBase64 ? "image" : "html",
+      imageAdUrl: imageUrl,
+      imageAdBase64: imageBase64,
+      promptUsed: safeText(data.promptUsed || data.prompt),
+      headline: safeText(data.headline, fallbackAd.headline),
+      subheadline: safeText(data.subheadline, fallbackAd.subheadline),
+      ctaText: safeText(data.ctaText, fallbackAd.ctaText),
+      ctaButtonText: safeText(data.ctaText, fallbackAd.ctaButtonText),
+      couponCode: safeText(data.couponCode, fallbackAd.couponCode),
+      disclaimer: safeText(data.disclaimer, fallbackAd.disclaimer),
+      generatedAt: timestamp(),
+      createdAt: createdAt(),
+    };
+    renderAdPreview(activeAd);
+    saveCampaign(activeAd);
+    document.querySelector("#ad-status").textContent = "Generated finished image ad. Review copy, save, or publish to slots 1–8.";
+  } catch (error) {
+    console.error("Graphic ad generation failed", error);
+    activeAd = {
+      ...fallbackAd,
+      adMode: "html",
+      promptUsed: fallbackAd.promptUsed || "Fallback HTML/CSS preview generated because the AI image endpoint was unavailable.",
+    };
+    renderAdPreview(activeAd);
+    document.querySelector("#ad-status").textContent = `${error.message} Showing the HTML/CSS fallback ad preview instead.`;
+  } finally {
+    setGraphicLoading(false);
+  }
+}
+
+function publishToSlot(slotNumber) {
+  if (!activeAd) generateCopy();
+  applyEditableCopyToActiveAd();
+  const slots = getAdSlots();
+  const publishedAd = { ...activeAd, slotPublishedTo: String(slotNumber), savedAt: timestamp() };
+  slots[String(slotNumber)] = publishedAd;
+  saveJson(STORAGE_KEYS.ads, slots);
+  saveCampaign(publishedAd);
+  document.querySelector("#ad-status").textContent = `Published ${publishedAd.businessName} to Ad Slot ${slotNumber}.`;
+  refreshAdmin();
+}
+
+function applySlot() {
+  publishToSlot(document.querySelector("#slot-select").value);
+}
+
+function clearSlot() {
+  const slotNumber = document.querySelector("#slot-select").value;
+  const slots = getAdSlots();
+  delete slots[slotNumber];
+  saveJson(STORAGE_KEYS.ads, slots);
+  document.querySelector("#ad-status").textContent = `Cleared Ad Slot ${slotNumber}.`;
+  refreshAdmin();
+}
+
 function renderDashboard() {
   const settings = getSettings();
   const published = readJson(STORAGE_KEYS.published, null);
@@ -81,7 +311,8 @@ function renderDashboard() {
     const slotNumber = String(index + 1);
     const pill = document.createElement("span");
     pill.className = slots[slotNumber] ? "slot-pill is-filled" : "slot-pill";
-    pill.textContent = `Ad Slot ${slotNumber}: ${slots[slotNumber]?.businessName || "Open"}`;
+    const mode = slots[slotNumber]?.adMode === "image" ? "image" : "HTML";
+    pill.textContent = `Ad Slot ${slotNumber}: ${slots[slotNumber]?.businessName || "Open"}${slots[slotNumber] ? ` (${mode})` : ""}`;
     return pill;
   }));
 }
@@ -97,9 +328,33 @@ function renderPublishedSlotGrid() {
     if (ad && window.StallTalkGraphicAds) {
       card.append(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true, link: false }));
     } else {
-      card.innerHTML = `<span>Ad Slot ${slotNumber}</span><strong>Open inventory</strong><small>Generate an ad, choose this slot, and apply.</small>`;
+      card.innerHTML = `<span>Ad Slot ${slotNumber}</span><strong>Open inventory</strong><small>Generate an ad, choose this slot, and publish.</small>`;
     }
     return card;
+  }));
+}
+
+function renderCampaignHistory() {
+  const list = document.querySelector("#campaign-history");
+  if (!list) return;
+  const campaigns = getCampaignHistory();
+  if (!campaigns.length) {
+    list.innerHTML = "<p class=\"help-copy\">No saved campaigns yet. Generate or save a campaign to keep it here.</p>";
+    return;
+  }
+
+  list.replaceChildren(...campaigns.map((campaign) => {
+    const item = document.createElement("article");
+    item.className = "campaign-history-item";
+    const mode = campaign.adMode === "image" ? "Image ad" : "HTML fallback";
+    item.innerHTML = `
+      <div>
+        <strong>${safeText(campaign.businessName, "Untitled campaign")}</strong>
+        <span>${safeText(campaign.offer, "No offer")}</span>
+        <small>${mode} • ${safeText(campaign.adSize, "Banner")} • ${new Date(campaign.createdAt).toLocaleString()}${campaign.slotPublishedTo ? ` • Slot ${campaign.slotPublishedTo}` : ""}</small>
+      </div>
+    `;
+    return item;
   }));
 }
 
@@ -111,6 +366,7 @@ function refreshPreview() {
 function refreshAdmin() {
   renderDashboard();
   renderPublishedSlotGrid();
+  renderCampaignHistory();
   refreshPreview();
 }
 
@@ -129,7 +385,7 @@ function generateContent() {
     joke: "Why did the toilet paper avoid spoilers? It wanted every roll to have a fresh twist.",
     quote: "“A smart pause can turn a busy night into a better story.”",
     word: "Wayfinding — the art of finding your next best stop without wandering in circles.",
-    deal: `Ask a nearby sponsor about the ${settings.brand} reader perk before you leave ${settings.venue}.`,
+    deal: `Ask a nearby sponsor about a ${settings.brand} reader perk before you leave ${settings.venue}.`,
     event: `Tonight's move: find one photo-worthy sign, one shareable snack, and one comfortable meetup point near ${settings.venue}.`,
     trivia: `${settings.city} rewards short detours.\nThe best mobile articles are scannable at arm's length.\nSponsor slots work best when the offer is obvious in three seconds.`,
   };
@@ -159,67 +415,6 @@ function resetDemoContent() {
   refreshAdmin();
 }
 
-function collectAdValues() {
-  const formData = new FormData(document.querySelector("#ad-form"));
-  const businessName = String(formData.get("businessName") || "Potty Favor Sponsor").trim();
-  const offer = String(formData.get("offer") || "A reader-only local offer").trim();
-  const style = String(formData.get("style") || "Bold").trim();
-  const primaryColor = String(formData.get("primaryColor") || "#ff2d2d");
-  const accentColor = String(formData.get("accentColor") || "#7c2cff");
-
-  return {
-    adMode: "html",
-    businessName,
-    businessCategory: String(formData.get("businessCategory") || "Local Favorite").trim(),
-    offer,
-    couponCode: String(formData.get("couponCode") || businessName.replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase() + "10").trim(),
-    website: String(formData.get("website") || "").trim(),
-    targetAudience: String(formData.get("targetAudience") || "nearby readers").trim(),
-    style,
-    tone: style,
-    template: style === "Luxury" ? "luxury" : style === "Funny" ? "coupon" : "vegas",
-    adSize: "Banner 1792x1024",
-    primaryColor,
-    secondaryColor: "#ffd400",
-    accentColor,
-    headline: `${businessName}: ${offer}`,
-    subheadline: `A ${style.toLowerCase()} offer built for ${String(formData.get("targetAudience") || "nearby readers").trim()}.`,
-    ctaButtonText: "Claim This Deal",
-    generatedAt: timestamp(),
-  };
-}
-
-function renderAdPreview(ad) {
-  const preview = document.querySelector("#ad-preview");
-  preview.replaceChildren(window.StallTalkGraphicAds.build(ad, { link: false }));
-}
-
-function generateAd() {
-  activeAd = collectAdValues();
-  renderAdPreview(activeAd);
-  document.querySelector("#ad-status").textContent = "Generated graphic ad preview. Choose a slot and apply.";
-}
-
-function applySlot() {
-  if (!activeAd) generateAd();
-  const slotNumber = document.querySelector("#slot-select").value;
-  const slots = getAdSlots();
-  slots[slotNumber] = { ...activeAd, savedAt: timestamp() };
-  saveJson(STORAGE_KEYS.ads, slots);
-  // Future backend/database publishing will upsert this ad creative into a paid slot table.
-  document.querySelector("#ad-status").textContent = `Applied ${activeAd.businessName} to Ad Slot ${slotNumber}.`;
-  refreshAdmin();
-}
-
-function clearSlot() {
-  const slotNumber = document.querySelector("#slot-select").value;
-  const slots = getAdSlots();
-  delete slots[slotNumber];
-  saveJson(STORAGE_KEYS.ads, slots);
-  document.querySelector("#ad-status").textContent = `Cleared Ad Slot ${slotNumber}.`;
-  refreshAdmin();
-}
-
 function loadSettingsForm() {
   const settings = getSettings();
   const form = document.querySelector("#settings-form");
@@ -243,7 +438,7 @@ function saveSettings() {
 function init() {
   setContentValues(readJson(STORAGE_KEYS.draft, readJson(STORAGE_KEYS.published, DEMO_CONTENT)));
   loadSettingsForm();
-  generateAd();
+  generateCopy();
   refreshAdmin();
 
   document.querySelectorAll(".tab-button").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.tab)));
@@ -253,10 +448,20 @@ function init() {
   document.querySelector("#publish-content").addEventListener("click", publishContent);
   document.querySelector("#dashboard-publish").addEventListener("click", publishContent);
   document.querySelector("#reset-demo").addEventListener("click", resetDemoContent);
-  document.querySelector("#generate-ad").addEventListener("click", generateAd);
+  document.querySelector("#generate-copy").addEventListener("click", generateCopy);
+  document.querySelector("#generate-ad").addEventListener("click", generateGraphicAd);
+  document.querySelector("#regenerate-ad").addEventListener("click", generateGraphicAd);
+  document.querySelector("#save-campaign").addEventListener("click", () => saveCampaign(activeAd));
   document.querySelector("#apply-slot").addEventListener("click", applySlot);
   document.querySelector("#clear-slot").addEventListener("click", clearSlot);
   document.querySelector("#save-settings").addEventListener("click", saveSettings);
+  document.querySelectorAll("[data-publish-slot]").forEach((button) => button.addEventListener("click", () => publishToSlot(button.dataset.publishSlot)));
+  document.querySelectorAll("#preview-headline, #preview-subheadline, #preview-cta, #preview-coupon").forEach((field) => {
+    field.addEventListener("input", () => {
+      applyEditableCopyToActiveAd();
+      if (activeAd) renderAdPreview(activeAd);
+    });
+  });
 }
 
 init();
