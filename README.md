@@ -119,3 +119,70 @@ Set these environment variables before connecting live billing:
 - `STRIPE_PRICE_RESTROOM`
 
 The database includes subscription and coupon campaign tables so live Stripe checkout/webhook routes can be added without changing the core data model.
+
+## AI Creative Studio and Vercel Image Generation
+
+The static `admin/` dashboard remains GitHub Pages compatible for issue editing, copy generation, HTML/CSS fallback ad previews, local campaign history, and local ad-slot publishing. Real AI image generation is handled by the Vercel serverless endpoint at `/api/generate-ad-image` so the browser never receives an OpenAI secret.
+
+### Required Environment Variable
+
+Set this variable in Vercel before using real image generation:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+Optional server-side tuning variables:
+
+- `OPENAI_IMAGE_MODEL` — defaults to `dall-e-3`.
+- `OPENAI_IMAGE_QUALITY` — defaults to `standard` for DALL·E and `auto` for `gpt-image-*` models.
+- `OPENAI_IMAGE_OUTPUT_FORMAT` — defaults to `png` for `gpt-image-*` models.
+- `OPENAI_IMAGE_RESPONSE_FORMAT` — defaults to `b64_json` for DALL·E models.
+- `ALLOWED_ORIGIN` — comma-separated CORS origins, or `*` for demos.
+
+### Deploy to Vercel
+
+1. Push this repository to GitHub.
+2. Import the repository in Vercel.
+3. Add `OPENAI_API_KEY` in **Project Settings → Environment Variables** for Production, Preview, and Development as needed.
+4. Deploy the project.
+5. Open `/admin/` on the Vercel deployment and use **Ad Studio → AI Creative Studio → Generate Graphic Ad**.
+
+If you host the static pages on GitHub Pages but the API on Vercel, set `admin/config.js` to point to the deployed Vercel function:
+
+```js
+window.STALLTALK_AD_IMAGE_ENDPOINT = "https://your-vercel-app.vercel.app/api/generate-ad-image";
+```
+
+### Test `/api/generate-ad-image`
+
+With a deployed Vercel app or local Vercel dev server, send a POST request:
+
+```bash
+curl -X POST "https://your-vercel-app.vercel.app/api/generate-ad-image" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "businessName": "Nacho Average",
+    "offer": "Half-price loaded fries after 9 PM",
+    "audience": "concert crowds and casino guests",
+    "tone": "Bold",
+    "adSize": "Banner",
+    "brandColors": "#ff2d2d, #ffd400, #7c2cff",
+    "website": "https://nacho.example.com",
+    "phone": "702-555-0199",
+    "couponCode": "NACHO50",
+    "visualStyle": "Neon Vegas poster",
+    "optionalLogoUrl": ""
+  }'
+```
+
+A successful response includes `imageUrl` or `imageBase64`, `promptUsed`, `headline`, `subheadline`, `ctaText`, `couponCode`, and `disclaimer`. If `OPENAI_API_KEY` is missing or the OpenAI request fails, the admin UI shows a clear error and keeps working with the HTML/CSS fallback preview.
+
+### Why GitHub Pages Cannot Call OpenAI Directly
+
+GitHub Pages serves only static frontend files. Any OpenAI API key placed in frontend JavaScript would be downloadable by every visitor, allowing unauthorized use of the account. The secure pattern is to keep `OPENAI_API_KEY` in a server-side environment variable and let a backend function, such as Vercel `/api/generate-ad-image`, call OpenAI on behalf of the admin UI.
+
+### Local Storage Used by the Creative Studio
+
+- `stalltalk_campaign_history` stores generated campaign history, including business name, offer, ad size, generated image data, prompt, creation time, and optional published slot.
+- `stalltalk_ad_slots` stores published slot creative. Image-mode ads are saved with `adMode: "image"` and render on the homepage through `graphic-ad.js`.
