@@ -119,3 +119,115 @@ Set these environment variables before connecting live billing:
 - `STRIPE_PRICE_RESTROOM`
 
 The database includes subscription and coupon campaign tables so live Stripe checkout/webhook routes can be added without changing the core data model.
+
+## AI Creative Studio + OpenAI Image Generation
+
+The AI Creative Studio lives at `/admin/ads/new` and replaces manual ad creation with a guided campaign builder:
+
+1. **Business** — business name, category, website, phone, and logo upload context.
+2. **Offer** — offer, coupon code, CTA button text, and expiration date.
+3. **Audience** — tourists, locals, casino guests, sports fans, concert goers, convention attendees, or a custom audience.
+4. **Creative Direction** — tone, visual style, and brand colors.
+5. **Generate Campaign** — creates Banner, Square, Tall, and Footer creative previews from one campaign brief.
+
+The Vercel/Next.js API route is:
+
+```text
+POST /api/generate-ad-image
+```
+
+Input:
+
+```json
+{
+  "businessName": "BrewDog Las Vegas",
+  "category": "Restaurant / Bar",
+  "offer": "15% OFF",
+  "audience": "Tourists",
+  "tone": "Funny",
+  "visualStyle": "Vegas Neon",
+  "website": "https://example.com",
+  "phone": "702-555-0100",
+  "couponCode": "BREW15",
+  "brandColors": "#ff2d55, #ffd400, #5b2cff",
+  "adSize": "Banner"
+}
+```
+
+Output:
+
+```json
+{
+  "imageUrl": "data:image/png;base64,...",
+  "promptUsed": "Create a finished professional marketing graphic...",
+  "headline": "15% OFF",
+  "subheadline": "BrewDog Las Vegas for Tourists",
+  "ctaText": "Claim Offer",
+  "couponCode": "BREW15"
+}
+```
+
+If `OPENAI_API_KEY` is not configured, the route returns a safe fallback response with an HTML/SVG mock advertisement, a visible `error` message, `fallback: true`, and the same preview fields so the UI does not crash.
+
+## Vercel Deployment
+
+1. Create a PostgreSQL database and set `DATABASE_URL` in Vercel.
+2. Set `OPENAI_API_KEY` in **Vercel Project Settings → Environment Variables**.
+3. Optional image settings:
+   - `OPENAI_IMAGE_MODEL` defaults to `gpt-image-1.5`.
+   - `OPENAI_IMAGE_QUALITY` defaults to `medium`.
+4. Keep the existing Stripe variables if billing is enabled.
+5. Deploy, then run Prisma migrations against production:
+
+```bash
+npx prisma migrate deploy
+```
+
+## Local AI Development
+
+```bash
+npm install
+cp .env.example .env
+npm run db:up
+npx prisma migrate dev
+npx prisma db seed
+npm run dev
+```
+
+Add a real key to `.env`:
+
+```bash
+OPENAI_API_KEY="sk-proj_..."
+```
+
+Test image generation locally:
+
+```bash
+curl -X POST http://localhost:3000/api/generate-ad-image \
+  -H 'Content-Type: application/json' \
+  -d '{"businessName":"BrewDog Las Vegas","category":"Restaurant","offer":"15% OFF","audience":"Tourists","tone":"Funny","visualStyle":"Vegas Neon","couponCode":"BREW15","brandColors":"#ff2d55,#ffd400,#5b2cff","adSize":"Square"}'
+```
+
+## AI Creative Publishing Data
+
+- `stalltalk_campaign_history` stores each generated campaign id, business, image, prompt, created date, and published slot.
+- `stalltalk_ad_slots` stores Slot 1 through Slot 8 creative assignments for homepage rendering.
+- Existing `Ad` and issue slot records remain compatible, so published AI ads still appear in Potty Favor issue pages and older localStorage history under `stalltalk-ad-studio-history` continues to load.
+
+## Testing AI Ads
+
+Before opening a PR or deploying, verify:
+
+```bash
+npm run check:phase2
+npx prisma validate
+npm run build
+```
+
+Manual checks:
+
+- Generate a campaign at `/admin/ads/new` with and without `OPENAI_API_KEY`.
+- Confirm all four sizes render in preview mode.
+- Publish a generated creative to Slot 1–8.
+- Confirm the homepage loads the generated slot artwork.
+- Confirm the public issue page renders image ads, HTML fallback ads, and responsive mobile/desktop ad layouts.
