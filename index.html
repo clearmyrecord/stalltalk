@@ -3,174 +3,116 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Potty Favor by Stall Talk is a mobile-first restroom publication with readable local content and eight always-visible premium sponsor placements."
-    />
-    <title>Potty Favor by Stall Talk</title>
+    <meta name="description" content="Potty Favor / Stall Talk is a one-page monthly restroom publication with venue QR routing and targeted ad placements." />
+    <title>Potty Favor / Stall Talk</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body class="public-issue-page public-issue-redesign">
-    <header class="pf-masthead issue-masthead" aria-label="Publication masthead">
-      <nav class="pf-topbar issue-topbar" aria-label="Issue links">
-        <a class="pf-admin-link" href="admin/">Publisher Dashboard</a>
-      </nav>
-      <div class="pf-brand-lockup issue-brand-lockup">
-        <p class="eyebrow" data-issue-field="brand">Potty Favor</p>
-        <h1 data-brand-title>Potty Favor <span>/ Stall Talk</span></h1>
-        <dl class="issue-identity" aria-label="Issue identity">
-          <div>
-            <dt>Edition</dt>
-            <dd data-issue-field="venue">Standard monthly issue</dd>
-          </div>
-          <div>
-            <dt>Market</dt>
-            <dd data-issue-field="city">National Edition</dd>
-          </div>
-          <div>
-            <dt>Issue</dt>
-            <dd><span data-issue-field="monthYear">June 2026</span> · No. <span data-issue-field="issueNumber">001</span></dd>
-          </div>
-        </dl>
-        <p class="pf-tagline">Scan. Read. Save.</p>
-      </div>
-    </header>
-
-    <aside class="mobile-ad-strip mobile-ad-strip-top" aria-label="Sticky sponsor strip ad slots 1 through 4">
-      <p>Top sponsors</p>
-      <div class="mobile-ad-scroll">
-        <article class="pf-ad-card sponsor-chip ad-gradient-1" data-ad="1"><span class="ad-label">Ad Slot 1</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-1">Learn more</a></article>
-        <article class="pf-ad-card sponsor-chip ad-gradient-2" data-ad="2"><span class="ad-label">Ad Slot 2</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-2">Learn more</a></article>
-        <article class="pf-ad-card sponsor-chip ad-gradient-3" data-ad="3"><span class="ad-label">Ad Slot 3</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-3">Learn more</a></article>
-        <article class="pf-ad-card sponsor-chip ad-gradient-4" data-ad="4"><span class="ad-label">Ad Slot 4</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-4">Learn more</a></article>
+  <body class="public-page">
+    <aside class="mobile-ad-strip mobile-top" aria-label="Sticky top ad strip slots 1 through 4">
+      <div class="strip-label">Sponsors 1–4</div>
+      <div class="strip-ads">
+        <article class="ad-card ad-mini" data-ad-slot="1"></article>
+        <article class="ad-card ad-mini" data-ad-slot="2"></article>
+        <article class="ad-card ad-mini" data-ad-slot="3"></article>
+        <article class="ad-card ad-mini" data-ad-slot="4"></article>
       </div>
     </aside>
 
-    <main class="issue-layout issue-three-column">
-      <aside class="ad-rail issue-ad-rail issue-ad-rail-left" aria-label="Sticky left sponsor rail ad slots 1 through 4">
-        <article class="pf-ad-card rail-ad ad-gradient-1" data-ad="1"><span class="ad-label">Ad Slot 1</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-1">Learn more</a></article>
-        <article class="pf-ad-card rail-ad ad-gradient-2" data-ad="2"><span class="ad-label">Ad Slot 2</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-2">Learn more</a></article>
-        <article class="pf-ad-card rail-ad ad-gradient-3" data-ad="3"><span class="ad-label">Ad Slot 3</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-3">Learn more</a></article>
-        <article class="pf-ad-card rail-ad ad-gradient-4" data-ad="4"><span class="ad-label">Ad Slot 4</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-4">Learn more</a></article>
+    <main class="site-shell">
+      <aside class="ad-rail left-rail" aria-label="Sticky left ad rail slots 1 through 4">
+        <article class="ad-card" data-ad-slot="1"></article>
+        <article class="ad-card" data-ad-slot="2"></article>
+        <article class="ad-card" data-ad-slot="3"></article>
+        <article class="ad-card" data-ad-slot="4"></article>
       </aside>
 
-      <section class="issue-content-column" aria-label="Potty Favor issue articles">
-        <section class="pf-hero-card issue-featured-intro" aria-label="Issue introduction">
-          <p class="kicker">Monthly restroom publication · clean quick reads · targeted savings</p>
-          <h2 data-content="heroTitle">Your quick city guide while you take five.</h2>
-          <p data-content="intro">
-            Fresh local bites, quick laughs, useful venue tips, and sponsor offers that are easy to tap without interrupting the read.
-          </p>
+      <article class="publication" aria-label="Potty Favor monthly issue">
+        <header class="masthead">
+          <div class="space-dot dot-one"></div>
+          <div class="space-dot dot-two"></div>
+          <p class="issue-kicker" data-field="issueMonthYear">June 2026</p>
+          <h1><span data-field="mastheadBrand">Potty Favor</span><small>/ Stall Talk</small></h1>
+          <p class="scan-line">One standard monthly issue · venue QR edition: <strong data-venue-label>General Scan</strong></p>
+          <a class="admin-link" href="admin/">Admin</a>
+        </header>
+
+        <section class="print-grid">
+          <aside class="scan-card panel">
+            <div class="qr-box" aria-label="QR code preview"><canvas id="qr-canvas" width="148" height="148"></canvas></div>
+            <p class="qr-caption">Scan me for this venue's offers.</p>
+            <p class="venue-meta"><span data-venue-name>Standard Venue</span><br /><span data-venue-market>National</span></p>
+          </aside>
+
+          <section class="mission-card panel starburst">
+            <h2>Our Mission...</h2>
+            <p data-field="missionText">To inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall.</p>
+          </section>
+
+          <section class="humor-card panel wide">
+            <p class="laughs">HA HA HA</p>
+            <h2 data-field="humorTitle">Hilariously Funny</h2>
+            <p data-field="humorBody">In 2002, after much research, British scientists identified what they called the funniest joke in the world. A little restroom reading can still make a long line feel shorter.</p>
+          </section>
+
+          <section class="feature-card panel double">
+            <h2 data-field="mainFeatureTitle">How It All Started</h2>
+            <div class="article-copy" data-field="mainFeatureBody"></div>
+          </section>
+
+          <section class="quotes-card panel">
+            <h2>Inspirational <strong>Quotes</strong></h2>
+            <ul data-list="quotes"></ul>
+          </section>
+
+          <section class="secondary-card panel double">
+            <h2 data-field="secondaryFeatureTitle">The History of Box Chairs</h2>
+            <div class="article-copy" data-field="secondaryFeatureBody"></div>
+          </section>
+
+          <section class="did-card panel">
+            <h2>Did you know?</h2>
+            <ol data-list="didYouKnow"></ol>
+          </section>
+
+          <section class="word-card panel">
+            <h2>Word-of-the-Day</h2>
+            <strong data-field="wordOfTheDay">transmute</strong>
+            <p data-field="wordDefinition">to change from one nature or form into another.</p>
+          </section>
+
+          <section class="noway-card panel">
+            <h2>No Way!</h2>
+            <ul data-list="noWay"></ul>
+          </section>
+
+          <section class="calendar-card panel double">
+            <h2>Calendar / Event Spotlight</h2>
+            <div class="calendar-grid" aria-hidden="true"></div>
+            <p data-field="calendarText">Outdoor Events Association: register your event free and keep the month moving.</p>
+          </section>
         </section>
 
-        <section class="pf-articles issue-article-grid" aria-label="Expandable articles">
-          <details class="story-card pf-story featured-story" open>
-            <summary>
-              <span>Featured Article</span>
-              <h3 data-content="featuredTitle">The Two-Minute Guide to Winning the Line</h3>
-              <em class="summary-action">Tap to collapse</em>
-            </summary>
-            <p data-content="article">
-              Keep your crew moving: pick a meeting spot, screenshot your tickets, hydrate before the encore, and never trust a casino hallway that says the exit is only one more turn away.
-            </p>
-          </details>
+        <footer class="publication-footer">© <span data-year></span> Potty Favor / Stall Talk. Same monthly issue. Smarter venue ads.</footer>
+      </article>
 
-          <details class="story-card pf-story">
-            <summary>
-              <span>Humor / Stall-Sized Laugh</span>
-              <h3>Quick Laugh</h3>
-              <em class="summary-action">Tap to expand</em>
-            </summary>
-            <p data-content="joke">Why did the toilet paper avoid spoilers? It wanted every roll to have a fresh twist.</p>
-          </details>
-
-          <details class="story-card pf-story">
-            <summary>
-              <span>Did You Know / Fast Facts</span>
-              <h3>Fast Facts</h3>
-              <em class="summary-action">Tap to expand</em>
-            </summary>
-            <ol data-content="trivia">
-              <li>Las Vegas has more hotel rooms than many entire cities.</li>
-              <li>Neon signs glow through electrified gas in glass tubes.</li>
-              <li>A good restroom publication should be readable in under two minutes.</li>
-            </ol>
-          </details>
-
-          <details class="story-card pf-story">
-            <summary>
-              <span>Word of the Day</span>
-              <h3>Lexicon Upgrade</h3>
-              <em class="summary-action">Tap to expand</em>
-            </summary>
-            <p data-content="word"><strong>Serendipity</strong> — finding something good while looking for something else.</p>
-          </details>
-
-          <details class="story-card pf-story">
-            <summary>
-              <span>Inspirational Quote</span>
-              <h3>Pause With Purpose</h3>
-              <em class="summary-action">Tap to expand</em>
-            </summary>
-            <p data-content="quote">“Make the most of the pause; even a quick stop can point you toward the next good thing.”</p>
-          </details>
-
-          <details class="story-card pf-story">
-            <summary>
-              <span>Local Deal</span>
-              <h3>Nearby Offer</h3>
-              <em class="summary-action">Tap to expand</em>
-            </summary>
-            <p data-content="deal">Show this issue at a participating local spot for a surprise restroom-reader perk.</p>
-          </details>
-
-          <details class="story-card pf-story">
-            <summary>
-              <span>Event Spotlight</span>
-              <h3>Tonight's Detour</h3>
-              <em class="summary-action">Tap to expand</em>
-            </summary>
-            <p data-content="event">Look for a pop-up performance, late-night menu, or photo-worthy stop near the venue before heading home.</p>
-          </details>
-        </section>
-
-        <section id="sponsor-wall" class="sponsor-wall pf-sponsor-wall issue-sponsor-summary" aria-label="Sponsor directory with all eight ad slots">
-          <div class="section-heading">
-            <p>Secondary sponsor wall</p>
-            <h2>Sponsor Directory</h2>
-          </div>
-          <div class="sponsor-grid pf-published-grid">
-            <article id="ad-1" class="mini-ad ad-gradient-1" data-mini-ad="1"><span>Ad Slot 1</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-2" class="mini-ad ad-gradient-2" data-mini-ad="2"><span>Ad Slot 2</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-3" class="mini-ad ad-gradient-3" data-mini-ad="3"><span>Ad Slot 3</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-4" class="mini-ad ad-gradient-4" data-mini-ad="4"><span>Ad Slot 4</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-5" class="mini-ad ad-gradient-5" data-mini-ad="5"><span>Ad Slot 5</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-6" class="mini-ad ad-gradient-6" data-mini-ad="6"><span>Ad Slot 6</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-7" class="mini-ad ad-gradient-7" data-mini-ad="7"><span>Ad Slot 7</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-            <article id="ad-8" class="mini-ad ad-gradient-8" data-mini-ad="8"><span>Ad Slot 8</span><strong>Premium Sponsor</strong><small>Available now</small></article>
-          </div>
-        </section>
-      </section>
-
-      <aside class="ad-rail issue-ad-rail issue-ad-rail-right" aria-label="Sticky right sponsor rail ad slots 5 through 8">
-        <article class="pf-ad-card rail-ad ad-gradient-5" data-ad="5"><span class="ad-label">Ad Slot 5</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-5">Learn more</a></article>
-        <article class="pf-ad-card rail-ad ad-gradient-6" data-ad="6"><span class="ad-label">Ad Slot 6</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-6">Learn more</a></article>
-        <article class="pf-ad-card rail-ad ad-gradient-7" data-ad="7"><span class="ad-label">Ad Slot 7</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-7">Learn more</a></article>
-        <article class="pf-ad-card rail-ad ad-gradient-8" data-ad="8"><span class="ad-label">Ad Slot 8</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-8">Learn more</a></article>
+      <aside class="ad-rail right-rail" aria-label="Sticky right ad rail slots 5 through 8">
+        <article class="ad-card" data-ad-slot="5"></article>
+        <article class="ad-card" data-ad-slot="6"></article>
+        <article class="ad-card" data-ad-slot="7"></article>
+        <article class="ad-card" data-ad-slot="8"></article>
       </aside>
     </main>
 
-    <aside class="mobile-ad-strip mobile-ad-strip-bottom" aria-label="Sticky sponsor strip ad slots 5 through 8">
-      <p>More sponsors</p>
-      <div class="mobile-ad-scroll">
-        <article class="pf-ad-card sponsor-chip ad-gradient-5" data-ad="5"><span class="ad-label">Ad Slot 5</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-5">Learn more</a></article>
-        <article class="pf-ad-card sponsor-chip ad-gradient-6" data-ad="6"><span class="ad-label">Ad Slot 6</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-6">Learn more</a></article>
-        <article class="pf-ad-card sponsor-chip ad-gradient-7" data-ad="7"><span class="ad-label">Ad Slot 7</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-7">Learn more</a></article>
-        <article class="pf-ad-card sponsor-chip ad-gradient-8" data-ad="8"><span class="ad-label">Ad Slot 8</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-8">Learn more</a></article>
+    <aside class="mobile-ad-strip mobile-bottom" aria-label="Sticky bottom ad strip slots 5 through 8">
+      <div class="strip-label">Sponsors 5–8</div>
+      <div class="strip-ads">
+        <article class="ad-card ad-mini" data-ad-slot="5"></article>
+        <article class="ad-card ad-mini" data-ad-slot="6"></article>
+        <article class="ad-card ad-mini" data-ad-slot="7"></article>
+        <article class="ad-card ad-mini" data-ad-slot="8"></article>
       </div>
     </aside>
 
-    <script src="graphic-ad.js" defer></script>
-    <script src="script.js" defer></script>
+    <script src="script.js"></script>
   </body>
 </html>
