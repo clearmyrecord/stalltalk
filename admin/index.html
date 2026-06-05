@@ -3,361 +3,121 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="A clean Stall Talk and Potty Favor publishing dashboard for content, ads, live preview, and issue settings."
-    />
-    <title>Potty Favor Publisher Dashboard</title>
+    <title>Potty Favor Admin</title>
     <link rel="stylesheet" href="../style.css" />
   </head>
-  <body class="admin-page publisher-dashboard-page">
-    <header class="admin-shell-header">
-      <div>
-        <p class="eyebrow">Stall Talk Publisher</p>
-        <h1>Potty Favor Dashboard</h1>
-        <p class="issue-meta">Simple local publishing today. Backend/database publishing hooks are marked in code for later.</p>
-      </div>
-      <a class="primary-button secondary-button" href="../index.html">View Public Issue</a>
-    </header>
+  <body class="admin-page">
+    <main class="admin-shell">
+      <header class="admin-hero">
+        <h1>Potty Favor Admin</h1>
+        <p>Simple Phase 1 control room for one standard monthly issue, venue QR links, and eight targeted ad slots. Everything saves to localStorage and works on GitHub Pages.</p>
+        <p><a class="button-link" href="../index.html">Open Public Issue</a></p>
+      </header>
 
-    <main class="publisher-shell">
-      <nav class="publisher-tabs" aria-label="Publisher sections">
-        <button class="tab-button is-active" type="button" data-tab="dashboard">Dashboard</button>
-        <button class="tab-button" type="button" data-tab="venues">Venues</button>
-        <button class="tab-button" type="button" data-tab="qr">QR Network</button>
-        <button class="tab-button" type="button" data-tab="issues">Issues</button>
-        <button class="tab-button" type="button" data-tab="inventory">Ad Inventory</button>
-        <button class="tab-button" type="button" data-tab="advertisers">Advertisers</button>
-        <button class="tab-button" type="button" data-tab="campaigns">Campaigns</button>
-        <button class="tab-button" type="button" data-tab="analytics">Analytics</button>
-        <button class="tab-button" type="button" data-tab="revenue">Revenue</button>
-        <button class="tab-button" type="button" data-tab="distributors">Distributors</button>
-        <button class="tab-button" type="button" data-tab="data">Data</button>
-        <button class="tab-button" type="button" data-tab="content">Content Studio</button>
-        <button class="tab-button" type="button" data-tab="ads">AI Creative Studio</button>
-        <button class="tab-button" type="button" data-tab="preview">Preview</button>
-        <button class="tab-button" type="button" data-tab="settings">Settings</button>
+      <nav class="tab-nav" aria-label="Admin tabs">
+        <button class="active" data-tab="content">Content</button>
+        <button data-tab="venues">Venues / QR Codes</button>
+        <button data-tab="ads">Ads</button>
+        <button data-tab="preview">Preview</button>
+        <button data-tab="settings">Settings</button>
+        <button data-tab="import">Import / Export</button>
       </nav>
 
-      <section id="dashboard" class="tab-panel is-active" aria-labelledby="dashboard-tab">
-        <div class="dashboard-grid">
-          <article class="admin-card status-card">
-            <span>Current Issue</span>
-            <h2 id="dashboard-issue-title">Potty Favor #001</h2>
-            <p id="dashboard-issue-meta">Las Vegas, NV • MGM Grand • June 2026</p>
-          </article>
-          <article class="admin-card status-card">
-            <span>Published Status</span>
-            <h2 id="dashboard-published-status">Demo content loaded</h2>
-            <p id="dashboard-last-saved">Last saved: Not yet saved</p>
-          </article>
-          <article class="admin-card status-card status-card-wide">
-            <span>8 Ad Slot Status</span>
-            <div id="dashboard-slot-status" class="slot-status-grid"></div>
-          </article>
-        </div>
-        <div class="quick-actions admin-card">
-          <button class="primary-button" type="button" data-go-tab="content">Edit Content</button>
-          <button class="primary-button" type="button" data-go-tab="ads">Manage Ads</button>
-          <button class="primary-button secondary-button" type="button" data-go-tab="preview">Open Preview</button>
-          <button id="dashboard-publish" class="primary-button success-button" type="button">Publish Draft</button>
-        </div>
-      </section>
-
-      <section id="content" class="tab-panel" aria-labelledby="content-tab">
-        <form id="content-form" class="admin-card studio-form">
-          <div class="section-heading compact-heading">
-            <p>Content Studio</p>
-            <h2>Issue copy</h2>
-          </div>
-          <label>Hero title <input name="heroTitle" type="text" /></label>
-          <label>Intro <textarea name="intro" rows="3"></textarea></label>
-          <label>Featured title <input name="featuredTitle" type="text" /></label>
-          <label>Featured article <textarea name="article" rows="6"></textarea></label>
-          <div class="two-column-form">
-            <label>Joke <textarea name="joke" rows="4"></textarea></label>
-            <label>Quote <textarea name="quote" rows="4"></textarea></label>
-            <label>Word of the day <textarea name="word" rows="4"></textarea></label>
-            <label>Local deal <textarea name="deal" rows="4"></textarea></label>
-            <label>Event spotlight <textarea name="event" rows="4"></textarea></label>
-            <label>Trivia facts <textarea name="trivia" rows="6"></textarea></label>
-          </div>
-          <div class="button-row">
-            <button id="ai-generate-content" class="primary-button" type="button">AI Generate Content</button>
-            <button id="save-draft" class="primary-button secondary-button" type="button">Save Draft</button>
-            <button id="publish-content" class="primary-button success-button" type="button">Publish</button>
-            <button id="reset-demo" class="text-button" type="button">Reset Demo Content</button>
-          </div>
-          <p id="content-status" class="form-status" aria-live="polite"></p>
+      <section class="admin-panel active" id="tab-content">
+        <h2>One Standard Monthly Issue</h2>
+        <p>Edit the single issue every venue sees. Venue QR URLs change ads only, not the publication content.</p>
+        <form id="content-form" class="form-grid">
+          <label>Issue month/year<input name="issueMonthYear" /></label>
+          <label>Masthead brand<input name="mastheadBrand" /></label>
+          <label class="full">Mission text<textarea name="missionText"></textarea></label>
+          <label>Humor title<input name="humorTitle" /></label>
+          <label class="full">Humor body<textarea name="humorBody"></textarea></label>
+          <label>Main feature title<input name="mainFeatureTitle" /></label>
+          <label class="full">Main feature body<textarea name="mainFeatureBody"></textarea></label>
+          <label>Secondary feature title<input name="secondaryFeatureTitle" /></label>
+          <label class="full">Secondary feature body<textarea name="secondaryFeatureBody"></textarea></label>
+          <label>Word of the day<input name="wordOfTheDay" /></label>
+          <label>Word definition<input name="wordDefinition" /></label>
+          <label class="full">Quote list<textarea name="quotes" placeholder="One quote per line"></textarea></label>
+          <label class="full">Did You Know facts<textarea name="didYouKnow" placeholder="One fact per line"></textarea></label>
+          <label class="full">No Way facts<textarea name="noWay" placeholder="One fact per line"></textarea></label>
+          <label class="full">Calendar/event text<textarea name="calendarText"></textarea></label>
         </form>
-      </section>
-
-      <section id="ads" class="tab-panel" aria-labelledby="ads-tab">
-        <div class="ad-studio-grid creative-studio-grid">
-          <form id="ad-form" class="admin-card studio-form creative-form">
-            <div class="section-heading compact-heading">
-              <p>AI Creative Studio</p>
-              <h2>Finished graphic ad workflow</h2>
-            </div>
-
-            <fieldset class="studio-step">
-              <legend><span>Step 1</span> Business</legend>
-              <div class="two-column-form">
-                <label>Business name <input name="businessName" type="text" placeholder="Nacho Average" /></label>
-                <label>Category <input name="businessCategory" type="text" placeholder="Late-night restaurant" /></label>
-                <label>Website <input name="website" type="url" placeholder="https://nacho.example.com" /></label>
-                <label>Phone <input name="phone" type="tel" placeholder="702-555-0199" /></label>
-              </div>
-            </fieldset>
-
-            <fieldset class="studio-step">
-              <legend><span>Step 2</span> Offer</legend>
-              <label>Offer <input name="offer" type="text" placeholder="Half-price loaded fries after 9 PM" /></label>
-              <div class="three-column-form">
-                <label>Coupon code <input name="couponCode" type="text" placeholder="NACHO50" /></label>
-                <label>Expiration <input name="expiration" type="text" placeholder="Ends this Sunday" /></label>
-                <label>CTA <input name="cta" type="text" placeholder="Claim This Deal" /></label>
-              </div>
-            </fieldset>
-
-            <fieldset class="studio-step">
-              <legend><span>Step 3</span> Creative Direction</legend>
-              <label>Audience <input name="audience" type="text" placeholder="Concert crowds and casino guests" /></label>
-              <div class="two-column-form">
-                <label>Tone
-                  <select name="tone">
-                    <option>Funny</option>
-                    <option selected>Bold</option>
-                    <option>Luxury</option>
-                    <option>Local</option>
-                    <option>Clean and premium</option>
-                  </select>
-                </label>
-                <label>Visual style
-                  <select name="visualStyle">
-                    <option selected>Polished modern editorial</option>
-                    <option>Neon Vegas poster</option>
-                    <option>Luxury magazine spread</option>
-                    <option>Playful illustrated coupon</option>
-                    <option>Bold product photography</option>
-                  </select>
-                </label>
-                <label>Brand colors <input name="brandColors" type="text" placeholder="#ff2d2d, #ffd400, #7c2cff" /></label>
-                <label>Optional logo URL <input name="optionalLogoUrl" type="url" placeholder="https://example.com/logo.png" /></label>
-              </div>
-              <label>Ad size
-                <select name="adSize">
-                  <option selected>Banner</option>
-                  <option>Square</option>
-                  <option>Tall</option>
-                  <option>Footer</option>
-                </select>
-              </label>
-            </fieldset>
-
-            <fieldset class="studio-step ai-endpoint-step">
-              <legend><span>Step 4</span> Generate</legend>
-              <div id="ai-endpoint-status" class="ai-endpoint-status" aria-live="polite">
-                <strong>AI Image Endpoint: Not Connected</strong>
-                <span>Not configured</span>
-              </div>
-              <div class="button-row">
-                <button id="generate-copy" class="primary-button secondary-button" type="button">Generate Copy</button>
-                <button id="generate-ad" class="primary-button" type="button">Generate Graphic Ad</button>
-                <button id="regenerate-ad" class="primary-button secondary-button" type="button">Regenerate</button>
-                <button id="save-campaign" class="primary-button success-button" type="button">Save Campaign</button>
-                <button id="test-ai-endpoint" class="primary-button secondary-button" type="button">Test Endpoint</button>
-              </div>
-              <p id="ai-endpoint-help" class="help-copy">Graphic generation calls the configured Vercel API only; no OpenAI API key is ever exposed in browser JavaScript.</p>
-            </fieldset>
-          </form>
-
-          <section class="admin-card ad-preview-panel" aria-label="Generated ad preview and publishing controls">
-            <div class="section-heading compact-heading">
-              <p>Generated Ad Preview</p>
-              <h2>Finished creative</h2>
-            </div>
-            <div id="ad-preview" class="graphic-preview-stage"></div>
-            <div id="prompt-used" class="prompt-used" hidden></div>
-            <div class="editable-copy-grid">
-              <label>Headline <input id="preview-headline" type="text" /></label>
-              <label>Subheadline <textarea id="preview-subheadline" rows="3"></textarea></label>
-              <label>CTA <input id="preview-cta" type="text" /></label>
-              <label>Coupon <input id="preview-coupon" type="text" /></label>
-            </div>
-            <div class="publish-grid" aria-label="Publish generated ad to slot">
-              <button type="button" class="primary-button success-button" data-publish-slot="1">Publish to Slot 1</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="2">Publish to Slot 2</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="3">Publish to Slot 3</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="4">Publish to Slot 4</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="5">Publish to Slot 5</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="6">Publish to Slot 6</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="7">Publish to Slot 7</button>
-              <button type="button" class="primary-button success-button" data-publish-slot="8">Publish to Slot 8</button>
-            </div>
-            <div class="slot-apply-row">
-              <label>Manage Slot
-                <select id="slot-select">
-                  <option value="1">Ad Slot 1</option>
-                  <option value="2">Ad Slot 2</option>
-                  <option value="3">Ad Slot 3</option>
-                  <option value="4">Ad Slot 4</option>
-                  <option value="5">Ad Slot 5</option>
-                  <option value="6">Ad Slot 6</option>
-                  <option value="7">Ad Slot 7</option>
-                  <option value="8">Ad Slot 8</option>
-                </select>
-              </label>
-              <button id="apply-slot" class="primary-button success-button" type="button">Publish Selected Slot</button>
-              <button id="clear-slot" class="text-button" type="button">Clear Slot</button>
-            </div>
-            <p id="ad-status" class="form-status" aria-live="polite"></p>
-          </section>
+        <div class="actions">
+          <button type="button" id="save-draft">Save Draft</button>
+          <button type="button" id="publish-issue">Publish</button>
+          <button type="button" id="reset-demo" class="secondary">Reset Demo</button>
+          <button type="button" id="export-json" class="secondary">Export JSON</button>
+          <label class="button-link secondary">Import JSON<input id="import-file" type="file" accept="application/json" hidden /></label>
         </div>
-
-        <section class="admin-card campaign-history-panel">
-          <div class="section-heading compact-heading">
-            <p>Campaign history</p>
-            <h2>Saved generated campaigns</h2>
-          </div>
-          <div id="campaign-history" class="campaign-history-list"></div>
-        </section>
-
-        <section class="admin-card">
-          <div class="section-heading compact-heading">
-            <p>Published slots</p>
-            <h2>8-slot grid</h2>
-          </div>
-          <div id="published-slot-grid" class="published-slot-grid"></div>
-        </section>
+        <p class="status-line" id="content-status"></p>
       </section>
 
-
-      <section id="venues" class="tab-panel" aria-labelledby="venues-tab">
-        <div class="network-two-column">
-          <form id="venue-form" class="admin-card studio-form network-form">
-            <div class="section-heading compact-heading"><p>Venue CRM</p><h2>Add / update venue</h2></div>
-            <div class="two-column-form">
-              <label>Venue name <input name="name" required /></label>
-              <label>Slug <input name="slug" placeholder="brewdog-las-vegas" /></label>
-              <label>Business type <input name="businessType" placeholder="Bar / restaurant" /></label>
-              <label>Address <input name="address" /></label>
-              <label>City <input name="city" /></label>
-              <label>State <input name="state" maxlength="2" /></label>
-              <label>Contact name <input name="contactName" /></label>
-              <label>Contact email <input name="contactEmail" type="email" /></label>
-              <label>Contact phone <input name="contactPhone" type="tel" /></label>
-              <label>Status <select name="status"><option>prospect</option><option selected>active</option><option>paused</option></select></label>
-            </div>
-            <label>Notes <textarea name="notes" rows="4"></textarea></label>
-            <button id="save-venue" class="primary-button success-button" type="button">Save Venue</button>
-          </form>
-          <section class="admin-card"><div class="section-heading compact-heading"><p>Active network</p><h2>Venues</h2></div><div id="venues-list" class="network-list"></div></section>
-        </div>
-      </section>
-
-      <section id="qr" class="tab-panel" aria-labelledby="qr-tab">
-        <div class="network-two-column">
-          <form id="qr-form" class="admin-card studio-form network-form">
-            <div class="section-heading compact-heading"><p>Restrooms + QR</p><h2>Create QR location</h2></div>
-            <div class="two-column-form">
-              <label>Venue <select name="venueId" id="qr-venue-select"></select></label>
-              <label>QR ID <input name="qrId" placeholder="mens-stall-1" /></label>
-              <label>Location name <input name="locationName" placeholder="Men’s restroom stall 1" /></label>
-              <label>Placement type <select name="placementType"><option>stall-door</option><option>urinal</option><option>mirror</option><option>sink-area</option></select></label>
-              <label>Status <select name="active"><option value="true">active</option><option value="false">paused</option></select></label>
-            </div>
-            <button id="save-qr" class="primary-button success-button" type="button">Save QR Location</button>
-            <p class="help-copy">QR URLs use <code>/?venue={venueSlug}&amp;qr={qrId}</code>.</p>
-          </form>
-          <section class="admin-card"><div class="section-heading compact-heading"><p>QR Preview</p><h2>Network codes</h2></div><div id="qr-list" class="network-list"></div></section>
-        </div>
-      </section>
-
-      <section id="issues" class="tab-panel" aria-labelledby="issues-tab">
-        <div class="network-two-column">
-          <form id="issue-form" class="admin-card studio-form network-form">
-            <div class="section-heading compact-heading"><p>Issue Manager</p><h2>Create / publish issue</h2></div>
-            <div class="two-column-form">
-              <label>Issue title <input name="title" /></label>
-              <label>Month <input name="month" /></label>
-              <label>Year <input name="year" /></label>
-              <label>City <input name="city" /></label>
-              <label>Venue <select name="venueId" id="issue-venue-select"></select></label>
-              <label>Status <select name="status"><option>draft</option><option selected>published</option><option>archived</option></select></label><label>Issue scope <select name="issueType"><option value="venue" selected>Venue Content Override</option><option value="city">City Content Override</option><option value="standard">Standard Monthly Issue</option></select></label>
-            </div>
-            <label>Content blocks <textarea name="contentBlocks" rows="6" placeholder="One block per line"></textarea></label>
-            <label>Assigned ad slots <input name="assignedSlots" placeholder="1,2,3,8" /></label>
-            <div class="button-row"><button id="save-issue" class="primary-button success-button" type="button">Save Issue</button><button id="duplicate-issue" class="primary-button secondary-button" type="button">Duplicate Previous Issue</button></div>
-          </form>
-          <section class="admin-card"><div class="section-heading compact-heading"><p>Publishing queue</p><h2>Issues</h2></div><div id="issues-list" class="network-list"></div></section>
-        </div>
-      </section>
-
-      <section id="inventory" class="tab-panel" aria-labelledby="inventory-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Ad Operations</p><h2>8-slot inventory</h2></div><div id="inventory-grid" class="inventory-grid"></div></section></section>
-
-      <section id="advertisers" class="tab-panel" aria-labelledby="advertisers-tab">
-        <div class="network-two-column"><form id="advertiser-form" class="admin-card studio-form network-form"><div class="section-heading compact-heading"><p>Advertiser CRM</p><h2>Add advertiser</h2></div><div class="two-column-form"><label>Business name <input name="businessName" /></label><label>Category <input name="category" /></label><label>Contact name <input name="contactName" /></label><label>Email <input name="email" type="email" /></label><label>Phone <input name="phone" /></label><label>Website <input name="website" type="url" /></label><label>Status <select name="status"><option>lead</option><option selected>active</option><option>paused</option><option>churned</option></select></label><label>Monthly spend <input name="monthlySpend" type="number" /></label></div><label>Notes <textarea name="notes" rows="3"></textarea></label><button id="save-advertiser" class="primary-button success-button" type="button">Save Advertiser</button></form><section class="admin-card"><div class="section-heading compact-heading"><p>Pipeline</p><h2>Advertisers</h2></div><div id="advertisers-list" class="network-list"></div></section></div>
-      </section>
-
-      <section id="campaigns" class="tab-panel" aria-labelledby="campaigns-tab">
-        <div class="network-two-column"><form id="campaign-form" class="admin-card studio-form network-form"><div class="section-heading compact-heading"><p>Campaign Manager</p><h2>Assign campaign to slots</h2></div><div class="two-column-form"><label>Advertiser <select name="advertiserId" id="campaign-advertiser-select"></select></label><label>Offer <input name="offer" /></label><label>Coupon code <input name="couponCode" /></label><label>Start date <input name="startDate" type="date" /></label><label>End date <input name="endDate" type="date" /></label><label>Status <select name="status"><option>draft</option><option selected>active</option><option>expired</option></select></label><label>Selected venues <input name="selectedVenues" placeholder="venue ids or all" /></label><label>Selected slots <input name="selectedSlots" placeholder="1,2,8" /></label></div><label>Creative images <textarea name="creativeImages" rows="3"></textarea></label><div class="button-row"><button id="save-network-campaign" class="primary-button success-button" type="button">Save / Publish Campaign</button><button id="pause-campaign" class="primary-button secondary-button" type="button">Pause Selected</button></div></form><section class="admin-card"><div class="section-heading compact-heading"><p>Live campaigns</p><h2>Campaigns</h2></div><div id="campaigns-list" class="network-list"></div></section></div>
-      </section>
-
-      <section id="analytics" class="tab-panel" aria-labelledby="analytics-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Analytics MVP</p><h2>Network performance</h2></div><div id="analytics-grid" class="dashboard-grid"></div></section></section>
-      <section id="revenue" class="tab-panel" aria-labelledby="revenue-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Revenue Engine</p><h2>MRR + opportunity</h2></div><div id="revenue-grid" class="dashboard-grid"></div><div id="revenue-breakdown" class="network-list"></div></section></section>
-      <section id="distributors" class="tab-panel" aria-labelledby="distributors-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Distributor structure</p><h2>Commission placeholders</h2></div><div id="distributors-list" class="network-list"></div></section></section>
-      <section id="data" class="tab-panel" aria-labelledby="data-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Data storage</p><h2>Export, import, reset</h2></div><div class="button-row"><button id="export-all-data" class="primary-button" type="button">Export All Data</button><label class="primary-button secondary-button import-label">Import Data <input id="import-all-data" type="file" accept="application/json" hidden /></label><button id="reset-demo-network" class="primary-button danger-button" type="button">Reset Demo Network</button></div><textarea id="data-export-output" rows="12" readonly placeholder="Exported JSON appears here"></textarea><p id="data-status" class="form-status"></p></section></section>
-
-      <section id="preview" class="tab-panel" aria-labelledby="preview-tab">
-        <section class="admin-card preview-panel">
-          <div class="section-heading compact-heading">
-            <p>Preview</p>
-            <h2>Live public issue</h2>
-          </div>
-          <iframe id="public-preview" title="Live public issue preview" src="../index.html"></iframe>
-        </section>
-      </section>
-
-      <section id="settings" class="tab-panel" aria-labelledby="settings-tab">
-        <form id="settings-form" class="admin-card studio-form">
-          <div class="section-heading compact-heading">
-            <p>Settings</p>
-            <h2>Publication strategy</h2>
-          </div>
-          <fieldset class="brand-toggle">
-            <legend>Active brand</legend>
-            <label><input type="radio" name="activeBrand" value="Stall Talk" /> Stall Talk</label>
-            <label><input type="radio" name="activeBrand" value="Potty Favor" checked /> Potty Favor</label>
-          </fieldset>
-          <div class="two-column-form">
-            <label>Logo text <input name="logoText" type="text" /></label>
-            <label>Tagline <input name="tagline" type="text" /></label>
-            <label>Color theme <select name="colorTheme"><option value="vegas-neon">Vegas neon</option><option value="clean-premium">Clean premium</option><option value="stalltalk-b2b">Stall Talk B2B</option></select></label>
-            <label>Issue number <input name="issueNumber" type="text" /></label>
-            <label>City <input name="city" type="text" /></label>
-            <label>Venue <input name="venue" type="text" /></label>
-            <label>Month/year <input name="monthYear" type="text" /></label>
-            <label>Standard Monthly Issue <select name="standardMonthlyIssue"><option selected>Enabled</option><option>Draft only</option><option>Disabled</option></select></label>
-            <label>Venue Content Override <select name="venueContentOverride"><option selected>Use when published</option><option>Always prefer standard</option><option>Draft only</option></select></label>
-            <label>City Content Override <select name="cityContentOverride"><option selected>Use when published</option><option>Always prefer standard</option><option>Draft only</option></select></label>
-            <label>Ad Targeting Mode <select name="adTargetingMode"><option selected>QR/Venue</option><option>City/IP</option><option>Global fallback</option></select></label>
-            <label>AI Image API Endpoint <input name="apiBaseUrl" type="url" placeholder="https://your-vercel-app.vercel.app" /></label>
-          </div>
-          <div class="button-row">
-            <button id="save-settings" class="primary-button success-button" type="button">Save Settings</button>
-            <button id="test-openai" class="primary-button secondary-button" type="button">Test Endpoint</button>
-          </div>
-          <p class="help-copy">Public content falls back from venue issue to city issue to standard monthly issue to demo content. Ads target separately by QR, venue, city/IP, state, then global inventory.</p>
-          <p id="settings-status" class="form-status" aria-live="polite"></p>
-          <div id="openai-test-status" class="form-status" aria-live="polite"></div>
+      <section class="admin-panel" id="tab-venues">
+        <h2>Venues / QR Codes</h2>
+        <form id="venue-form" class="venue-editor">
+          <label>Venue name<input name="name" required /></label>
+          <label>City<input name="city" required /></label>
+          <label>State<input name="state" required maxlength="2" /></label>
+          <label>Venue slug<input name="slug" required /></label>
+          <div class="full actions"><button type="submit">Add Venue</button></div>
         </form>
+        <div class="qr-preview"><canvas id="admin-qr" width="160" height="160"></canvas></div>
+        <p><strong>QR URL:</strong> <span id="qr-url"></span></p>
+        <div class="actions"><button type="button" id="copy-qr" class="secondary">Copy QR Link</button></div>
+        <div class="card-list" id="venue-list"></div>
+      </section>
+
+      <section class="admin-panel" id="tab-ads">
+        <h2>Manage 8 Ad Slots</h2>
+        <div class="ads-layout">
+          <div>
+            <h3>Slot Number</h3>
+            <div class="slot-picker" id="slot-picker"></div>
+          </div>
+          <form id="ad-form" class="ad-editor">
+            <label>Advertiser name<input name="advertiserName" /></label>
+            <label>Headline<input name="headline" /></label>
+            <label class="full">Offer<textarea name="offer"></textarea></label>
+            <label>Coupon code<input name="couponCode" /></label>
+            <label>CTA<input name="cta" /></label>
+            <label>Target URL<input name="targetUrl" /></label>
+            <label>Image URL/base64<input name="image" /></label>
+            <label>Targeting type<select name="targetingType"><option>venue</option><option>city</option><option>state</option><option>global</option></select></label>
+            <label>Selected venue or market<input name="market" placeholder="venue-slug, city, state, or blank" /></label>
+            <label>Active<select name="active"><option value="true">active</option><option value="false">inactive</option></select></label>
+            <div class="full actions"><button type="submit">Save Ad Slot</button></div>
+          </form>
+        </div>
+        <div class="card-list" id="ad-list"></div>
+      </section>
+
+      <section class="admin-panel" id="tab-preview">
+        <h2>Preview</h2>
+        <p>The iframe uses the same static public page and localStorage data as GitHub Pages.</p>
+        <div class="preview-frame"><iframe id="preview-frame" title="Public issue preview" src="../index.html"></iframe></div>
+      </section>
+
+      <section class="admin-panel" id="tab-settings">
+        <h2>Settings</h2>
+        <form id="settings-form" class="settings-grid">
+          <label class="full">QR base URL<input name="qrBaseUrl" /></label>
+        </form>
+        <div class="actions"><button type="button" id="save-settings">Save Settings</button></div>
+        <h3>Analytics</h3>
+        <div class="card-list" id="analytics-list"></div>
+      </section>
+
+      <section class="admin-panel import-box" id="tab-import">
+        <h2>Import / Export</h2>
+        <p>Copy this JSON for backup, or paste JSON here and import it into localStorage.</p>
+        <textarea id="json-box"></textarea>
+        <div class="actions">
+          <button type="button" id="refresh-export">Refresh Export</button>
+          <button type="button" id="import-text">Import JSON</button>
+        </div>
       </section>
     </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
-    <script src="../graphic-ad.js" defer></script>
-    <script src="config.js" defer></script>
-    <script src="admin.js" defer></script>
+    <script src="admin.js"></script>
   </body>
 </html>
