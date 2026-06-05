@@ -15,14 +15,14 @@ Publisher
 
 ## Stack
 
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- Prisma
-- PostgreSQL for production and local development
-- Vercel-ready environment configuration
-- Stripe-ready subscription and campaign models
-- Server actions for MVP admin/portal workflows
+* Next.js App Router
+* TypeScript
+* Tailwind CSS
+* Prisma
+* PostgreSQL for production and local development
+* Vercel-ready environment configuration
+* Stripe-ready subscription and campaign models
+* Server actions for MVP admin/portal workflows
 
 ## Setup
 
@@ -30,7 +30,7 @@ Publisher
 npm install
 cp .env.example .env
 npm run db:up
-npx prisma migrate dev --name phase2_postgresql
+npx prisma migrate dev
 npx prisma db seed
 npm run check:phase2
 npm run dev
@@ -38,36 +38,116 @@ npm run dev
 
 Open these URLs after seeding:
 
-- Marketing: <http://localhost:3000/>
-- Demo QR issue: <http://localhost:3000/issue/mgm-grand-las-vegas?qr=ST-MGM-CASINO-M-001>
-- Admin dashboard: <http://localhost:3000/admin>
-- Advertiser portal: <http://localhost:3000/portal/advertiser>
-- Distributor portal: <http://localhost:3000/portal/distributor>
+* Marketing: http://localhost:3000/
+* Demo QR issue: http://localhost:3000/issue/mgm-grand-las-vegas?qr=ST-MGM-CASINO-M-001
+* Admin dashboard: http://localhost:3000/admin
+* Advertiser portal: http://localhost:3000/portal/advertiser
+* Distributor portal: http://localhost:3000/portal/distributor
 
 ## Local PostgreSQL
 
 A `docker-compose.yml` file is included for local development. `npm run db:up` starts a PostgreSQL 16 container that matches the default `DATABASE_URL` in `.env.example`.
 
-## Validation
-
-`npm run check:phase2` runs a dependency-free structural validation that confirms the Phase 2 SaaS files, PostgreSQL schema, ad-serving priority, mobile sponsor persistence, analytics event coverage, and documentation are present. Run it before opening a PR or deploying to Vercel.
-
 ## Admin Routes
 
-- `/admin` — SaaS dashboard
-- `/admin/publishers` — publisher accounts
-- `/admin/distributors` — distributor accounts and commission ownership
-- `/admin/advertisers` — advertiser accounts
-- `/admin/venues` — venues and restrooms
-- `/admin/qr` — QR inventory, generation, assignment, and QR-level scans
-- `/admin/articles` — article library with categories and scheduling
-- `/admin/issues` — monthly issue list
-- `/admin/issues/new` — issue creation
-- `/admin/issues/[id]/edit` — issue editing and 1–8 ad slot assignment
-- `/admin/issue-builder` — drag-and-drop-style layout planning surface
-- `/admin/ads` — global/city/venue/restroom ad serving rules
-- `/admin/analytics` — scans, visitors, time on page, ad/coupon analytics, top venues, top advertisers
-- `/admin/stripe` — monthly subscription, per-location pricing, and coupon campaign readiness
+* `/admin` — SaaS dashboard
+* `/admin/publishers` — publisher accounts
+* `/admin/distributors` — distributor accounts and commission ownership
+* `/admin/advertisers` — advertiser accounts
+* `/admin/venues` — venues and restrooms
+* `/admin/qr` — QR inventory, generation, assignment, and QR-level scans
+* `/admin/articles` — article library with categories and scheduling
+* `/admin/issues` — monthly issue list
+* `/admin/issues/new` — issue creation
+* `/admin/issues/[id]/edit` — issue editing and 1–8 ad slot assignment
+* `/admin/issue-builder` — drag-and-drop-style layout planning surface
+* `/admin/ads` — global/city/venue/restroom ad serving rules
+* `/admin/ads/new` — AI Creative Studio
+* `/admin/analytics` — scans, visitors, time on page, ad/coupon analytics, top venues, top advertisers
+* `/admin/stripe` — monthly subscription, per-location pricing, and coupon campaign readiness
+
+## AI Creative Studio
+
+The AI Creative Studio lives at `/admin/ads/new` and turns advertiser details into campaign creative.
+
+Workflow:
+
+1. **Business** — business name, category, website, phone, and logo context.
+2. **Offer** — offer, coupon code, CTA button text, and expiration date.
+3. **Audience** — tourists, locals, casino guests, sports fans, concert goers, convention attendees, or custom audience.
+4. **Creative Direction** — tone, visual style, brand colors, and ad size.
+5. **Generate Campaign** — creates Banner, Square, Tall, and Footer creative previews from one campaign brief.
+
+Real AI image generation is handled by the Vercel/Next.js API route:
+
+```text
+POST /api/generate-ad-image
+```
+
+GitHub Pages cannot securely call OpenAI directly because any API key placed in frontend JavaScript would be visible to visitors. The secure pattern is to keep `OPENAI_API_KEY` in a server-side environment variable and let Vercel call OpenAI.
+
+## Required Environment Variables
+
+Set this in Vercel before using real image generation:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+Optional image settings:
+
+* `OPENAI_IMAGE_MODEL` — defaults to `dall-e-3`
+* `OPENAI_IMAGE_QUALITY` — defaults to `standard` for DALL·E and `auto` for `gpt-image-*` models
+* `OPENAI_IMAGE_OUTPUT_FORMAT` — defaults to `png` for `gpt-image-*` models
+* `OPENAI_IMAGE_RESPONSE_FORMAT` — defaults to `b64_json` for DALL·E models
+* `ALLOWED_ORIGIN` — comma-separated CORS origins, or `*` for demos
+
+Stripe variables:
+
+* `STRIPE_SECRET_KEY`
+* `STRIPE_WEBHOOK_SECRET`
+* `STRIPE_PRICE_GLOBAL`
+* `STRIPE_PRICE_CITY`
+* `STRIPE_PRICE_VENUE`
+* `STRIPE_PRICE_RESTROOM`
+
+## Test Image Generation
+
+```bash
+curl -X POST http://localhost:3000/api/generate-ad-image \
+  -H "Content-Type: application/json" \
+  -d '{
+    "businessName": "BrewDog Las Vegas",
+    "category": "Restaurant / Bar",
+    "offer": "15% OFF",
+    "audience": "Tourists",
+    "tone": "Funny",
+    "visualStyle": "Vegas Neon",
+    "website": "https://example.com",
+    "phone": "702-555-0100",
+    "couponCode": "BREW15",
+    "brandColors": "#ff2d55,#ffd400,#5b2cff",
+    "adSize": "Banner"
+  }'
+```
+
+A successful response includes:
+
+* `imageUrl` or `imageBase64`
+* `promptUsed`
+* `headline`
+* `subheadline`
+* `ctaText`
+* `couponCode`
+* `disclaimer`
+
+If `OPENAI_API_KEY` is missing or the OpenAI request fails, the UI shows a clear error and falls back to an HTML/SVG mock advertisement.
+
+## Creative Studio Local Storage
+
+* `stalltalk_campaign_history` stores generated campaign history, including business name, offer, ad size, generated image data, prompt, creation time, and optional published slot.
+* `stalltalk_ad_slots` stores published Slot 1–8 creative assignments.
+* Image-mode ads are saved with `adMode: "image"` and render on the homepage through `graphic-ad.js`.
 
 ## Ad Serving Priority
 
@@ -84,105 +164,63 @@ Manual issue slots can still be assigned in the issue editor. The mobile issue l
 
 The platform stores placeholder events for:
 
-- QR scans
-- Page views
-- Unique and repeat visitors
-- Time on page
-- Ad impressions
-- Ad clicks
-- Coupon redemptions
-- QR, venue, restroom, issue, advertiser, and ad attribution
+* QR scans
+* Page views
+* Unique and repeat visitors
+* Time on page
+* Ad impressions
+* Ad clicks
+* Coupon redemptions
+* QR, venue, restroom, issue, advertiser, and ad attribution
 
 ## Seed Data
 
 The seed creates:
 
-- Publisher: Stall Talk Media
-- Distributor: Vegas Restroom Network
-- Venue: MGM Grand Las Vegas, Las Vegas, NV
-- Restroom: Casino Floor Men’s Restroom
-- QR code: `ST-MGM-CASINO-M-001`
-- Issue: July 2024, Issue 81
-- Advertisers and ads: Hooters, Columbus Zoo, bd’s Mongolian Grill, Honda Civic, TNA Wrestling, Graeter’s Ice Cream, Which Wich, and Energy Drink
-- Category/article library records
-- Stripe subscription, coupon campaign, commission report, and analytics placeholders
+* Publisher: Stall Talk Media
+* Distributor: Vegas Restroom Network
+* Venue: MGM Grand Las Vegas, Las Vegas, NV
+* Restroom: Casino Floor Men’s Restroom
+* QR code: `ST-MGM-CASINO-M-001`
+* Issue: July 2024, Issue 81
+* Advertisers and ads: Hooters, Columbus Zoo, bd’s Mongolian Grill, Honda Civic, TNA Wrestling, Graeter’s Ice Cream, Which Wich, and Energy Drink
+* Category/article library records
+* Stripe subscription, coupon campaign, commission report, and analytics placeholders
 
-## Stripe Notes
-
-Set these environment variables before connecting live billing:
-
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_GLOBAL`
-- `STRIPE_PRICE_CITY`
-- `STRIPE_PRICE_VENUE`
-- `STRIPE_PRICE_RESTROOM`
-
-The database includes subscription and coupon campaign tables so live Stripe checkout/webhook routes can be added without changing the core data model.
-
-## AI Creative Studio and Vercel Image Generation
-
-The static `admin/` dashboard remains GitHub Pages compatible for issue editing, copy generation, HTML/CSS fallback ad previews, local campaign history, and local ad-slot publishing. Real AI image generation is handled by the Vercel serverless endpoint at `/api/generate-ad-image` so the browser never receives an OpenAI secret.
-
-### Required Environment Variable
-
-Set this variable in Vercel before using real image generation:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-Optional server-side tuning variables:
-
-- `OPENAI_IMAGE_MODEL` — defaults to `dall-e-3`.
-- `OPENAI_IMAGE_QUALITY` — defaults to `standard` for DALL·E and `auto` for `gpt-image-*` models.
-- `OPENAI_IMAGE_OUTPUT_FORMAT` — defaults to `png` for `gpt-image-*` models.
-- `OPENAI_IMAGE_RESPONSE_FORMAT` — defaults to `b64_json` for DALL·E models.
-- `ALLOWED_ORIGIN` — comma-separated CORS origins, or `*` for demos.
-
-### Deploy to Vercel
+## Vercel Deployment
 
 1. Push this repository to GitHub.
 2. Import the repository in Vercel.
-3. Add `OPENAI_API_KEY` in **Project Settings → Environment Variables** for Production, Preview, and Development as needed.
-4. Deploy the project.
-5. Open `/admin/` on the Vercel deployment and use **Ad Studio → AI Creative Studio → Generate Graphic Ad**.
+3. Create a PostgreSQL database and set `DATABASE_URL`.
+4. Add `OPENAI_API_KEY` in **Project Settings → Environment Variables**.
+5. Add Stripe variables if billing is enabled.
+6. Deploy.
+7. Run Prisma migrations against production:
 
-If you host the static pages on GitHub Pages but the API on Vercel, set `admin/config.js` to point to the deployed Vercel function:
+```bash
+npx prisma migrate deploy
+```
+
+If static pages are hosted on GitHub Pages but the API is hosted on Vercel, set `admin/config.js` to point to the deployed Vercel function:
 
 ```js
 window.STALLTALK_AD_IMAGE_ENDPOINT = "https://your-vercel-app.vercel.app/api/generate-ad-image";
 ```
 
-### Test `/api/generate-ad-image`
+## Validation
 
-With a deployed Vercel app or local Vercel dev server, send a POST request:
+Before opening a PR or deploying, run:
 
 ```bash
-curl -X POST "https://your-vercel-app.vercel.app/api/generate-ad-image" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "businessName": "Nacho Average",
-    "offer": "Half-price loaded fries after 9 PM",
-    "audience": "concert crowds and casino guests",
-    "tone": "Bold",
-    "adSize": "Banner",
-    "brandColors": "#ff2d2d, #ffd400, #7c2cff",
-    "website": "https://nacho.example.com",
-    "phone": "702-555-0199",
-    "couponCode": "NACHO50",
-    "visualStyle": "Neon Vegas poster",
-    "optionalLogoUrl": ""
-  }'
+npm run check:phase2
+npx prisma validate
+npm run build
 ```
 
-A successful response includes `imageUrl` or `imageBase64`, `promptUsed`, `headline`, `subheadline`, `ctaText`, `couponCode`, and `disclaimer`. If `OPENAI_API_KEY` is missing or the OpenAI request fails, the admin UI shows a clear error and keeps working with the HTML/CSS fallback preview.
+Manual checks:
 
-### Why GitHub Pages Cannot Call OpenAI Directly
-
-GitHub Pages serves only static frontend files. Any OpenAI API key placed in frontend JavaScript would be downloadable by every visitor, allowing unauthorized use of the account. The secure pattern is to keep `OPENAI_API_KEY` in a server-side environment variable and let a backend function, such as Vercel `/api/generate-ad-image`, call OpenAI on behalf of the admin UI.
-
-### Local Storage Used by the Creative Studio
-
-- `stalltalk_campaign_history` stores generated campaign history, including business name, offer, ad size, generated image data, prompt, creation time, and optional published slot.
-- `stalltalk_ad_slots` stores published slot creative. Image-mode ads are saved with `adMode: "image"` and render on the homepage through `graphic-ad.js`.
+* Generate a campaign at `/admin/ads/new` with and without `OPENAI_API_KEY`.
+* Confirm all four ad sizes render in preview mode.
+* Publish a generated creative to Slot 1–8.
+* Confirm the homepage loads generated slot artwork.
+* Confirm the public issue page renders image ads, HTML fallback ads, and responsive mobile/desktop ad layouts.
