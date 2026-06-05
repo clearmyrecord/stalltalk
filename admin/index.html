@@ -155,15 +155,20 @@
               </label>
             </fieldset>
 
-            <fieldset class="studio-step">
+            <fieldset class="studio-step ai-endpoint-step">
               <legend><span>Step 4</span> Generate</legend>
+              <div id="ai-endpoint-status" class="ai-endpoint-status" aria-live="polite">
+                <strong>AI Image Endpoint: Not Connected</strong>
+                <span>Not configured</span>
+              </div>
               <div class="button-row">
                 <button id="generate-copy" class="primary-button secondary-button" type="button">Generate Copy</button>
                 <button id="generate-ad" class="primary-button" type="button">Generate Graphic Ad</button>
                 <button id="regenerate-ad" class="primary-button secondary-button" type="button">Regenerate</button>
                 <button id="save-campaign" class="primary-button success-button" type="button">Save Campaign</button>
+                <button id="test-ai-endpoint" class="primary-button secondary-button" type="button">Test Endpoint</button>
               </div>
-              <p class="help-copy">Graphic generation calls the Vercel API only; no OpenAI API key is ever exposed in browser JavaScript.</p>
+              <p id="ai-endpoint-help" class="help-copy">Graphic generation calls the configured Vercel API only; no OpenAI API key is ever exposed in browser JavaScript.</p>
             </fieldset>
           </form>
 
@@ -333,10 +338,11 @@
             <label>City <input name="city" type="text" /></label>
             <label>Venue <input name="venue" type="text" /></label>
             <label>Month/year <input name="monthYear" type="text" /></label>
+            <label>AI Image API Endpoint <input name="apiBaseUrl" type="url" placeholder="https://your-vercel-app.vercel.app" /></label>
           </div>
           <div class="button-row">
             <button id="save-settings" class="primary-button success-button" type="button">Save Settings</button>
-            <button id="test-openai" class="primary-button secondary-button" type="button">Test OpenAI Connection</button>
+            <button id="test-openai" class="primary-button secondary-button" type="button">Test Endpoint</button>
           </div>
           <p id="settings-status" class="form-status" aria-live="polite"></p>
           <div id="openai-test-status" class="form-status" aria-live="polite"></div>

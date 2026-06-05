@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   campaignHistory: "stalltalk_campaign_history",
   campaigns: "stalltalk_campaigns",
   settings: "stalltalk_settings",
+  apiBaseUrl: "stalltalk_api_base_url",
   legacySettings: "stalltalk_issue_settings",
   venues: "stalltalk_venues",
   qrLocations: "stalltalk_qr_locations",
@@ -65,6 +66,82 @@ function createdAt() {
 
 function safeText(value, fallback = "") {
   return String(value || "").trim() || fallback;
+}
+
+
+function normalizeApiBaseUrl(value) {
+  return safeText(value).replace(/\/+$/, "");
+}
+
+function isConfiguredApiBaseUrl(value) {
+  const baseUrl = normalizeApiBaseUrl(value);
+  return /^https?:\/\//i.test(baseUrl) && !baseUrl.includes("YOUR-VERCEL-DEPLOYMENT-URL");
+}
+
+function configuredApiBaseUrl() {
+  const localValue = normalizeApiBaseUrl(localStorage.getItem(STORAGE_KEYS.apiBaseUrl));
+  if (isConfiguredApiBaseUrl(localValue)) return localValue;
+  const globalValue = normalizeApiBaseUrl(window.STALLTALK_API_BASE_URL);
+  return isConfiguredApiBaseUrl(globalValue) ? globalValue : "";
+}
+
+function aiEndpointUrl(path = "/api/generate-ad-image") {
+  const baseUrl = configuredApiBaseUrl();
+  return baseUrl ? `${baseUrl}${path.startsWith("/") ? path : `/${path}`}` : "";
+}
+
+function getAdImageEndpoint() {
+  return aiEndpointUrl("/api/generate-ad-image");
+}
+
+function setApiEndpointStatus(message = "") {
+  const endpoint = getAdImageEndpoint();
+  const status = document.querySelector("#ai-endpoint-status");
+  const settingsField = document.querySelector('#settings-form [name="apiBaseUrl"]');
+  const endpointText = endpoint || "Not configured";
+
+  if (settingsField && !settingsField.value) {
+    settingsField.value = normalizeApiBaseUrl(localStorage.getItem(STORAGE_KEYS.apiBaseUrl)) || normalizeApiBaseUrl(window.STALLTALK_API_BASE_URL);
+  }
+
+  if (status) {
+    const connectedText = endpoint ? "Connected" : "Not Connected";
+    status.innerHTML = `<strong>AI Image Endpoint: ${connectedText}</strong><span>${endpointText}</span>${message ? `<small>${message}</small>` : ""}`;
+    status.classList.toggle("is-connected", Boolean(endpoint));
+  }
+
+  const help = document.querySelector("#ai-endpoint-help");
+  if (help) {
+    help.textContent = endpoint
+      ? `Generate Graphic Ad will call ${endpoint}`
+      : "Paste your Vercel base URL in Settings → AI Image API Endpoint before generating an OpenAI image ad.";
+  }
+}
+
+function updatePublishButtons() {
+  const canPublish = activeAd?.adMode === "image" && Boolean(activeAd.imageAdUrl || activeAd.imageAdBase64);
+  document.querySelectorAll("[data-publish-slot], #apply-slot").forEach((button) => {
+    button.disabled = !canPublish;
+    button.title = canPublish ? "" : "Generate a real OpenAI image ad before publishing.";
+  });
+}
+
+function cleanBusinessDisplayName(value) {
+  const displayName = safeText(value, "Your Business")
+    .replace(/\b(LLC|L\.?L\.?C\.?|Inc\.?|Incorporated|Company|Co\.?)\b/gi, "")
+    .replace(/[,&]\s*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (displayName.length <= 28) return displayName;
+  return displayName.slice(0, 28).replace(/\s+\S*$/, "").trim() || displayName.slice(0, 28);
+}
+
+function offerHeadline(value) {
+  const offer = safeText(value, "15% off first order");
+  const percentMatch = offer.match(/\b\d+\s*%\s*off\b/i);
+  const firstOrder = /first\s+order/i.test(offer);
+  if (percentMatch || firstOrder) return [percentMatch ? percentMatch[0].replace(/\s+/g, " ") : "15% OFF", firstOrder ? "FIRST ORDER" : ""].filter(Boolean).join("\n").toUpperCase();
+  return offer.toUpperCase();
 }
 
 function getSettings() {
@@ -148,8 +225,9 @@ function collectAdValues() {
     primaryColor,
     secondaryColor,
     accentColor,
-    headline: `${businessName}: ${offer}`,
-    subheadline: `A ${tone.toLowerCase()} offer built for ${audience}.`,
+    businessDisplayName: cleanBusinessDisplayName(businessName),
+    headline: offerHeadline(offer),
+    subheadline: `A ${tone.toLowerCase()} offer from ${cleanBusinessDisplayName(businessName)} built for ${audience}.`,
     ctaButtonText: ctaText,
     ctaText,
     disclaimer: "Valid while supplies last. Terms may apply.",
@@ -222,6 +300,7 @@ function renderAdPreview(ad) {
   document.querySelector("#preview-cta").value = ad.ctaText || ad.ctaButtonText || "";
   document.querySelector("#preview-coupon").value = ad.couponCode || "";
   renderPrompt(ad.promptUsed || "");
+  updatePublishButtons();
 }
 
 function generateCopy() {
@@ -235,31 +314,71 @@ async function generateGraphicAd() {
   const draftAd = collectAdValues();
   activeAd = draftAd;
   setGraphicLoading(true);
-  document.querySelector("#ad-status").textContent = "Generating finished graphic ad with the Vercel AI endpoint…";
+  const endpoint = getAdImageEndpoint();
+  setApiEndpointStatus();
+  if (!endpoint) {
+    activeAd = { ...draftAd, adMode: "pending", promptUsed: "AI image endpoint is not configured." };
+    renderAdPreview(activeAd);
+    document.querySelector("#ad-status").textContent = "AI Image API Endpoint is not configured. Paste your Vercel base URL in Settings, save it, then retry OpenAI image generation.";
+    setGraphicLoading(false);
+    return;
+  }
+  document.querySelector("#ad-status").textContent = `Generating finished graphic ad with ${endpoint}…`;
 
   try {
-    const response = await fetch(window.STALLTALK_AD_IMAGE_ENDPOINT || "/api/generate-ad-image", {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draftAd),
     });
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    let data = null;
 
     if (!response.ok) {
+      if (!contentType.includes("application/json")) {
+        throw new Error(`AI image generation failed with HTTP ${response.status} ${response.statusText || ""}. The AI endpoint returned HTML instead of JSON. Check that your Vercel URL is configured.`.trim());
+      }
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error(`AI image generation failed with HTTP ${response.status} ${response.statusText || ""}. The endpoint did not return valid JSON.`.trim());
+      }
       const diagnostic = data?.diagnostic || {};
-      const details = [data?.error || "AI image generation failed.", diagnostic.apiStatus ? `API: ${diagnostic.apiStatus}` : "", diagnostic.openAiStatus ? `OpenAI: ${diagnostic.openAiStatus}` : "", diagnostic.model ? `Model: ${diagnostic.model}` : "", diagnostic.errorType ? `Type: ${diagnostic.errorType}` : "", diagnostic.openAiStatusCode ? `HTTP: ${diagnostic.openAiStatusCode}` : ""].filter(Boolean).join(" • ");
+      const details = [
+        `AI image generation failed with HTTP ${response.status} ${response.statusText || ""}`.trim(),
+        data?.error || "",
+        diagnostic.apiStatus ? `API: ${diagnostic.apiStatus}` : "",
+        diagnostic.openAiStatus ? `OpenAI: ${diagnostic.openAiStatus}` : "",
+        diagnostic.model ? `Model: ${diagnostic.model}` : "",
+        diagnostic.errorType ? `Type: ${diagnostic.errorType}` : "",
+        diagnostic.openAiStatusCode ? `OpenAI HTTP: ${diagnostic.openAiStatusCode}` : "",
+      ].filter(Boolean).join(" • ");
       throw new Error(details);
+    }
+
+    if (!contentType.includes("application/json")) {
+      throw new Error("The AI endpoint returned HTML instead of JSON. Check that your Vercel URL is configured.");
+    }
+
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      throw new Error("The AI endpoint returned invalid JSON. Check that your Vercel URL is configured.");
     }
 
     const imageUrl = safeText(data.imageUrl);
     const imageBase64 = safeText(data.imageBase64);
+    if (!imageUrl && !imageBase64) {
+      throw new Error("The AI endpoint returned JSON but did not include a generated image.");
+    }
     activeAd = {
       ...draftAd,
-      adMode: imageUrl || imageBase64 ? "image" : "pending",
+      adMode: "image",
       imageAdUrl: imageUrl,
       imageAdBase64: imageBase64,
       promptUsed: safeText(data.promptUsed || data.prompt),
-      headline: safeText(data.headline, draftAd.headline),
+      businessDisplayName: cleanBusinessDisplayName(data.businessDisplayName || draftAd.businessName),
+      headline: offerHeadline(data.headline || draftAd.offer),
       subheadline: safeText(data.subheadline, draftAd.subheadline),
       ctaText: safeText(data.ctaText, draftAd.ctaText),
       ctaButtonText: safeText(data.ctaText, draftAd.ctaButtonText),
@@ -274,6 +393,7 @@ async function generateGraphicAd() {
   } catch (error) {
     console.error("Graphic ad generation failed", error);
     activeAd = { ...draftAd, adMode: "pending", promptUsed: draftAd.promptUsed || "OpenAI image generation did not complete." };
+    renderAdPreview(activeAd);
     document.querySelector("#ad-status").textContent = `${error.message} No HTML/CSS fallback was generated. Fix the API status, then retry OpenAI image generation.`;
   } finally {
     setGraphicLoading(false);
@@ -442,8 +562,13 @@ function loadSettingsForm() {
 function saveSettings() {
   const formData = new FormData(document.querySelector("#settings-form"));
   const formSettings = Object.fromEntries(formData.entries());
+  const apiBaseUrl = normalizeApiBaseUrl(formSettings.apiBaseUrl);
+  if (apiBaseUrl) localStorage.setItem(STORAGE_KEYS.apiBaseUrl, apiBaseUrl);
+  else localStorage.removeItem(STORAGE_KEYS.apiBaseUrl);
+  delete formSettings.apiBaseUrl;
   const settings = { ...DEFAULT_SETTINGS, ...formSettings, brand: formSettings.activeBrand || formSettings.logoText || DEFAULT_SETTINGS.brand, savedAt: timestamp() };
   saveJson(STORAGE_KEYS.settings, settings);
+  setApiEndpointStatus(apiBaseUrl ? "Saved locally in this browser." : "Endpoint cleared.");
   // Future backend/database publishing will persist issue metadata with the published issue record.
   document.querySelector("#settings-status").textContent = "Settings saved. Public issue branding updated in this browser.";
   refreshAdmin();
@@ -737,26 +862,48 @@ function wirePhase3() {
 
 async function testOpenAiConnection() {
   const status = document.querySelector("#openai-test-status");
-  status.textContent = "Testing OpenAI image generation…";
+  const adStatus = document.querySelector("#ad-status");
+  const setStatus = (message) => {
+    if (status) status.textContent = message;
+    if (adStatus) adStatus.textContent = message;
+  };
+  setStatus("Testing AI endpoint system health…");
   try {
-    const response = await fetch("/api/system-health?runImageTest=1", { cache: "no-store" });
-    const data = await response.json();
+    const endpoint = aiEndpointUrl("/api/system-health?runImageTest=1");
+    if (!endpoint) {
+      setStatus("AI Image API Endpoint is not configured. Paste your Vercel base URL in Settings first.");
+      setApiEndpointStatus("Endpoint test could not run because no Vercel URL is configured.");
+      return;
+    }
+    const response = await fetch(endpoint, { cache: "no-store" });
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok) throw new Error(`System health failed with HTTP ${response.status} ${response.statusText || ""}`.trim());
+    if (!contentType.includes("application/json")) throw new Error("The AI endpoint returned HTML instead of JSON. Check that your Vercel URL is configured.");
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      throw new Error("The AI endpoint returned invalid JSON. Check that your Vercel URL is configured.");
+    }
+    setApiEndpointStatus("System health responded with JSON.");
     const openAi = data.openAi || {};
-    status.textContent = [
+    setStatus([
       `API key detected: ${Boolean(openAi.apiKeyDetected)}`,
       `Model detected: ${openAi.model || "unknown"}`,
       `Successful image generation test: ${openAi.imageGenerationTest === "successful" ? "yes" : "no"}`,
       `OpenAI status: ${openAi.status || "Failed"}`,
       openAi.error ? `Exact error: ${openAi.error}` : ""
-    ].filter(Boolean).join(" • ");
+    ].filter(Boolean).join(" • "));
   } catch (error) {
-    status.textContent = `OpenAI connection test failed: ${error.message}`;
+    setStatus(`AI endpoint test failed: ${error.message}`);
+    setApiEndpointStatus("Endpoint test failed.");
   }
 }
 
 function init() {
   setContentValues(readJson(STORAGE_KEYS.draft, readJson(STORAGE_KEYS.published, DEMO_CONTENT)));
   loadSettingsForm();
+  setApiEndpointStatus();
   generateCopy();
   refreshAdmin();
   wirePhase3();
@@ -776,6 +923,14 @@ function init() {
   document.querySelector("#clear-slot").addEventListener("click", clearSlot);
   document.querySelector("#save-settings").addEventListener("click", saveSettings);
   document.querySelector("#test-openai")?.addEventListener("click", testOpenAiConnection);
+  document.querySelector("#test-ai-endpoint")?.addEventListener("click", testOpenAiConnection);
+  document.querySelector('#settings-form [name="apiBaseUrl"]')?.addEventListener("input", (event) => {
+    const previous = localStorage.getItem(STORAGE_KEYS.apiBaseUrl);
+    const next = normalizeApiBaseUrl(event.target.value);
+    if (next) localStorage.setItem(STORAGE_KEYS.apiBaseUrl, next);
+    else if (previous) localStorage.removeItem(STORAGE_KEYS.apiBaseUrl);
+    setApiEndpointStatus(next ? "Endpoint preview updated in this browser. Click Save Settings after confirming it." : "Endpoint cleared in this browser.");
+  });
   document.querySelectorAll("[data-publish-slot]").forEach((button) => button.addEventListener("click", () => publishToSlot(button.dataset.publishSlot)));
   document.querySelectorAll("#preview-headline, #preview-subheadline, #preview-cta, #preview-coupon").forEach((field) => {
     field.addEventListener("input", () => {

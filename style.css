@@ -1600,3 +1600,160 @@ body[data-theme="stalltalk-b2b"] .pf-masthead {
     justify-content: flex-start;
   }
 }
+
+/* GitHub Pages admin endpoint + layout fixes */
+.publisher-shell {
+  padding-top: 12px;
+}
+
+.publisher-tabs {
+  backdrop-filter: blur(16px);
+  margin-bottom: 18px;
+}
+
+.tab-panel.is-active {
+  scroll-margin-top: 120px;
+}
+
+.ai-endpoint-status {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(92, 43, 122, 0.2);
+  border-radius: 18px;
+  background: #fffdf8;
+  color: var(--pf-muted);
+  margin-bottom: 14px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ai-endpoint-status strong {
+  color: #9b1c1c;
+}
+
+.ai-endpoint-status.is-connected strong {
+  color: #236a2b;
+}
+
+.ai-endpoint-status span,
+.ai-endpoint-status small {
+  display: block;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.ad-preview-panel {
+  align-self: start;
+  min-width: 0;
+  overflow: visible;
+}
+
+.graphic-preview-stage {
+  min-height: clamp(260px, 42vw, 520px);
+  overflow: visible;
+}
+
+.graphic-preview-stage .graphic-ad {
+  max-width: 100%;
+}
+
+.publish-grid,
+.slot-apply-row {
+  position: relative;
+  z-index: 1;
+}
+
+.graphic-ad {
+  box-sizing: border-box;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.graphic-body,
+.graphic-headline,
+.graphic-business,
+.graphic-audience,
+.graphic-contact,
+.graphic-offer-badge,
+.graphic-coupon,
+.graphic-cta {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.graphic-business {
+  font-size: clamp(0.78rem, 2.5vw, 1rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.graphic-headline {
+  white-space: pre-line;
+  font-size: clamp(1.9rem, 11vw, 4rem);
+  line-height: 0.9;
+  max-width: 10ch;
+}
+
+.graphic-audience,
+.graphic-contact {
+  font-size: clamp(0.78rem, 2.4vw, 0.95rem);
+}
+
+.graphic-offer-badge strong,
+.graphic-coupon strong {
+  font-size: clamp(0.82rem, 3vw, 1.05rem);
+}
+
+.graphic-topline span,
+.graphic-coupon,
+.graphic-cta {
+  max-width: 100%;
+  width: fit-content;
+}
+
+@media (min-width: 980px) {
+  .creative-studio-grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+  }
+
+  .ad-preview-panel {
+    position: sticky;
+    top: 108px;
+  }
+}
+
+@media (max-width: 900px) {
+  .publisher-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scroll-snap-type: x proximity;
+  }
+
+  .publisher-tabs .tab-button {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .publisher-shell {
+    padding-inline: 10px;
+  }
+
+  .publisher-tabs {
+    position: static;
+    flex-wrap: wrap;
+  }
+
+  .publisher-tabs .tab-button {
+    flex: 1 1 140px;
+  }
+
+  .publish-grid {
+    grid-template-columns: 1fr;
+  }
+}

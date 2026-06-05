@@ -21,6 +21,25 @@ function stallTalkSafeText(value, fallback = "") {
   return String(value || "").trim() || fallback;
 }
 
+
+function stallTalkDisplayBusinessName(value) {
+  const displayName = stallTalkSafeText(value, "Your Business")
+    .replace(/\b(LLC|L\.?L\.?C\.?|Inc\.?|Incorporated|Company|Co\.?)\b/gi, "")
+    .replace(/[,&]\s*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (displayName.length <= 28) return displayName;
+  return displayName.slice(0, 28).replace(/\s+\S*$/, "").trim() || displayName.slice(0, 28);
+}
+
+function stallTalkOfferHeadline(ad) {
+  const raw = stallTalkSafeText(ad.headline || ad.offer, "15% OFF FIRST ORDER").replace(stallTalkSafeText(ad.businessName), "").replace(/^[:\s-]+/, "");
+  const percentMatch = raw.match(/\b\d+\s*%\s*off\b/i);
+  const firstOrder = /first\s+order/i.test(raw);
+  if (percentMatch || firstOrder) return [percentMatch ? percentMatch[0].replace(/\s+/g, " ") : "15% OFF", firstOrder ? "FIRST ORDER" : ""].filter(Boolean).join("\n").toUpperCase();
+  return raw.toUpperCase();
+}
+
 function stallTalkNormalizeUrl(value) {
   const url = stallTalkSafeText(value);
   if (!url) return "";
@@ -129,11 +148,11 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
 
   const name = document.createElement("p");
   name.className = "graphic-business";
-  name.textContent = stallTalkSafeText(ad.businessName, "Your Business");
+  name.textContent = stallTalkDisplayBusinessName(ad.businessDisplayName || ad.businessName);
 
   const headline = document.createElement("h3");
   headline.className = "graphic-headline";
-  headline.textContent = stallTalkSafeText(ad.headline, "A Deal Worth Stopping For");
+  headline.textContent = stallTalkOfferHeadline(ad);
 
   const audience = document.createElement("p");
   audience.className = "graphic-audience";
