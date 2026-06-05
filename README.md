@@ -238,3 +238,81 @@ The Vercel/Next.js API route is:
 
 ```text
 POST /api/generate-ad-image
+```
+
+## Phase 3: Venue Network + Revenue Engine
+
+Phase 3 turns Stall Talk / Potty Favor into a browser-stored restroom media network while preserving the existing public issue page, publisher dashboard, AI Creative Studio, ad slot publishing, and content publishing flows.
+
+### Brand Structure
+
+The dashboard now supports two brand layers:
+
+* **Stall Talk** — the B2B platform for venues, advertisers, distributors, and publishers.
+* **Potty Favor** — the consumer-facing restroom publication that guests see after scanning a QR code.
+
+Brand settings are stored in `stalltalk_settings` and include active brand, logo text, tagline, and color theme.
+
+### LocalStorage Data Model
+
+Phase 3 remains frontend-only for GitHub Pages demos and stores network data in localStorage using these keys:
+
+* `stalltalk_settings` — brand and issue identity settings.
+* `stalltalk_venues` — venue CRM records with slugs, contacts, status, and notes.
+* `stalltalk_qr_locations` — restroom / placement QR records with `qrId`, `venueId`, target URL, status, and scan-count placeholder.
+* `stalltalk_issues` — draft, published, and archived venue issue records with content blocks and assigned ad slots.
+* `stalltalk_advertisers` — advertiser CRM records, monthly spend, assigned venues, and assigned campaigns.
+* `stalltalk_campaigns` — campaign records created manually or from the AI Creative Studio.
+* `stalltalk_ad_slots` — eight-slot ad inventory with pricing, availability, advertiser, campaign, and flight dates.
+* `stalltalk_analytics_events` — MVP analytics events for QR scans, issue views, ad impressions, ad clicks, and coupon clicks.
+* `stalltalk_distributors` — distributor placeholder records with assigned venues and commission rate.
+
+The **Data** tab includes **Export All Data**, **Import Data**, and **Reset Demo Network** controls for migration testing and local backup.
+
+### QR URL Examples
+
+QR target URLs follow this pattern:
+
+```text
+/?venue={venueSlug}&qr={qrId}
+```
+
+Examples:
+
+```text
+/?venue=brewdog-las-vegas&qr=mens-stall-1
+/?venue=mgm-grand-las-vegas&qr=womens-stall-1
+/?venue=lee-canyon&qr=mirror-1
+```
+
+When a venue and QR are present, the public page loads the matching venue, finds a published issue for that venue, displays venue/city metadata, records a `qr_scan`, records an `issue_view`, increments the QR scan-count placeholder, and renders active campaign slots for that venue. Without query parameters, it falls back to the default Las Vegas demo issue.
+
+### Demo Workflow
+
+1. Open `admin/index.html`.
+2. Use **Reset Demo Network** in the Data tab to seed MGM Grand Las Vegas, BrewDog Las Vegas, Gilley’s Saloon, Lee Canyon, demo advertisers, demo campaigns, eight priced ad slots, and the Las Vegas Strip Distributor.
+3. Open **Venues** to confirm venue CRM records and preview a venue issue.
+4. Open **QR Network** to view restroom placements and QR previews.
+5. Open **Issues** to duplicate, publish, archive, or preview venue-specific issues.
+6. Open **Campaigns** or the **AI Creative Studio** to create campaigns and publish them into slots.
+7. Scan or open a URL such as `/?venue=brewdog-las-vegas&qr=mens-stall-1`.
+8. Return to **Analytics** and **Revenue** to see local event counts and estimated revenue calculations.
+
+### Revenue and Distributor Notes
+
+The revenue dashboard calculates estimates from the eight ad slot defaults:
+
+* Slot 1 Top Sponsor — $250/month
+* Slots 2–7 Inline Sponsor — $150/month each
+* Slot 8 Footer Sponsor — $200/month
+
+Active slot revenue is counted when a slot is sold or has a campaign assignment. Open slot opportunity is the sum of unfilled slot prices. Distributor commission is currently a placeholder calculation: assigned distributors earn 20% of assigned venue ad revenue.
+
+### Future Backend Migration Notes
+
+The Phase 3 localStorage model is intentionally shaped like backend tables. A future migration can map each key to database tables or API resources:
+
+* venues, QR locations, issues, advertisers, campaigns, ad slots, analytics events, and distributors become authenticated CRUD endpoints.
+* `qr_scan`, `issue_view`, `ad_impression`, `ad_click`, and `coupon_click` should move to append-only analytics ingestion.
+* Revenue estimates can become invoice, Stripe subscription, and commission-report records.
+* Export/import JSON can become a migration bridge for early customer pilots.

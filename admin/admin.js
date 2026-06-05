@@ -2,12 +2,24 @@ const STORAGE_KEYS = {
   draft: "stalltalk_content_draft",
   published: "stalltalk_content_published",
   ads: window.StallTalkGraphicAds?.storageKey || "stalltalk_ad_slots",
-  campaigns: "stalltalk_campaign_history",
-  settings: "stalltalk_issue_settings",
+  campaignHistory: "stalltalk_campaign_history",
+  campaigns: "stalltalk_campaigns",
+  settings: "stalltalk_settings",
+  legacySettings: "stalltalk_issue_settings",
+  venues: "stalltalk_venues",
+  qrLocations: "stalltalk_qr_locations",
+  issues: "stalltalk_issues",
+  advertisers: "stalltalk_advertisers",
+  analyticsEvents: "stalltalk_analytics_events",
+  distributors: "stalltalk_distributors",
 };
 
 const DEFAULT_SETTINGS = {
+  activeBrand: "Potty Favor",
   brand: "Potty Favor",
+  logoText: "Potty Favor",
+  tagline: "A polished restroom read from Stall Talk.",
+  colorTheme: "vegas-neon",
   issueNumber: "001",
   city: "Las Vegas, NV",
   venue: "MGM Grand",
@@ -56,7 +68,7 @@ function safeText(value, fallback = "") {
 }
 
 function getSettings() {
-  return { ...DEFAULT_SETTINGS, ...readJson(STORAGE_KEYS.settings, DEFAULT_SETTINGS) };
+  return { ...DEFAULT_SETTINGS, ...readJson(STORAGE_KEYS.legacySettings, {}), ...readJson(STORAGE_KEYS.settings, {}) };
 }
 
 function getContentValues() {
@@ -73,11 +85,17 @@ function setContentValues(content) {
 }
 
 function getAdSlots() {
-  return readJson(STORAGE_KEYS.ads, {});
+  const slots = readJson(STORAGE_KEYS.ads, {});
+  if (!Array.isArray(slots)) return slots;
+  const campaigns = ensureArray(STORAGE_KEYS.campaigns);
+  return Object.fromEntries(slots.map((slot) => {
+    const campaign = campaigns.find((item) => item.id === (slot.campaignId || slot.campaignAssigned));
+    return [String(slot.slotNumber), campaign ? { ...campaign, slotPublishedTo: String(slot.slotNumber) } : null];
+  }).filter(([, ad]) => ad));
 }
 
 function getCampaignHistory() {
-  return readJson(STORAGE_KEYS.campaigns, []);
+  return readJson(STORAGE_KEYS.campaignHistory, []);
 }
 
 function formValue(formData, key, fallback = "") {
@@ -162,7 +180,8 @@ function saveCampaign(ad = activeAd) {
   if (!ad) return;
   const history = getCampaignHistory();
   const next = [campaignSummary(ad), ...history].slice(0, 24);
-  saveJson(STORAGE_KEYS.campaigns, next);
+  saveJson(STORAGE_KEYS.campaignHistory, next);
+  upsertCampaignFromCreative(ad);
   renderCampaignHistory();
   document.querySelector("#ad-status").textContent = `Saved ${ad.businessName} to campaign history.`;
 }
@@ -274,11 +293,12 @@ async function generateGraphicAd() {
 function publishToSlot(slotNumber) {
   if (!activeAd) generateCopy();
   applyEditableCopyToActiveAd();
-  const slots = getAdSlots();
   const publishedAd = { ...activeAd, slotPublishedTo: String(slotNumber), savedAt: timestamp() };
-  slots[String(slotNumber)] = publishedAd;
-  saveJson(STORAGE_KEYS.ads, slots);
   saveCampaign(publishedAd);
+  const campaigns = ensureArray(STORAGE_KEYS.campaigns);
+  const campaign = campaigns[0];
+  const slots = getNetworkAdSlots().map((slot) => String(slot.slotNumber) === String(slotNumber) ? { ...slot, availability: "sold", advertiserAssigned: publishedAd.businessName, campaignAssigned: campaign?.id || publishedAd.businessName, campaignId: campaign?.id || "", advertiserId: campaign?.advertiserId || "", startDate: new Date().toISOString().slice(0, 10), endDate: publishedAd.expiration || "" } : slot);
+  setNetworkAdSlots(slots);
   document.querySelector("#ad-status").textContent = `Published ${publishedAd.businessName} to Ad Slot ${slotNumber}.`;
   refreshAdmin();
 }
@@ -289,9 +309,8 @@ function applySlot() {
 
 function clearSlot() {
   const slotNumber = document.querySelector("#slot-select").value;
-  const slots = getAdSlots();
-  delete slots[slotNumber];
-  saveJson(STORAGE_KEYS.ads, slots);
+  const slots = getNetworkAdSlots().map((slot) => String(slot.slotNumber) === String(slotNumber) ? { ...slot, availability: "open", advertiserAssigned: "", campaignAssigned: "", campaignId: "", advertiserId: "", startDate: "", endDate: "" } : slot);
+  setNetworkAdSlots(slots);
   document.querySelector("#ad-status").textContent = `Cleared Ad Slot ${slotNumber}.`;
   refreshAdmin();
 }
@@ -428,11 +447,296 @@ function loadSettingsForm() {
 
 function saveSettings() {
   const formData = new FormData(document.querySelector("#settings-form"));
-  const settings = { ...DEFAULT_SETTINGS, ...Object.fromEntries(formData.entries()), savedAt: timestamp() };
+  const formSettings = Object.fromEntries(formData.entries());
+  const settings = { ...DEFAULT_SETTINGS, ...formSettings, brand: formSettings.activeBrand || formSettings.logoText || DEFAULT_SETTINGS.brand, savedAt: timestamp() };
   saveJson(STORAGE_KEYS.settings, settings);
   // Future backend/database publishing will persist issue metadata with the published issue record.
   document.querySelector("#settings-status").textContent = "Settings saved. Public issue branding updated in this browser.";
   refreshAdmin();
+}
+
+
+const SLOT_DEFAULTS = [
+  { slotNumber: 1, placementName: "Top Sponsor", size: "hero", price: 250 },
+  { slotNumber: 2, placementName: "Inline Sponsor", size: "inline", price: 150 },
+  { slotNumber: 3, placementName: "Inline Sponsor", size: "inline", price: 150 },
+  { slotNumber: 4, placementName: "Inline Sponsor", size: "inline", price: 150 },
+  { slotNumber: 5, placementName: "Inline Sponsor", size: "inline", price: 150 },
+  { slotNumber: 6, placementName: "Inline Sponsor", size: "inline", price: 150 },
+  { slotNumber: 7, placementName: "Inline Sponsor", size: "inline", price: 150 },
+  { slotNumber: 8, placementName: "Footer Sponsor", size: "footer", price: 200 },
+];
+
+function slugify(value) {
+  return safeText(value).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function monthName() {
+  return new Date().toLocaleString("en", { month: "long" });
+}
+
+function currentYear() {
+  return String(new Date().getFullYear());
+}
+
+function ensureArray(key) {
+  const value = readJson(key, []);
+  return Array.isArray(value) ? value : [];
+}
+
+function demoNetworkData() {
+  const venues = [
+    { id: "venue-mgm", name: "MGM Grand Las Vegas", slug: "mgm-grand-las-vegas", businessType: "Casino resort", address: "3799 S Las Vegas Blvd", city: "Las Vegas", state: "NV", contactName: "Venue Partnerships", contactEmail: "partners@mgm.example", contactPhone: "702-555-0101", status: "active", notes: "Flagship Strip casino route." },
+    { id: "venue-brewdog", name: "BrewDog Las Vegas", slug: "brewdog-las-vegas", businessType: "Rooftop bar", address: "3767 S Las Vegas Blvd", city: "Las Vegas", state: "NV", contactName: "BrewDog Marketing", contactEmail: "vegas@brewdog.example", contactPhone: "702-555-0102", status: "active", notes: "High tourist foot traffic." },
+    { id: "venue-gilleys", name: "Gilley’s Saloon", slug: "gilleys-saloon", businessType: "Saloon / entertainment", address: "3300 S Las Vegas Blvd", city: "Las Vegas", state: "NV", contactName: "Events Manager", contactEmail: "events@gilleys.example", contactPhone: "702-555-0103", status: "active", notes: "Country nightlife audience." },
+    { id: "venue-lee-canyon", name: "Lee Canyon", slug: "lee-canyon", businessType: "Outdoor recreation", address: "6725 Lee Canyon Rd", city: "Las Vegas", state: "NV", contactName: "Guest Experience", contactEmail: "guest@leecanyon.example", contactPhone: "702-555-0104", status: "active", notes: "Seasonal ski and mountain visitors." },
+  ];
+  const qrLocations = venues.flatMap((venue) => [
+    { qrId: "mens-stall-1", venueId: venue.id, locationName: "Men’s restroom stall 1", placementType: "stall-door", targetUrl: `/?venue=${venue.slug}&qr=mens-stall-1`, active: true, scanCount: 0 },
+    { qrId: "womens-stall-1", venueId: venue.id, locationName: "Women’s restroom stall 1", placementType: "stall-door", targetUrl: `/?venue=${venue.slug}&qr=womens-stall-1`, active: true, scanCount: 0 },
+    { qrId: "mirror-1", venueId: venue.id, locationName: "Mirror sponsor frame", placementType: "mirror", targetUrl: `/?venue=${venue.slug}&qr=mirror-1`, active: true, scanCount: 0 },
+  ]);
+  const advertisers = ["BrewDog Las Vegas", "United Painters Worldwide", "Box Chairs", "RecordPathAI", "Perfect Dream Modular", "Outdoor Events Association", "Hooters", "Lee Canyon"].map((name, index) => ({
+    id: `adv-${slugify(name)}`, businessName: name, category: ["Food & beverage", "Trade association", "Events", "AI software", "Modular homes", "Outdoor events", "Restaurant", "Recreation"][index], contactName: "Marketing Team", email: `ads@${slugify(name)}.example`, phone: `702-555-01${10 + index}`, website: `https://${slugify(name)}.example`, status: "active", notes: "Demo advertiser", assignedVenues: venues.map((v) => v.id), assignedCampaigns: [], monthlySpend: index === 0 ? 400 : 150,
+  }));
+  const campaigns = advertisers.map((adv, index) => ({
+    id: `camp-${slugify(adv.businessName)}`, advertiserId: adv.id, advertiserName: adv.businessName, offer: ["Show this screen for a reader pint perk", "Paint smarter with national pros", "Premium seats for outdoor events", "Turn records into AI-ready workflows", "Design your perfect modular dream", "Join the outdoor event operator network", "Wings, sports, and late-night specials", "Mountain escapes minutes from Vegas"][index], couponCode: `${slugify(adv.businessName).slice(0, 6).toUpperCase()}20`, startDate: `${currentYear()}-06-01`, endDate: `${currentYear()}-12-31`, selectedVenues: venues.map((v) => v.id), selectedSlots: [String((index % 8) + 1)], creativeImages: [], status: "active", createdAt: createdAt(), businessName: adv.businessName, headline: `${adv.businessName} restroom-reader offer`, subheadline: "Premium local media placement", ctaText: "Tap for offer", adMode: "html", primaryColor: ["#ff6b00", "#2354ff", "#7c2cff", "#0a7cff"][index % 4], secondaryColor: "#ffd400", accentColor: "#111111" }));
+  const adSlots = SLOT_DEFAULTS.map((slot, index) => {
+    const campaign = campaigns[index];
+    return { ...slot, id: `slot-${slot.slotNumber}`, availability: "sold", advertiserAssigned: campaign.advertiserName, campaignAssigned: campaign.id, campaignId: campaign.id, advertiserId: campaign.advertiserId, venueIds: venues.map((v) => v.id), startDate: campaign.startDate, endDate: campaign.endDate };
+  });
+  const issues = venues.map((venue) => ({
+    id: `issue-${venue.slug}`, title: `${monthName()} ${currentYear()} ${venue.name} Potty Favor`, month: monthName(), year: currentYear(), city: venue.city, venueId: venue.id, venueName: venue.name, status: "published", contentBlocks: ["Your quick city guide while you take five.", `Fresh picks and restroom-reader perks at ${venue.name}.`, "Hydrate, find your crew, and tap an offer before your next stop."], assignedAdSlots: ["1", "2", "3", "4", "5", "6", "7", "8"], publishedAt: createdAt(), duplicatedFrom: "" }));
+  const distributors = [{ id: "dist-las-vegas-strip", name: "Las Vegas Strip Distributor", city: "Las Vegas", state: "NV", email: "strip@stalltalk.example", phone: "702-555-0199", assignedVenues: venues.map((v) => v.id), commissionRate: 0.2 }];
+  return { venues, qrLocations, advertisers, campaigns, adSlots, issues, distributors };
+}
+
+function seedDemoNetwork(force = false) {
+  const demo = demoNetworkData();
+  const map = { venues: STORAGE_KEYS.venues, qrLocations: STORAGE_KEYS.qrLocations, advertisers: STORAGE_KEYS.advertisers, campaigns: STORAGE_KEYS.campaigns, adSlots: STORAGE_KEYS.ads, issues: STORAGE_KEYS.issues, distributors: STORAGE_KEYS.distributors };
+  Object.entries(map).forEach(([name, key]) => {
+    if (force || !localStorage.getItem(key)) saveJson(key, demo[name]);
+  });
+  if (force || !localStorage.getItem(STORAGE_KEYS.settings)) saveJson(STORAGE_KEYS.settings, { ...DEFAULT_SETTINGS, savedAt: timestamp() });
+  if (force || !localStorage.getItem(STORAGE_KEYS.published)) saveJson(STORAGE_KEYS.published, DEMO_CONTENT);
+}
+
+function getNetworkAdSlots() {
+  const slots = readJson(STORAGE_KEYS.ads, []);
+  if (Array.isArray(slots)) return slots;
+  return SLOT_DEFAULTS.map((slot) => ({ ...slot, id: `slot-${slot.slotNumber}`, availability: slots[String(slot.slotNumber)] ? "sold" : "open", campaignAssigned: slots[String(slot.slotNumber)]?.businessName || "", advertiserAssigned: slots[String(slot.slotNumber)]?.businessName || "" }));
+}
+
+function setNetworkAdSlots(slots) { saveJson(STORAGE_KEYS.ads, slots); }
+
+function activeCampaigns() { return ensureArray(STORAGE_KEYS.campaigns).filter((campaign) => campaign.status === "active"); }
+
+function revenueForSlot(slot) { return slot.availability === "sold" || slot.campaignAssigned || slot.campaignId ? Number(slot.price || 0) : 0; }
+
+function revenueSummary() {
+  const slots = getNetworkAdSlots();
+  const campaigns = activeCampaigns();
+  const venues = ensureArray(STORAGE_KEYS.venues);
+  const advertisers = ensureArray(STORAGE_KEYS.advertisers);
+  const activeSlotRevenue = slots.reduce((sum, slot) => sum + revenueForSlot(slot), 0);
+  const openSlotOpportunity = slots.reduce((sum, slot) => sum + (revenueForSlot(slot) ? 0 : Number(slot.price || 0)), 0);
+  return { slots, campaigns, venues, advertisers, activeSlotRevenue, openSlotOpportunity, mrr: activeSlotRevenue };
+}
+
+function metricCard(label, value, note = "") { return `<article class="admin-card status-card"><span>${label}</span><h2>${value}</h2><p>${note}</p></article>`; }
+
+function renderNetworkDashboardExtras() {
+  const events = ensureArray(STORAGE_KEYS.analyticsEvents);
+  const { venues, advertisers, activeSlotRevenue } = revenueSummary();
+  const activeVenues = venues.filter((venue) => venue.status === "active").length;
+  const activeAdvertisers = advertisers.filter((adv) => adv.status === "active").length;
+  const container = document.querySelector("#analytics-grid");
+  if (container) {
+    const counts = (type) => events.filter((event) => event.type === type).length;
+    const topVenue = topBy(events.map((event) => event.venueSlug).filter(Boolean)) || "No scans yet";
+    const topSlot = topBy(events.map((event) => event.adSlot).filter(Boolean)) || "No clicks yet";
+    container.innerHTML = [
+      metricCard("Total scans", counts("qr_scan")), metricCard("Issue views", counts("issue_view")), metricCard("Ad clicks", counts("ad_click")), metricCard("Coupon clicks", counts("coupon_click")), metricCard("Top venue", topVenue), metricCard("Top ad slot", topSlot), metricCard("Estimated revenue", `$${activeSlotRevenue}/mo`), metricCard("Active advertisers", activeAdvertisers), metricCard("Active venues", activeVenues)
+    ].join("");
+  }
+}
+
+function topBy(values) {
+  const counts = values.reduce((map, value) => ({ ...map, [value]: (map[value] || 0) + 1 }), {});
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+function renderVenues() {
+  const venues = ensureArray(STORAGE_KEYS.venues);
+  document.querySelectorAll("#qr-venue-select, #issue-venue-select").forEach((select) => { if (select) select.innerHTML = venues.map((venue) => `<option value="${venue.id}">${venue.name}</option>`).join(""); });
+  const list = document.querySelector("#venues-list");
+  if (list) list.innerHTML = venues.map((venue) => `<article class="network-row"><strong>${venue.name}</strong><span>${venue.businessType} • ${venue.city}, ${venue.state} • ${venue.status}</span><small>${venue.contactName || "No contact"} ${venue.contactEmail || ""}</small><a href="../index.html?venue=${venue.slug}&qr=mens-stall-1" target="_blank">Preview venue</a></article>`).join("");
+}
+
+function qrCanvas(id, url) {
+  requestAnimationFrame(() => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    if (window.QRCode?.toCanvas) window.QRCode.toCanvas(target, url, { width: 112, margin: 1 });
+    else target.replaceWith(Object.assign(document.createElement("a"), { href: url, textContent: "Open QR URL" }));
+  });
+}
+
+function renderQrLocations() {
+  const venues = ensureArray(STORAGE_KEYS.venues);
+  const qrs = ensureArray(STORAGE_KEYS.qrLocations);
+  const list = document.querySelector("#qr-list");
+  if (!list) return;
+  list.innerHTML = qrs.map((qr, index) => {
+    const venue = venues.find((item) => item.id === qr.venueId) || {};
+    const url = qr.targetUrl || `/?venue=${venue.slug}&qr=${qr.qrId}`;
+    const absolute = `${location.origin}${location.pathname.replace(/admin\/?$/, "")}${url}`;
+    const canvasId = `qr-canvas-${index}`;
+    setTimeout(() => qrCanvas(canvasId, absolute), 0);
+    return `<article class="network-row qr-row"><canvas id="${canvasId}" width="112" height="112"></canvas><div><strong>${qr.locationName}</strong><span>${venue.name || qr.venueId} • ${qr.placementType} • ${qr.active ? "active" : "paused"}</span><small>${url} • scans: ${qr.scanCount || 0}</small></div></article>`;
+  }).join("");
+}
+
+function renderIssues() {
+  const issues = ensureArray(STORAGE_KEYS.issues);
+  const venues = ensureArray(STORAGE_KEYS.venues);
+  const list = document.querySelector("#issues-list");
+  if (list) list.innerHTML = issues.map((issue) => { const venue = venues.find((v) => v.id === issue.venueId) || {}; return `<article class="network-row"><strong>${issue.title}</strong><span>${issue.month} ${issue.year} • ${issue.city} • ${issue.status}</span><small>Slots ${issue.assignedAdSlots?.join(", ") || "none"}</small><a href="../index.html?venue=${venue.slug || "mgm-grand-las-vegas"}&previewIssue=${issue.id}" target="_blank">Preview issue by venue</a></article>`; }).join("");
+}
+
+function renderInventory() {
+  const campaigns = ensureArray(STORAGE_KEYS.campaigns);
+  const grid = document.querySelector("#inventory-grid");
+  if (!grid) return;
+  grid.innerHTML = getNetworkAdSlots().map((slot) => {
+    const campaign = campaigns.find((item) => item.id === (slot.campaignId || slot.campaignAssigned));
+    return `<article class="inventory-card"><span>Slot ${slot.slotNumber}</span><h3>${slot.placementName}</h3><p>${slot.size} • $${slot.price}/month</p><strong>${campaign?.advertiserName || slot.advertiserAssigned || "Open"}</strong><small>${slot.availability || (campaign ? "sold" : "open")} • ${slot.startDate || ""} ${slot.endDate ? `→ ${slot.endDate}` : ""}</small></article>`;
+  }).join("");
+}
+
+function renderAdvertisers() {
+  const select = document.querySelector("#campaign-advertiser-select");
+  const advertisers = ensureArray(STORAGE_KEYS.advertisers);
+  if (select) select.innerHTML = advertisers.map((adv) => `<option value="${adv.id}">${adv.businessName}</option>`).join("");
+  const list = document.querySelector("#advertisers-list");
+  if (list) list.innerHTML = advertisers.map((adv) => `<article class="network-row"><strong>${adv.businessName}</strong><span>${adv.category} • ${adv.status} • $${adv.monthlySpend || 0}/mo</span><small>${adv.contactName || ""} ${adv.email || ""} ${adv.phone || ""}</small></article>`).join("");
+}
+
+function renderCampaigns() {
+  const list = document.querySelector("#campaigns-list");
+  if (list) list.innerHTML = ensureArray(STORAGE_KEYS.campaigns).map((campaign) => `<article class="network-row"><strong>${campaign.advertiserName || campaign.businessName}</strong><span>${campaign.offer} • ${campaign.status}</span><small>Coupon ${campaign.couponCode || "—"} • Slots ${(campaign.selectedSlots || []).join(", ") || "none"}</small></article>`).join("");
+}
+
+function renderRevenue() {
+  const { slots, venues, advertisers, activeSlotRevenue, openSlotOpportunity, mrr } = revenueSummary();
+  const grid = document.querySelector("#revenue-grid");
+  if (grid) grid.innerHTML = [metricCard("Monthly recurring revenue", `$${mrr}`), metricCard("Active slot revenue", `$${activeSlotRevenue}`), metricCard("Open slot opportunity", `$${openSlotOpportunity}`), metricCard("Active venues", venues.filter((v) => v.status === "active").length), metricCard("Active advertisers", advertisers.filter((a) => a.status === "active").length)].join("");
+  const breakdown = document.querySelector("#revenue-breakdown");
+  if (breakdown) breakdown.innerHTML = venues.map((venue) => `<article class="network-row"><strong>${venue.name}</strong><span>Estimated venue ad revenue: $${activeSlotRevenue}/mo</span><small>Distributor placeholder commission at 20%: $${Math.round(activeSlotRevenue * 0.2)}/mo</small></article>`).join("");
+}
+
+function renderDistributors() {
+  const { activeSlotRevenue } = revenueSummary();
+  const venues = ensureArray(STORAGE_KEYS.venues);
+  const list = document.querySelector("#distributors-list");
+  if (list) list.innerHTML = ensureArray(STORAGE_KEYS.distributors).map((dist) => `<article class="network-row"><strong>${dist.name}</strong><span>${dist.city}, ${dist.state} • ${(dist.commissionRate || 0.2) * 100}% commission</span><small>${dist.email} • assigned venues: ${(dist.assignedVenues || []).map((id) => venues.find((v) => v.id === id)?.name || id).join(", ")}</small><b>Commission placeholder: $${Math.round(activeSlotRevenue * (dist.commissionRate || 0.2))}/mo</b></article>`).join("");
+}
+
+function refreshPhase3() {
+  renderVenues(); renderQrLocations(); renderIssues(); renderInventory(); renderAdvertisers(); renderCampaigns(); renderNetworkDashboardExtras(); renderRevenue(); renderDistributors();
+}
+
+function networkFormObject(formSelector) { return Object.fromEntries(new FormData(document.querySelector(formSelector)).entries()); }
+
+function saveVenueRecord() {
+  const form = networkFormObject("#venue-form");
+  const name = safeText(form.name, "New Venue");
+  const record = { id: `venue-${slugify(form.slug || name)}`, ...form, name, slug: slugify(form.slug || name) };
+  const venues = ensureArray(STORAGE_KEYS.venues).filter((venue) => venue.id !== record.id);
+  saveJson(STORAGE_KEYS.venues, [...venues, record]); refreshPhase3();
+}
+
+function saveQrRecord() {
+  const form = networkFormObject("#qr-form");
+  const venues = ensureArray(STORAGE_KEYS.venues); const venue = venues.find((v) => v.id === form.venueId) || venues[0] || {};
+  const qrId = slugify(form.qrId || form.locationName || "qr-location");
+  const record = { ...form, qrId, active: form.active === "true", targetUrl: `/?venue=${venue.slug}&qr=${qrId}`, scanCount: 0 };
+  const qrs = ensureArray(STORAGE_KEYS.qrLocations).filter((qr) => !(qr.venueId === record.venueId && qr.qrId === record.qrId));
+  saveJson(STORAGE_KEYS.qrLocations, [...qrs, record]); refreshPhase3();
+}
+
+function saveIssueRecord() {
+  const form = networkFormObject("#issue-form");
+  const venue = ensureArray(STORAGE_KEYS.venues).find((v) => v.id === form.venueId) || {};
+  const record = { id: `issue-${slugify(form.title || `${venue.slug}-${Date.now()}`)}`, ...form, venueName: venue.name, contentBlocks: safeText(form.contentBlocks).split(/\n+/).filter(Boolean), assignedAdSlots: safeText(form.assignedSlots, "1,2,3,4,5,6,7,8").split(/\s*,\s*/).filter(Boolean), publishedAt: form.status === "published" ? createdAt() : "" };
+  saveJson(STORAGE_KEYS.issues, [...ensureArray(STORAGE_KEYS.issues).filter((issue) => issue.id !== record.id), record]); refreshPhase3();
+}
+
+function duplicatePreviousIssue() {
+  const issues = ensureArray(STORAGE_KEYS.issues); const previous = issues[0]; if (!previous) return;
+  const copy = { ...previous, id: `${previous.id}-copy-${Date.now()}`, title: `${previous.title} Copy`, status: "draft", duplicatedFrom: previous.id };
+  saveJson(STORAGE_KEYS.issues, [copy, ...issues]); refreshPhase3();
+}
+
+function saveAdvertiserRecord() {
+  const form = networkFormObject("#advertiser-form"); const businessName = safeText(form.businessName, "New Advertiser");
+  const record = { id: `adv-${slugify(businessName)}`, ...form, businessName, assignedVenues: [], assignedCampaigns: [], monthlySpend: Number(form.monthlySpend || 0) };
+  saveJson(STORAGE_KEYS.advertisers, [...ensureArray(STORAGE_KEYS.advertisers).filter((adv) => adv.id !== record.id), record]); refreshPhase3();
+}
+
+function saveNetworkCampaignRecord() {
+  const form = networkFormObject("#campaign-form"); const adv = ensureArray(STORAGE_KEYS.advertisers).find((item) => item.id === form.advertiserId) || {};
+  const selectedSlots = safeText(form.selectedSlots, "1").split(/\s*,\s*/).filter(Boolean);
+  const selectedVenues = safeText(form.selectedVenues, "all") === "all" ? ensureArray(STORAGE_KEYS.venues).map((v) => v.id) : safeText(form.selectedVenues).split(/\s*,\s*/).filter(Boolean);
+  const record = { id: `camp-${slugify(adv.businessName || form.offer)}-${Date.now()}`, ...form, advertiserName: adv.businessName, businessName: adv.businessName, selectedSlots, selectedVenues, creativeImages: safeText(form.creativeImages).split(/\n+/).filter(Boolean), createdAt: createdAt(), adMode: "html", headline: `${adv.businessName || "Sponsor"}: ${form.offer}`, subheadline: "Published from Campaign Manager", ctaText: "Claim offer" };
+  const campaigns = [...ensureArray(STORAGE_KEYS.campaigns), record]; saveJson(STORAGE_KEYS.campaigns, campaigns);
+  const slots = getNetworkAdSlots().map((slot) => selectedSlots.includes(String(slot.slotNumber)) ? { ...slot, availability: "sold", advertiserAssigned: record.advertiserName, campaignAssigned: record.id, campaignId: record.id, advertiserId: record.advertiserId, venueIds: selectedVenues, startDate: record.startDate, endDate: record.endDate } : slot);
+  setNetworkAdSlots(slots); refreshPhase3();
+}
+
+function pauseSelectedCampaign() {
+  const advId = document.querySelector("#campaign-advertiser-select")?.value;
+  saveJson(STORAGE_KEYS.campaigns, ensureArray(STORAGE_KEYS.campaigns).map((campaign) => campaign.advertiserId === advId ? { ...campaign, status: "draft" } : campaign)); refreshPhase3();
+}
+
+function upsertCampaignFromCreative(ad) {
+  if (!ad?.businessName) return;
+  const advertisers = ensureArray(STORAGE_KEYS.advertisers);
+  let adv = advertisers.find((item) => item.businessName === ad.businessName);
+  if (!adv) { adv = { id: `adv-${slugify(ad.businessName)}`, businessName: ad.businessName, category: ad.category || ad.businessCategory || "Generated creative", contactName: "", email: "", phone: ad.phone || "", website: ad.website || "", status: "lead", notes: "Created from AI Creative Studio", assignedVenues: [], assignedCampaigns: [], monthlySpend: 0 }; saveJson(STORAGE_KEYS.advertisers, [...advertisers, adv]); }
+  const campaign = { id: `camp-${slugify(ad.businessName)}-${Date.now()}`, advertiserId: adv.id, advertiserName: adv.businessName, businessName: adv.businessName, offer: ad.offer, couponCode: ad.couponCode, startDate: new Date().toISOString().slice(0, 10), endDate: ad.expiration || "", selectedVenues: ensureArray(STORAGE_KEYS.venues).map((v) => v.id), selectedSlots: ad.slotPublishedTo ? [String(ad.slotPublishedTo)] : [], creativeImages: [ad.imageAdUrl || ad.imageUrl || ""].filter(Boolean), status: "draft", ...ad };
+  saveJson(STORAGE_KEYS.campaigns, [campaign, ...ensureArray(STORAGE_KEYS.campaigns)]);
+}
+
+function exportAllData() {
+  const keys = [STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.published, STORAGE_KEYS.draft];
+  const payload = Object.fromEntries(keys.map((key) => [key, readJson(key, null)]));
+  const json = JSON.stringify(payload, null, 2);
+  document.querySelector("#data-export-output").value = json;
+  const blob = new Blob([json], { type: "application/json" });
+  const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `stalltalk-phase3-export-${Date.now()}.json` });
+  link.click(); URL.revokeObjectURL(link.href);
+}
+
+function importAllData(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { const payload = JSON.parse(reader.result); Object.entries(payload).forEach(([key, value]) => saveJson(key, value)); document.querySelector("#data-status").textContent = "Imported Phase 3 network data."; refreshAdmin(); refreshPhase3(); };
+  reader.readAsText(file);
+}
+
+function wirePhase3() {
+  seedDemoNetwork(false); refreshPhase3();
+  document.querySelector("#save-venue")?.addEventListener("click", saveVenueRecord);
+  document.querySelector("#save-qr")?.addEventListener("click", saveQrRecord);
+  document.querySelector("#save-issue")?.addEventListener("click", saveIssueRecord);
+  document.querySelector("#duplicate-issue")?.addEventListener("click", duplicatePreviousIssue);
+  document.querySelector("#save-advertiser")?.addEventListener("click", saveAdvertiserRecord);
+  document.querySelector("#save-network-campaign")?.addEventListener("click", saveNetworkCampaignRecord);
+  document.querySelector("#pause-campaign")?.addEventListener("click", pauseSelectedCampaign);
+  document.querySelector("#export-all-data")?.addEventListener("click", exportAllData);
+  document.querySelector("#import-all-data")?.addEventListener("change", (event) => importAllData(event.target.files?.[0]));
+  document.querySelector("#reset-demo-network")?.addEventListener("click", () => { seedDemoNetwork(true); document.querySelector("#data-status").textContent = "Demo network reset."; refreshAdmin(); refreshPhase3(); });
 }
 
 function init() {
@@ -440,6 +744,7 @@ function init() {
   loadSettingsForm();
   generateCopy();
   refreshAdmin();
+  wirePhase3();
 
   document.querySelectorAll(".tab-button").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.tab)));
   document.querySelectorAll("[data-go-tab]").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.goTab)));
