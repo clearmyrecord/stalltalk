@@ -1,7 +1,7 @@
 const STORAGE_KEYS = {
   draft: "stalltalk_content_draft",
   published: "stalltalk_content_published",
-  ads: "stalltalk_ad_slots",
+  ads: window.StallTalkGraphicAds?.storageKey || "stalltalk_ad_slots",
   settings: "stalltalk_issue_settings",
 };
 
@@ -68,7 +68,7 @@ function renderPublishedContent(content = readJson(STORAGE_KEYS.published, null)
 }
 
 function updateAdCard(card, slotNumber, ad) {
-  if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName)) {
+  if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName || window.StallTalkGraphicAds.imageSource(ad))) {
     card.classList.add("pf-ad-card-generated");
     card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
     return;
@@ -83,13 +83,14 @@ function updateAdCard(card, slotNumber, ad) {
   if (title) title.textContent = ad?.businessName || ad?.headline || title.textContent;
   if (copy) copy.textContent = ad?.offer || ad?.subheadline || copy.textContent;
   if (link) {
-    link.href = normalizeContactHref(ad?.website || ad?.phone);
+    link.href = normalizeContactHref(ad?.website || ad?.phone || ad?.contact || ad?.contactUrl);
     link.textContent = ad?.ctaButtonText || "Claim offer";
+    link.setAttribute("aria-label", `View ${ad?.businessName || "sponsor"} offer`);
   }
 }
 
 function updateMiniAd(card, slotNumber, ad) {
-  if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName)) {
+  if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName || window.StallTalkGraphicAds.imageSource(ad))) {
     card.classList.add("pf-mini-generated");
     card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
     return;
@@ -125,6 +126,8 @@ function wireArticleExpansionLabels() {
 
 function wireTapFeedback() {
   document.querySelectorAll(".pf-ad-card a, .ad-dot, .graphic-ad").forEach((link) => {
+    if (link.dataset.tapFeedbackBound === "true") return;
+    link.dataset.tapFeedbackBound = "true";
     link.addEventListener("click", () => {
       link.classList.add("was-tapped");
       window.setTimeout(() => link.classList.remove("was-tapped"), 500);

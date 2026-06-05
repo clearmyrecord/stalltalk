@@ -1190,3 +1190,171 @@ body.publisher-dashboard-page {
     transform: translateX(-50%);
   }
 }
+
+.graphic-ad {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 100%;
+  min-height: 15rem;
+  gap: 0.7rem;
+  overflow: hidden;
+  border: 4px solid var(--ink);
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, var(--graphic-primary), var(--graphic-secondary));
+  padding: 1rem;
+  color: var(--white);
+  text-decoration: none;
+  text-shadow: 1px 1px 0 var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.graphic-ad-compact {
+  min-height: 100%;
+  border: 0;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  box-shadow: none;
+}
+
+.graphic-size-square {
+  aspect-ratio: 1;
+}
+
+.graphic-size-tall {
+  min-height: 24rem;
+}
+
+.graphic-size-footer {
+  min-height: 10rem;
+}
+
+.graphic-ad-image {
+  min-height: 0;
+  padding: 0;
+  background: var(--ink);
+}
+
+.graphic-generated-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  object-fit: cover;
+}
+
+.graphic-topline,
+.graphic-coupon,
+.graphic-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.graphic-topline span,
+.graphic-coupon,
+.graphic-cta {
+  width: max-content;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--white);
+  padding: 0.28rem 0.6rem;
+  color: var(--ink);
+  font: 1000 0.7rem/1 Arial, Helvetica, sans-serif;
+  letter-spacing: 0.08em;
+  text-shadow: none;
+  text-transform: uppercase;
+}
+
+.graphic-logo {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  background: var(--graphic-accent);
+  font-size: 1.8rem;
+  font-weight: 1000;
+  justify-self: end;
+}
+
+.graphic-logo img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.graphic-body {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.graphic-business,
+.graphic-audience,
+.graphic-contact,
+.graphic-offer-badge span,
+.graphic-coupon span {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.graphic-headline {
+  margin: 0;
+  font-size: clamp(2rem, 9vw, 4.5rem);
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.graphic-offer-badge {
+  display: grid;
+  width: max-content;
+  max-width: 100%;
+  border: 4px solid var(--ink);
+  border-radius: 1rem;
+  background: var(--graphic-accent);
+  padding: 0.55rem;
+}
+
+.graphic-offer-badge strong,
+.graphic-coupon strong {
+  font-size: 1.05rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.graphic-shapes {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.graphic-shapes span {
+  position: absolute;
+  width: 7rem;
+  height: 7rem;
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  background: var(--graphic-accent);
+}
+
+.graphic-shapes span:nth-child(1) { top: -2rem; right: -2rem; }
+.graphic-shapes span:nth-child(2) { bottom: -2rem; left: -2rem; }
+.graphic-shapes span:nth-child(3) { top: 42%; left: 62%; width: 3rem; height: 3rem; }
+.graphic-shapes span:nth-child(4) { top: 12%; left: 12%; width: 2rem; height: 2rem; }
+
+.pf-ad-card-generated > .graphic-ad,
+.pf-mini-generated > .graphic-ad,
+.published-slot-card > .graphic-ad {
+  height: 100%;
+}
+
+.pf-mini-generated > .graphic-ad {
+  min-height: 9.5rem;
+}

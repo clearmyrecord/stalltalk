@@ -1,7 +1,7 @@
 const STORAGE_KEYS = {
   draft: "stalltalk_content_draft",
   published: "stalltalk_content_published",
-  ads: "stalltalk_ad_slots",
+  ads: window.StallTalkGraphicAds?.storageKey || "stalltalk_ad_slots",
   settings: "stalltalk_issue_settings",
 };
 
