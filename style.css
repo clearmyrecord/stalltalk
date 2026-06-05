@@ -573,3 +573,107 @@ a {
     grid-column: 1 / -1;
   }
 }
+
+.panel-copy {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.content-admin-layout {
+  padding-top: 0;
+}
+
+.content-editor textarea {
+  min-height: 7rem;
+}
+
+.content-editor label:first-child,
+.content-editor label:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.secondary-button {
+  background: var(--stall-purple);
+}
+
+.content-studio-issue,
+.content-preview-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.content-studio-issue {
+  border: 4px solid var(--ink);
+  border-radius: 2rem;
+  background: var(--white);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.content-preview-grid {
+  grid-template-columns: 1fr;
+}
+
+.studio-story {
+  border: 3px solid var(--ink);
+  border-radius: 1.25rem;
+  background: var(--paper);
+  padding: 1rem;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.studio-story span {
+  display: inline-flex;
+  border-radius: 999px;
+  background: var(--ink);
+  padding: 0.28rem 0.62rem;
+  color: var(--stall-yellow);
+  font-size: 0.66rem;
+  font-weight: 1000;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.studio-story h3 {
+  margin: 0.55rem 0 0.45rem;
+  color: var(--stall-purple);
+  font-size: clamp(2.2rem, 10vw, 3.8rem);
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.studio-story p,
+.studio-story li {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.studio-story p,
+.studio-story ol {
+  margin: 0.75rem 0 0;
+}
+
+.studio-story ol {
+  padding-left: 1.35rem;
+}
+
+@media (min-width: 56rem) {
+  .content-preview-grid,
+  .content-studio-issue {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-studio-issue .section-heading,
+  .studio-story-wide {
+    grid-column: 1 / -1;
+  }
+}
