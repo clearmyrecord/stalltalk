@@ -23,8 +23,18 @@
     <main class="publisher-shell">
       <nav class="publisher-tabs" aria-label="Publisher sections">
         <button class="tab-button is-active" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab-button" type="button" data-tab="venues">Venues</button>
+        <button class="tab-button" type="button" data-tab="qr">QR Network</button>
+        <button class="tab-button" type="button" data-tab="issues">Issues</button>
+        <button class="tab-button" type="button" data-tab="inventory">Ad Inventory</button>
+        <button class="tab-button" type="button" data-tab="advertisers">Advertisers</button>
+        <button class="tab-button" type="button" data-tab="campaigns">Campaigns</button>
+        <button class="tab-button" type="button" data-tab="analytics">Analytics</button>
+        <button class="tab-button" type="button" data-tab="revenue">Revenue</button>
+        <button class="tab-button" type="button" data-tab="distributors">Distributors</button>
+        <button class="tab-button" type="button" data-tab="data">Data</button>
         <button class="tab-button" type="button" data-tab="content">Content Studio</button>
-        <button class="tab-button" type="button" data-tab="ads">Ad Studio</button>
+        <button class="tab-button" type="button" data-tab="ads">AI Creative Studio</button>
         <button class="tab-button" type="button" data-tab="preview">Preview</button>
         <button class="tab-button" type="button" data-tab="settings">Settings</button>
       </nav>
@@ -217,6 +227,83 @@
         </section>
       </section>
 
+
+      <section id="venues" class="tab-panel" aria-labelledby="venues-tab">
+        <div class="network-two-column">
+          <form id="venue-form" class="admin-card studio-form network-form">
+            <div class="section-heading compact-heading"><p>Venue CRM</p><h2>Add / update venue</h2></div>
+            <div class="two-column-form">
+              <label>Venue name <input name="name" required /></label>
+              <label>Slug <input name="slug" placeholder="brewdog-las-vegas" /></label>
+              <label>Business type <input name="businessType" placeholder="Bar / restaurant" /></label>
+              <label>Address <input name="address" /></label>
+              <label>City <input name="city" /></label>
+              <label>State <input name="state" maxlength="2" /></label>
+              <label>Contact name <input name="contactName" /></label>
+              <label>Contact email <input name="contactEmail" type="email" /></label>
+              <label>Contact phone <input name="contactPhone" type="tel" /></label>
+              <label>Status <select name="status"><option>prospect</option><option selected>active</option><option>paused</option></select></label>
+            </div>
+            <label>Notes <textarea name="notes" rows="4"></textarea></label>
+            <button id="save-venue" class="primary-button success-button" type="button">Save Venue</button>
+          </form>
+          <section class="admin-card"><div class="section-heading compact-heading"><p>Active network</p><h2>Venues</h2></div><div id="venues-list" class="network-list"></div></section>
+        </div>
+      </section>
+
+      <section id="qr" class="tab-panel" aria-labelledby="qr-tab">
+        <div class="network-two-column">
+          <form id="qr-form" class="admin-card studio-form network-form">
+            <div class="section-heading compact-heading"><p>Restrooms + QR</p><h2>Create QR location</h2></div>
+            <div class="two-column-form">
+              <label>Venue <select name="venueId" id="qr-venue-select"></select></label>
+              <label>QR ID <input name="qrId" placeholder="mens-stall-1" /></label>
+              <label>Location name <input name="locationName" placeholder="Men’s restroom stall 1" /></label>
+              <label>Placement type <select name="placementType"><option>stall-door</option><option>urinal</option><option>mirror</option><option>sink-area</option></select></label>
+              <label>Status <select name="active"><option value="true">active</option><option value="false">paused</option></select></label>
+            </div>
+            <button id="save-qr" class="primary-button success-button" type="button">Save QR Location</button>
+            <p class="help-copy">QR URLs use <code>/?venue={venueSlug}&amp;qr={qrId}</code>.</p>
+          </form>
+          <section class="admin-card"><div class="section-heading compact-heading"><p>QR Preview</p><h2>Network codes</h2></div><div id="qr-list" class="network-list"></div></section>
+        </div>
+      </section>
+
+      <section id="issues" class="tab-panel" aria-labelledby="issues-tab">
+        <div class="network-two-column">
+          <form id="issue-form" class="admin-card studio-form network-form">
+            <div class="section-heading compact-heading"><p>Issue Manager</p><h2>Create / publish issue</h2></div>
+            <div class="two-column-form">
+              <label>Issue title <input name="title" /></label>
+              <label>Month <input name="month" /></label>
+              <label>Year <input name="year" /></label>
+              <label>City <input name="city" /></label>
+              <label>Venue <select name="venueId" id="issue-venue-select"></select></label>
+              <label>Status <select name="status"><option>draft</option><option selected>published</option><option>archived</option></select></label>
+            </div>
+            <label>Content blocks <textarea name="contentBlocks" rows="6" placeholder="One block per line"></textarea></label>
+            <label>Assigned ad slots <input name="assignedSlots" placeholder="1,2,3,8" /></label>
+            <div class="button-row"><button id="save-issue" class="primary-button success-button" type="button">Save Issue</button><button id="duplicate-issue" class="primary-button secondary-button" type="button">Duplicate Previous Issue</button></div>
+          </form>
+          <section class="admin-card"><div class="section-heading compact-heading"><p>Publishing queue</p><h2>Issues</h2></div><div id="issues-list" class="network-list"></div></section>
+        </div>
+      </section>
+
+      <section id="inventory" class="tab-panel" aria-labelledby="inventory-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Ad Operations</p><h2>8-slot inventory</h2></div><div id="inventory-grid" class="inventory-grid"></div></section></section>
+
+      <section id="advertisers" class="tab-panel" aria-labelledby="advertisers-tab">
+        <div class="network-two-column"><form id="advertiser-form" class="admin-card studio-form network-form"><div class="section-heading compact-heading"><p>Advertiser CRM</p><h2>Add advertiser</h2></div><div class="two-column-form"><label>Business name <input name="businessName" /></label><label>Category <input name="category" /></label><label>Contact name <input name="contactName" /></label><label>Email <input name="email" type="email" /></label><label>Phone <input name="phone" /></label><label>Website <input name="website" type="url" /></label><label>Status <select name="status"><option>lead</option><option selected>active</option><option>paused</option><option>churned</option></select></label><label>Monthly spend <input name="monthlySpend" type="number" /></label></div><label>Notes <textarea name="notes" rows="3"></textarea></label><button id="save-advertiser" class="primary-button success-button" type="button">Save Advertiser</button></form><section class="admin-card"><div class="section-heading compact-heading"><p>Pipeline</p><h2>Advertisers</h2></div><div id="advertisers-list" class="network-list"></div></section></div>
+      </section>
+
+      <section id="campaigns" class="tab-panel" aria-labelledby="campaigns-tab">
+        <div class="network-two-column"><form id="campaign-form" class="admin-card studio-form network-form"><div class="section-heading compact-heading"><p>Campaign Manager</p><h2>Assign campaign to slots</h2></div><div class="two-column-form"><label>Advertiser <select name="advertiserId" id="campaign-advertiser-select"></select></label><label>Offer <input name="offer" /></label><label>Coupon code <input name="couponCode" /></label><label>Start date <input name="startDate" type="date" /></label><label>End date <input name="endDate" type="date" /></label><label>Status <select name="status"><option>draft</option><option selected>active</option><option>expired</option></select></label><label>Selected venues <input name="selectedVenues" placeholder="venue ids or all" /></label><label>Selected slots <input name="selectedSlots" placeholder="1,2,8" /></label></div><label>Creative images <textarea name="creativeImages" rows="3"></textarea></label><div class="button-row"><button id="save-network-campaign" class="primary-button success-button" type="button">Save / Publish Campaign</button><button id="pause-campaign" class="primary-button secondary-button" type="button">Pause Selected</button></div></form><section class="admin-card"><div class="section-heading compact-heading"><p>Live campaigns</p><h2>Campaigns</h2></div><div id="campaigns-list" class="network-list"></div></section></div>
+      </section>
+
+      <section id="analytics" class="tab-panel" aria-labelledby="analytics-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Analytics MVP</p><h2>Network performance</h2></div><div id="analytics-grid" class="dashboard-grid"></div></section></section>
+      <section id="revenue" class="tab-panel" aria-labelledby="revenue-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Revenue Engine</p><h2>MRR + opportunity</h2></div><div id="revenue-grid" class="dashboard-grid"></div><div id="revenue-breakdown" class="network-list"></div></section></section>
+      <section id="distributors" class="tab-panel" aria-labelledby="distributors-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Distributor structure</p><h2>Commission placeholders</h2></div><div id="distributors-list" class="network-list"></div></section></section>
+      <section id="data" class="tab-panel" aria-labelledby="data-tab"><section class="admin-card"><div class="section-heading compact-heading"><p>Data storage</p><h2>Export, import, reset</h2></div><div class="button-row"><button id="export-all-data" class="primary-button" type="button">Export All Data</button><label class="primary-button secondary-button import-label">Import Data <input id="import-all-data" type="file" accept="application/json" hidden /></label><button id="reset-demo-network" class="primary-button danger-button" type="button">Reset Demo Network</button></div><textarea id="data-export-output" rows="12" readonly placeholder="Exported JSON appears here"></textarea><p id="data-status" class="form-status"></p></section></section>
+
       <section id="preview" class="tab-panel" aria-labelledby="preview-tab">
         <section class="admin-card preview-panel">
           <div class="section-heading compact-heading">
@@ -234,11 +321,14 @@
             <h2>Issue identity</h2>
           </div>
           <fieldset class="brand-toggle">
-            <legend>Brand</legend>
-            <label><input type="radio" name="brand" value="Stall Talk" /> Stall Talk</label>
-            <label><input type="radio" name="brand" value="Potty Favor" checked /> Potty Favor</label>
+            <legend>Active brand</legend>
+            <label><input type="radio" name="activeBrand" value="Stall Talk" /> Stall Talk</label>
+            <label><input type="radio" name="activeBrand" value="Potty Favor" checked /> Potty Favor</label>
           </fieldset>
           <div class="two-column-form">
+            <label>Logo text <input name="logoText" type="text" /></label>
+            <label>Tagline <input name="tagline" type="text" /></label>
+            <label>Color theme <select name="colorTheme"><option value="vegas-neon">Vegas neon</option><option value="clean-premium">Clean premium</option><option value="stalltalk-b2b">Stall Talk B2B</option></select></label>
             <label>Issue number <input name="issueNumber" type="text" /></label>
             <label>City <input name="city" type="text" /></label>
             <label>Venue <input name="venue" type="text" /></label>
@@ -254,6 +344,7 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
     <script src="../graphic-ad.js" defer></script>
     <script src="config.js" defer></script>
     <script src="admin.js" defer></script>
