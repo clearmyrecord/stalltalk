@@ -1,11 +1,16 @@
-import type { Ad, AdScope, Issue, Restroom, Venue } from "@prisma/client";
+import type { Ad, AdScope, Issue, IssueAdSlot, Restroom, Venue } from "@prisma/client";
 import { prisma } from "./prisma";
 
-type Context = Issue & { venue: Venue; restroom: Restroom | null };
-type ServedAd = Ad & { source: AdScope; slotNumber: number };
+type Context = Issue & { venue: Venue; restroom: Restroom | null; adSlots?: Array<IssueAdSlot & { ad: Ad }> };
+export type ServedAd = (Ad & { source: AdScope; slotNumber: number }) | null;
 
 export async function getServedAds(issue: Context): Promise<ServedAd[]> {
   const now = new Date();
+  const activeManualSlots = new Map(
+    (issue.adSlots || [])
+      .filter((slot) => isActive(slot.ad, now))
+      .map((slot) => [slot.slotNumber, { ...slot.ad, source: slot.source || slot.ad.scope, slotNumber: slot.slotNumber }])
+  );
   const ads = await prisma.ad.findMany({
     where: {
       publisherId: issue.publisherId,
@@ -19,8 +24,21 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
   const priority: AdScope[] = ["RESTROOM", "VENUE", "CITY", "GLOBAL"];
   const scoped = priority.flatMap((scope) => ads.filter((ad) => matchesScope(ad, issue, scope)).map((ad) => ({ ...ad, source: scope })));
   const deduped = scoped.filter((ad, index, list) => list.findIndex((candidate) => candidate.id === ad.id) === index);
-  if (!deduped.length) return [];
-  return Array.from({ length: 8 }, (_, index) => ({ ...deduped[index % deduped.length], slotNumber: index + 1 })) as ServedAd[];
+  let rotationIndex = 0;
+
+  return Array.from({ length: 8 }, (_, index) => {
+    const slotNumber = index + 1;
+    const manual = activeManualSlots.get(slotNumber);
+    if (manual) return manual;
+    if (!deduped.length) return null;
+    const ad = deduped[rotationIndex % deduped.length];
+    rotationIndex += 1;
+    return { ...ad, slotNumber };
+  }) as ServedAd[];
+}
+
+function isActive(ad: Ad, now: Date) {
+  return ad.status === "ACTIVE" && (!ad.campaignStartsAt || ad.campaignStartsAt <= now) && (!ad.campaignEndsAt || ad.campaignEndsAt >= now);
 }
 
 function matchesScope(ad: Ad, issue: Context, scope: AdScope) {
