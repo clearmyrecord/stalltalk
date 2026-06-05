@@ -1,5 +1,5 @@
-const STALLTALK_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
-const STALLTALK_DRAFT_STORAGE_KEY = "stalltalk_graphic_ad_draft_v1";
+const STALLTALK_AD_STORAGE_KEY = "stalltalk_ad_slots";
+const STALLTALK_DRAFT_STORAGE_KEY = "stalltalk_content_draft";
 
 const STALLTALK_TEMPLATE_NAMES = {
   vegas: "Vegas Neon",

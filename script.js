@@ -1,33 +1,24 @@
-const stories = document.querySelectorAll(".story-card");
-const STALLTALK_PUBLIC_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
+const STORAGE_KEYS = {
+  draft: "stalltalk_content_draft",
+  published: "stalltalk_content_published",
+  ads: "stalltalk_ad_slots",
+  settings: "stalltalk_issue_settings",
+};
 
-stories.forEach((story) => {
-  const action = story.querySelector(".summary-action");
+const DEFAULT_SETTINGS = {
+  brand: "Potty Favor",
+  issueNumber: "001",
+  city: "Las Vegas, NV",
+  venue: "MGM Grand",
+  monthYear: "June 2026",
+};
 
-  const updateActionText = () => {
-    if (!action) return;
-    action.textContent = story.open ? "Tap to collapse" : "Tap to expand";
-  };
-
-  updateActionText();
-  story.addEventListener("toggle", updateActionText);
-});
-
-const adLinks = document.querySelectorAll(".ad-card a, .ad-dot");
-
-adLinks.forEach((link) => {
-  link.addEventListener("click", () => {
-    link.classList.add("was-tapped");
-    window.setTimeout(() => link.classList.remove("was-tapped"), 500);
-  });
-});
-
-function readSavedAdSlots() {
+function readJson(key, fallback) {
   try {
-    return JSON.parse(localStorage.getItem(STALLTALK_PUBLIC_AD_STORAGE_KEY)) || {};
+    return JSON.parse(localStorage.getItem(key)) || fallback;
   } catch (error) {
-    console.warn("Unable to load Stall Talk ad slots", error);
-    return {};
+    console.warn(`Unable to read ${key}`, error);
+    return fallback;
   }
 }
 
@@ -37,8 +28,48 @@ function normalizeContactHref(contact) {
   if (/^[+\d][\d\s().-]+$/.test(contact)) return `tel:${contact.replace(/\s/g, "")}`;
   return `https://${contact}`;
 }
-function updateRailAd(card, slotNumber, ad) {
-  if (window.StallTalkGraphicAds && ad.headline) {
+
+function setText(selector, value) {
+  document.querySelectorAll(selector).forEach((node) => {
+    node.textContent = value;
+  });
+}
+
+function renderIssueSettings(settings = readJson(STORAGE_KEYS.settings, DEFAULT_SETTINGS)) {
+  const merged = { ...DEFAULT_SETTINGS, ...settings };
+  setText('[data-issue-field="brand"]', merged.brand);
+  setText('[data-brand-title]', merged.brand);
+  setText('[data-issue-field="city"]', merged.city);
+  setText('[data-issue-field="venue"]', merged.venue);
+  setText('[data-issue-field="monthYear"]', merged.monthYear);
+  setText('[data-issue-field="issueNumber"]', merged.issueNumber);
+  document.title = `${merged.brand} by Stall Talk`;
+}
+
+function renderPublishedContent(content = readJson(STORAGE_KEYS.published, null)) {
+  if (!content) return;
+
+  Object.entries(content).forEach(([key, value]) => {
+    const target = document.querySelector(`[data-content="${key}"]`);
+    if (!target || typeof value !== "string") return;
+
+    if (key === "trivia") {
+      const facts = value.split(/\n+/).map((fact) => fact.trim()).filter(Boolean);
+      target.replaceChildren(...facts.map((fact) => {
+        const item = document.createElement("li");
+        item.textContent = fact;
+        return item;
+      }));
+      return;
+    }
+
+    target.textContent = value;
+  });
+}
+
+function updateAdCard(card, slotNumber, ad) {
+  if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName)) {
+    card.classList.add("pf-ad-card-generated");
     card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
     return;
   }
@@ -48,85 +79,71 @@ function updateRailAd(card, slotNumber, ad) {
   const copy = card.querySelector("p");
   const link = card.querySelector("a");
 
-  if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSize || ad.adSlotSize || "Custom"}`;
-  if (title) title.textContent = ad.businessName || ad.headline || "Saved sponsor";
-  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || "Saved local offer.";
+  if (label) label.textContent = `Ad Slot ${slotNumber}`;
+  if (title) title.textContent = ad?.businessName || ad?.headline || title.textContent;
+  if (copy) copy.textContent = ad?.offer || ad?.subheadline || copy.textContent;
   if (link) {
-    link.href = normalizeContactHref(ad.website || ad.phone);
-    link.textContent = ad.ctaButtonText || "Claim offer";
+    link.href = normalizeContactHref(ad?.website || ad?.phone);
+    link.textContent = ad?.ctaButtonText || "Claim offer";
   }
 }
 
 function updateMiniAd(card, slotNumber, ad) {
-  if (window.StallTalkGraphicAds && ad.headline) {
+  if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName)) {
+    card.classList.add("pf-mini-generated");
     card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
-    card.title = `${ad.headline || "Saved graphic ad"} ${ad.couponCode || ""}`.trim();
     return;
   }
 
+  const slot = card.querySelector("span");
   const title = card.querySelector("strong");
   const copy = card.querySelector("small");
-
-  card.dataset.coupon = ad.couponCode || "";
-  card.title = `${ad.headline || "Saved ad"} ${ad.disclaimer || ""}`.trim();
-  if (title) title.textContent = ad.businessName || ad.headline || `Saved slot ${slotNumber}`;
-  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || `Saved slot ${slotNumber}`;
+  if (slot) slot.textContent = `Ad Slot ${slotNumber}`;
+  if (title) title.textContent = ad?.businessName || ad?.headline || title.textContent;
+  if (copy) copy.textContent = ad?.offer || ad?.subheadline || copy.textContent;
 }
 
-function loadSavedAdSlots() {
-  const savedSlots = readSavedAdSlots();
-
-  Object.entries(savedSlots).forEach(([slotNumber, ad]) => {
-    document.querySelectorAll(`[data-ad="${slotNumber}"]`).forEach((card) => updateRailAd(card, slotNumber, ad));
-
-    const miniAd = document.querySelector(`#ad-${slotNumber}`);
-    if (miniAd) updateMiniAd(miniAd, slotNumber, ad);
-  });
-}
-
-loadSavedAdSlots();
-
-const STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
-
-function readPublishedIssueContent() {
-  try {
-    return JSON.parse(localStorage.getItem(STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY)) || null;
-  } catch (error) {
-    console.warn("Unable to load Stall Talk published content", error);
-    return null;
+function renderAdSlots(savedSlots = readJson(STORAGE_KEYS.ads, {})) {
+  for (let slotNumber = 1; slotNumber <= 8; slotNumber += 1) {
+    const ad = savedSlots[String(slotNumber)];
+    if (!ad) continue;
+    document.querySelectorAll(`[data-ad="${slotNumber}"]`).forEach((card) => updateAdCard(card, slotNumber, ad));
+    document.querySelectorAll(`[data-mini-ad="${slotNumber}"], #ad-${slotNumber}`).forEach((card) => updateMiniAd(card, slotNumber, ad));
   }
 }
 
-function updatePublishedIssueContent(content = readPublishedIssueContent()) {
-  if (!content) return;
-
-  Object.entries(content).forEach(([key, value]) => {
-    const target = document.querySelector(`[data-content="${key}"]`);
-    if (!target || typeof value !== "string") return;
-
-    if (key === "trivia") {
-      const facts = value.split(/\n+/).map((fact) => fact.trim()).filter(Boolean);
-      target.replaceChildren(
-        ...facts.map((fact) => {
-          const item = document.createElement("li");
-          item.textContent = fact;
-          return item;
-        }),
-      );
-      return;
-    }
-
-    target.textContent = value;
+function wireArticleExpansionLabels() {
+  document.querySelectorAll(".story-card").forEach((story) => {
+    const action = story.querySelector(".summary-action");
+    const updateActionText = () => {
+      if (action) action.textContent = story.open ? "Tap to collapse" : "Tap to expand";
+    };
+    updateActionText();
+    story.addEventListener("toggle", updateActionText);
   });
 }
 
-updatePublishedIssueContent();
+function wireTapFeedback() {
+  document.querySelectorAll(".pf-ad-card a, .ad-dot, .graphic-ad").forEach((link) => {
+    link.addEventListener("click", () => {
+      link.classList.add("was-tapped");
+      window.setTimeout(() => link.classList.remove("was-tapped"), 500);
+    });
+  });
+}
+
+function refreshIssue() {
+  renderIssueSettings();
+  renderPublishedContent();
+  renderAdSlots();
+  wireTapFeedback();
+}
+
+wireArticleExpansionLabels();
+refreshIssue();
 
 window.addEventListener("storage", (event) => {
-  if (event.key !== STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY) return;
-  try {
-    updatePublishedIssueContent(JSON.parse(event.newValue) || null);
-  } catch (error) {
-    console.warn("Unable to refresh Stall Talk published content", error);
+  if ([STORAGE_KEYS.published, STORAGE_KEYS.ads, STORAGE_KEYS.settings].includes(event.key)) {
+    refreshIssue();
   }
 });
