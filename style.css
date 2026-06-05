@@ -27,6 +27,17 @@ body {
 
 a { color: inherit; }
 button, input, textarea, select { font: inherit; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .public-page { padding: 24px; }
 .site-shell {
@@ -46,36 +57,18 @@ button, input, textarea, select { font: inherit; }
 .masthead {
   position: relative;
   overflow: hidden;
-  min-height: 168px;
-  padding: 20px 28px 24px;
+  padding: 14px 18px 18px;
   color: #fff;
-  background:
-    radial-gradient(circle at 76% 20%, rgba(255,255,255,.24) 0 7%, transparent 7.4%),
-    radial-gradient(circle at 20% 10%, rgba(156,106,232,.7), transparent 25%),
-    linear-gradient(120deg, #2b0962 0%, #5830a4 45%, #114d86 100%);
+  background: #10106b;
   border-bottom: 5px solid var(--blue);
   text-align: center;
 }
-.masthead::before, .masthead::after {
-  content: "";
-  position: absolute;
-  border-radius: 999px;
-  background: rgba(255,255,255,.7);
-  box-shadow: 70px 30px 0 rgba(255,255,255,.8), 180px -15px 0 rgba(255,255,255,.7), 310px 36px 0 rgba(255,255,255,.72), 500px 6px 0 rgba(255,255,255,.7);
-  width: 5px;
-  height: 5px;
-  left: 80px;
-  top: 72px;
-}
-.masthead::after { left: 48%; top: 118px; opacity: .8; }
-.issue-kicker { margin: 0 0 8px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+.issue-kicker { margin: 0 0 10px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+.masthead-banner { display: block; width: 100%; height: auto; border: 4px solid #fff; box-shadow: 0 10px 24px rgba(0,0,0,.28); }
 .masthead h1 { margin: 0; text-transform: uppercase; font-size: clamp(3rem, 9vw, 6.7rem); line-height: .9; letter-spacing: -.06em; }
 .masthead h1 small { display: block; margin-top: 8px; font-size: clamp(1rem, 3vw, 1.6rem); letter-spacing: .08em; }
 .scan-line { margin: 14px 0 0; font-weight: 700; }
 .admin-link { position: absolute; right: 16px; top: 12px; color: #fff; background: rgba(0,0,0,.3); padding: 7px 12px; border-radius: 999px; text-decoration: none; font-size: .82rem; }
-.space-dot { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: #24c9e8; box-shadow: inset -12px -10px 0 rgba(0,0,0,.18); }
-.dot-one { left: 36%; top: 36px; }
-.dot-two { right: 5%; bottom: 18px; background: #ffb23f; }
 .print-grid { display: grid; grid-template-columns: 190px 1fr 260px; gap: 16px; padding: 16px; align-items: start; }
 .panel { background: rgba(255,255,255,.8); border: 2px solid rgba(10,10,10,.8); padding: 14px; box-shadow: 0 8px 18px rgba(80, 58, 34, .08); }
 .panel h2 { margin: 0 0 10px; line-height: 1; font-family: Georgia, 'Times New Roman', serif; }
@@ -172,7 +165,8 @@ textarea { min-height: 92px; resize: vertical; }
 
 @media (max-width: 760px) {
   :root { --mobile-top: 104px; --mobile-bottom: 104px; }
-  .masthead { min-height: 132px; padding: 18px 12px; }
+  .masthead { padding: 12px 10px 14px; }
+  .masthead-banner { border-width: 3px; }
   .admin-link { display: none; }
   .print-grid { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
   .wide, .double { grid-column: auto; }
