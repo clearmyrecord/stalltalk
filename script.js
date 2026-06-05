@@ -36,9 +36,37 @@ const DEFAULT_CONTENT = {
   deal: "Show this issue at a participating local spot for a surprise restroom-reader perk.",
 };
 
+const DEMO_NETWORK = {
+  venues: [
+    { id: "venue-mgm", name: "MGM Grand Las Vegas", slug: "mgm-grand-las-vegas", businessType: "Casino resort", city: "Las Vegas", state: "NV", status: "active" },
+  ],
+  qrLocations: [
+    { qrId: "ST-MGM-CASINO-M-001", venueId: "venue-mgm", locationName: "MGM casino men’s restroom stall 1", placementType: "stall-door", targetUrl: "/?venue=mgm-grand-las-vegas&qr=ST-MGM-CASINO-M-001", active: true, scanCount: 0 },
+    { qrId: "mens-stall-1", venueId: "venue-mgm", locationName: "MGM men’s restroom stall 1", placementType: "stall-door", targetUrl: "/?venue=mgm-grand-las-vegas&qr=mens-stall-1", active: true, scanCount: 0 },
+  ],
+  issues: [
+    { id: "issue-mgm-grand-las-vegas", title: "June 2026 MGM Grand Las Vegas Potty Favor", month: "June", year: "2026", city: "Las Vegas", venueId: "venue-mgm", venueName: "MGM Grand Las Vegas", status: "published", contentBlocks: ["Your MGM Grand quick city guide while you take five.", "Fresh picks, venue tips, and restroom-reader perks at MGM Grand Las Vegas.", "Hydrate, pick a meetup point, and tap one offer before your next casino-floor detour."], assignedAdSlots: ["1", "2", "3", "4", "5", "6", "7", "8"] },
+  ],
+};
+
+function seedDemoNetworkIfMissing() {
+  const venues = ensureArray(STORAGE_KEYS.venues);
+  const qrLocations = ensureArray(STORAGE_KEYS.qrLocations);
+  const issues = ensureArray(STORAGE_KEYS.issues);
+  const nextVenues = venues.some((venue) => venue.id === "venue-mgm" || venue.slug === "mgm-grand-las-vegas") ? venues : [...venues, ...DEMO_NETWORK.venues];
+  const nextQrLocations = qrLocations.some((qr) => qr.qrId === "ST-MGM-CASINO-M-001") ? qrLocations : [...qrLocations, DEMO_NETWORK.qrLocations[0]];
+  const nextIssues = issues.some((issue) => issue.id === "issue-mgm-grand-las-vegas") ? issues : [...issues, ...DEMO_NETWORK.issues];
+  saveJson(STORAGE_KEYS.venues, nextVenues);
+  saveJson(STORAGE_KEYS.qrLocations, nextQrLocations);
+  saveJson(STORAGE_KEYS.issues, nextIssues);
+}
+
 function readJson(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw === "") return fallback;
   try {
-    return JSON.parse(localStorage.getItem(key)) || fallback;
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
   } catch (error) {
     console.warn(`Unable to read ${key}`, error);
     return fallback;
@@ -67,6 +95,13 @@ function recordEvent(type, details = {}) {
   saveJson(STORAGE_KEYS.analyticsEvents, [event, ...ensureArray(STORAGE_KEYS.analyticsEvents)].slice(0, 1000));
 }
 
+function recordAdImpressionOnce(slotNumber, campaignId = "") {
+  const key = String(slotNumber);
+  if (recordedAdImpressions.has(key)) return;
+  recordedAdImpressions.add(key);
+  recordEvent("ad_impression", { adSlot: key, campaignId });
+}
+
 function normalizeContactHref(contact) {
   if (!contact) return "#sponsor-wall";
   if (/^https?:\/\//i.test(contact) || /^tel:/i.test(contact)) return contact;
@@ -83,7 +118,8 @@ function setText(selector, value) {
 function getActiveVenue() {
   const venueSlug = params().get("venue");
   const venues = ensureArray(STORAGE_KEYS.venues);
-  return venues.find((venue) => venue.slug === venueSlug) || venues.find((venue) => venue.slug === "mgm-grand-las-vegas") || null;
+  if (venueSlug) return venues.find((venue) => venue.slug === venueSlug) || null;
+  return venues.find((venue) => venue.slug === "mgm-grand-las-vegas") || null;
 }
 
 function getActiveQr(venue) {
@@ -98,6 +134,7 @@ function getActiveIssue(venue) {
 }
 
 const activeContext = { venue: null, qr: null, issue: null };
+const recordedAdImpressions = new Set();
 
 function renderIssueSettings(settings = { ...DEFAULT_SETTINGS, ...readJson(STORAGE_KEYS.legacySettings, {}), ...readJson(STORAGE_KEYS.settings, {}) }) {
   const venue = activeContext.venue;
@@ -160,7 +197,7 @@ function updateAdCard(card, slotNumber, ad) {
   if (window.StallTalkGraphicAds && ad && (ad.headline || ad.businessName || window.StallTalkGraphicAds.imageSource(ad))) {
     card.classList.add("pf-ad-card-generated");
     card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
-    recordEvent("ad_impression", { adSlot: String(slotNumber), campaignId: card.dataset.campaignId });
+    recordAdImpressionOnce(slotNumber, card.dataset.campaignId);
     return;
   }
   const label = card.querySelector(".ad-label");
@@ -175,7 +212,7 @@ function updateAdCard(card, slotNumber, ad) {
     link.textContent = ad?.ctaText || ad?.ctaButtonText || "Claim offer";
     link.setAttribute("aria-label", `View ${ad?.businessName || ad?.advertiserName || "sponsor"} offer`);
   }
-  if (ad) recordEvent("ad_impression", { adSlot: String(slotNumber), campaignId: card.dataset.campaignId });
+  if (ad) recordAdImpressionOnce(slotNumber, card.dataset.campaignId);
 }
 
 function updateMiniAd(card, slotNumber, ad) {
@@ -190,7 +227,10 @@ function updateMiniAd(card, slotNumber, ad) {
 function renderAdSlots() {
   for (let slotNumber = 1; slotNumber <= 8; slotNumber += 1) {
     const ad = campaignForSlot(slotNumber);
-    if (!ad) continue;
+    if (!ad) {
+      recordAdImpressionOnce(slotNumber);
+      continue;
+    }
     document.querySelectorAll(`[data-ad="${slotNumber}"]`).forEach((card) => updateAdCard(card, slotNumber, ad));
     document.querySelectorAll(`[data-mini-ad="${slotNumber}"], #ad-${slotNumber}`).forEach((card) => updateMiniAd(card, slotNumber, ad));
   }
@@ -238,6 +278,7 @@ function refreshIssue() {
   wireTapFeedback();
 }
 
+seedDemoNetworkIfMissing();
 wireArticleExpansionLabels();
 refreshIssue();
 recordEvent("issue_view");

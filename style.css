@@ -1601,6 +1601,35 @@ body[data-theme="stalltalk-b2b"] .pf-masthead {
   }
 }
 
+/* QA stabilization: keep generated and demo ad text inside every slot size. */
+.pf-ad-card,
+.mini-ad,
+.published-slot-card,
+.graphic-ad,
+.network-row {
+  overflow-wrap: anywhere;
+}
+
+.graphic-business,
+.graphic-headline,
+.graphic-audience,
+.graphic-contact,
+.graphic-offer-badge strong,
+.graphic-coupon strong,
+.graphic-cta {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.graphic-headline {
+  font-size: clamp(1.55rem, 7vw, 4.1rem);
+}
+
+.graphic-ad-compact .graphic-headline {
+  font-size: clamp(1.25rem, 5vw, 2.8rem);
+}
+
 /* GitHub Pages admin endpoint + layout fixes */
 .publisher-shell {
   padding-top: 12px;
@@ -1691,7 +1720,6 @@ body[data-theme="stalltalk-b2b"] .pf-masthead {
 
 .graphic-headline {
   white-space: pre-line;
-  font-size: clamp(1.9rem, 11vw, 4rem);
   line-height: 0.9;
   max-width: 10ch;
 }
@@ -1756,4 +1784,6 @@ body[data-theme="stalltalk-b2b"] .pf-masthead {
   .publish-grid {
     grid-template-columns: 1fr;
   }
+}
+
 }
