@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { IssueForm } from "@/components/IssueForm";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
 export default async function EditIssuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [issue, publishers, venues, restrooms, qrCodes, articles, ads] = await Promise.all([prisma.issue.findUnique({ where: { id }, include: { venue: true, qrCode: true, contentBlocks: { orderBy: { sortOrder: "asc" } }, adSlots: true } }), prisma.publisher.findMany(), prisma.venue.findMany(), prisma.restroom.findMany(), prisma.qrCode.findMany(), prisma.article.findMany(), prisma.ad.findMany({ orderBy: { businessName: "asc" } })]);

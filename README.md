@@ -191,15 +191,16 @@ The seed creates:
 
 1. Push this repository to GitHub.
 2. Import the repository in Vercel.
-3. Create a PostgreSQL database and set `DATABASE_URL`.
+3. Create a PostgreSQL database and set `DATABASE_URL` to the Neon/Postgres connection string.
 4. Add `OPENAI_API_KEY` in **Project Settings → Environment Variables**.
 5. Add Stripe variables if billing is enabled.
-6. Deploy.
-7. Run Prisma migrations against production:
+6. Keep the Vercel build command configured as:
 
 ```bash
-npx prisma migrate deploy
+npx prisma migrate deploy && npm run build
 ```
+
+This applies committed Prisma migrations before the production Next.js build so database-backed routes do not fail because tables such as `public.Advertiser` are missing. The advertiser portal is also rendered dynamically and falls back to demo portal data if the expected Prisma tables are unavailable.
 
 If static pages are hosted on GitHub Pages but the API is hosted on Vercel, set `admin/config.js` to point to the deployed Vercel function:
 

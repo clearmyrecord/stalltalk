@@ -2,6 +2,7 @@ import { AdStudioAgency } from "@/components/AdStudioAgency";
 import { createAd } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
 type PublisherRecord = { id: string; name: string };
 type AdvertiserRecord = { id: string; name: string };
 type VenueRecord = { id: string; name: string; city: string; state: string };

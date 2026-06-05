@@ -1,6 +1,7 @@
 import { money } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
 const plans = [["Global", 19900, "Network-wide remnant and brand awareness"], ["City", 29900, "Target a single metro"], ["Venue", 49900, "Own premium venue inventory"], ["Restroom", 69900, "Highest-priority restroom-level sponsorship"]] as const;
 
 export default async function StripePage() {
