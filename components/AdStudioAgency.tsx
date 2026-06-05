@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -19,247 +19,290 @@ type Props = {
   recentCampaigns: RecentCampaign[];
 };
 
-type Format = "Banner" | "Square" | "Tall" | "Footer";
-type Campaign = {
-  businessName: string;
-  offer: string;
-  audience: string;
-  tone: string;
-  format: Format;
+type AdSize = "Banner" | "Square" | "Tall" | "Footer";
+type GeneratedCreative = {
+  adSize: AdSize;
+  imageUrl: string;
+  promptUsed: string;
   headline: string;
   subheadline: string;
-  cta: string;
-  coupon: string;
-  imagePrompt: string;
+  ctaText: string;
+  couponCode: string;
+  fallback?: boolean;
+  error?: string;
+  htmlCreative?: string;
 };
 
-const formats: Record<Format, { ratio: string; size: string; label: string; prompt: string }> = {
-  Banner: { ratio: "aspect-[16/5]", size: "wide restroom issue banner", label: "16:5 hero", prompt: "wide horizontal banner ad, roomy headline safe area, cinematic sweep" },
-  Square: { ratio: "aspect-square", size: "square social ad", label: "1:1 feed", prompt: "square social ad, balanced centered composition, bold retail graphic system" },
-  Tall: { ratio: "aspect-[4/5]", size: "tall mobile ad", label: "4:5 mobile", prompt: "tall mobile placement, vertical composition, strong top hook and lower CTA zone" },
-  Footer: { ratio: "aspect-[5/1]", size: "slim footer strip", label: "5:1 footer", prompt: "thin footer strip ad, compact message, left-to-right visual flow" }
+type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number };
+
+const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "Concert Goers", "Convention Attendees", "Custom Audience"];
+const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
+const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
+const sizes: Record<AdSize, { label: string; className: string }> = {
+  Banner: { label: "Banner", className: "aspect-[16/5]" },
+  Square: { label: "Square", className: "aspect-square" },
+  Tall: { label: "Tall", className: "aspect-[4/5]" },
+  Footer: { label: "Footer", className: "aspect-[5/1]" }
 };
 
-const tones = ["Bold", "Premium", "Playful", "Local", "Urgent", "Minimal"];
-
-function clean(value: string, fallback: string) {
+function safe(value: string, fallback: string) {
   return value.trim() || fallback;
 }
 
-function initials(value: string) {
-  return clean(value, "AI").split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase()).join("");
+function dataUrlFromSvg(svg: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function buildCampaign(businessName: string, offer: string, audience: string, tone: string, format: Format): Campaign {
-  const brand = clean(businessName, "Your Brand");
-  const deal = clean(offer, "a limited-time offer");
-  const target = clean(audience, "ready-to-buy local guests");
-  const voice = clean(tone, "Bold");
-  const couponSeed = brand.replace(/[^a-z0-9]/gi, "").slice(0, 5).toUpperCase() || "STALL";
-  const coupon = `${couponSeed}${new Date().getMonth() + 1}0`;
-  const headline = voice === "Premium" ? `${brand}, elevated` : voice === "Urgent" ? `${deal} today` : `${brand} for ${target}`;
-  const subheadline = `${deal} crafted for ${target}. ${voice} creative built for quick restroom-scroller attention.`;
-  const cta = voice === "Urgent" ? "Claim It Now" : voice === "Minimal" ? "Get Offer" : "Tap to Claim";
-  const imagePrompt = `Create a ${formats[format].size} for ${brand}. Campaign goal: promote ${deal}. Target audience: ${target}. Tone: ${voice}. Visual direction: Canva-polished layout, Meta Ads Manager clarity, OpenAI-style intelligent creative, high-contrast typography, modern brand shapes, ${formats[format].prompt}. Include no small unreadable body copy, no QR code, no fake logos, leave clean space for headline \"${headline}\" and CTA \"${cta}\". Output should feel premium, conversion-focused, and safe for a public restroom media network.`;
-
-  return { businessName: brand, offer: deal, audience: target, tone: voice, format, headline, subheadline, cta, coupon, imagePrompt };
+function fallbackCreative(input: Record<string, string>, adSize: AdSize, error?: string): GeneratedCreative {
+  const business = safe(input.businessName, "Your Business");
+  const offer = safe(input.offer, "Limited-Time Offer");
+  const couponCode = safe(input.couponCode, business.replace(/[^a-z0-9]/gi, "").slice(0, 5).toUpperCase() + "15");
+  const headline = `${offer}`;
+  const subheadline = `${business} for ${safe(input.audience, "nearby guests")}`;
+  const ctaText = safe(input.ctaText, "Claim Offer");
+  const colors = safe(input.brandColors, "#ff2d55,#ffd400,#5b2cff").split(",").map((color) => color.trim()).filter(Boolean);
+  const [primary = "#ff2d55", secondary = "#ffd400", accent = "#5b2cff"] = colors;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${primary}"/><stop offset=".55" stop-color="${accent}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><rect width="1200" height="700" rx="48" fill="url(#g)"/><circle cx="1040" cy="130" r="170" fill="${secondary}" opacity=".9"/><text x="72" y="130" font-family="Arial Black,Arial" font-size="44" fill="white">${business.toUpperCase()}</text><text x="72" y="300" font-family="Arial Black,Arial" font-size="92" fill="${secondary}">${headline.toUpperCase()}</text><text x="76" y="388" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="white">${subheadline}</text><rect x="72" y="486" width="360" height="92" rx="24" fill="${secondary}"/><text x="104" y="546" font-family="Arial Black,Arial" font-size="34" fill="#111827">${ctaText.toUpperCase()}</text><text x="72" y="636" font-family="Arial Black,Arial" font-size="34" fill="white">CODE ${couponCode}</text></svg>`;
+  return {
+    adSize,
+    imageUrl: dataUrlFromSvg(svg),
+    promptUsed: `HTML/CSS fallback ad for ${business}: ${offer}, audience ${safe(input.audience, "nearby guests")}, tone ${safe(input.tone, "Professional")}, style ${safe(input.visualStyle, "Vegas Neon")}.`,
+    headline,
+    subheadline,
+    ctaText,
+    couponCode,
+    fallback: true,
+    error,
+    htmlCreative: svg
+  };
 }
 
 export function AdStudioAgency({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns }: Props) {
-  const [businessName, setBusinessName] = useState("");
-  const [offer, setOffer] = useState("");
-  const [audience, setAudience] = useState("");
-  const [tone, setTone] = useState("Bold");
-  const [format, setFormat] = useState<Format>("Banner");
-  const [campaign, setCampaign] = useState<Campaign>(() => buildCampaign("", "", "", "Bold", "Banner"));
-  const [history, setHistory] = useState<Campaign[]>([]);
-  const [publisherId, setPublisherId] = useState(publishers[0]?.id ?? "");
-  const [advertiserId, setAdvertiserId] = useState(advertisers[0]?.id ?? "");
-  const [scope, setScope] = useState("GLOBAL");
-  const [issueId, setIssueId] = useState(issues[0]?.id ?? "");
+  const [step, setStep] = useState(1);
+  const [isPending, startTransition] = useTransition();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedCreativeIndex, setSelectedCreativeIndex] = useState(0);
   const [slotNumber, setSlotNumber] = useState("1");
-  const [generatedAt, setGeneratedAt] = useState("Draft");
+  const [history, setHistory] = useState<CampaignHistoryItem[]>([]);
+  const [creatives, setCreatives] = useState<GeneratedCreative[]>([]);
+  const [form, setForm] = useState({
+    businessName: "",
+    category: "",
+    website: "",
+    phone: "",
+    logoName: "",
+    offer: "",
+    couponCode: "",
+    ctaText: "Claim Offer",
+    expirationDate: "",
+    audience: "Tourists",
+    customAudience: "",
+    tone: "Professional",
+    visualStyle: "Vegas Neon",
+    brandColors: "#ff2d55, #ffd400, #5b2cff",
+    publisherId: publishers[0]?.id ?? "",
+    advertiserId: advertisers[0]?.id ?? "",
+    issueId: issues[0]?.id ?? "",
+    scope: "GLOBAL"
+  });
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("stalltalk-ad-studio-history");
+    const raw = window.localStorage.getItem("stalltalk-ad-studio-history") || window.localStorage.getItem("stalltalk-ai-creative-history");
     if (!raw) return;
-
     try {
-      setHistory(JSON.parse(raw) as Campaign[]);
+      setHistory(JSON.parse(raw) as CampaignHistoryItem[]);
     } catch {
       window.localStorage.removeItem("stalltalk-ad-studio-history");
     }
   }, []);
 
+  const selectedCreative = creatives[selectedCreativeIndex];
+  const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
   const activeVenue = venues[0];
 
-  function generateCampaign() {
-    const next = buildCampaign(businessName, offer, audience, tone, format);
-    const nextHistory = [next, ...history.filter((item) => item.imagePrompt !== next.imagePrompt)].slice(0, 6);
-    setCampaign(next);
-    setGeneratedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    setHistory(nextHistory);
-    window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(nextHistory));
+  function update(key: keyof typeof form, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function loadCampaign(item: Campaign) {
-    setBusinessName(item.businessName);
-    setOffer(item.offer);
-    setAudience(item.audience);
-    setTone(item.tone);
-    setFormat(item.format);
-    setCampaign(item);
-    setGeneratedAt("Loaded from history");
+  async function generateCampaign() {
+    setIsGenerating(true);
+    setError("");
+    const base = { ...form, audience: activeAudience };
+    const generated: GeneratedCreative[] = [];
+
+    for (const adSize of Object.keys(sizes) as AdSize[]) {
+      try {
+        const response = await fetch("/api/generate-ad-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...base, adSize })
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error || "Image generation failed.");
+        generated.push({
+          adSize,
+          imageUrl: data.imageUrl,
+          promptUsed: data.promptUsed,
+          headline: data.headline,
+          subheadline: data.subheadline,
+          ctaText: data.ctaText,
+          couponCode: data.couponCode,
+          fallback: data.fallback,
+          error: data.error,
+          htmlCreative: data.htmlCreative
+        });
+      } catch (caught) {
+        const message = caught instanceof Error ? caught.message : "Image generation failed.";
+        generated.push(fallbackCreative(base, adSize, message));
+        setError(message);
+      }
+    }
+
+    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: crypto.randomUUID(), businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString() }));
+    const mergedHistory = [...nextHistory, ...history].slice(0, 12);
+    setCreatives(generated);
+    setSelectedCreativeIndex(0);
+    setHistory(mergedHistory);
+    window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
+    setStep(5);
+    setIsGenerating(false);
   }
 
-  const previewClass = formats[campaign.format].ratio;
+  function publish() {
+    if (!selectedCreative) return;
+    const formData = new FormData();
+    const campaignId = crypto.randomUUID();
+    formData.set("campaignId", campaignId);
+    formData.set("publisherId", form.publisherId);
+    formData.set("advertiserId", form.advertiserId);
+    formData.set("businessName", safe(form.businessName, "Your Business"));
+    formData.set("title", selectedCreative.headline);
+    formData.set("offer", selectedCreative.subheadline);
+    formData.set("artworkUrl", selectedCreative.imageUrl);
+    formData.set("creativeType", selectedCreative.fallback ? "HTML" : "IMAGE");
+    formData.set("htmlCreative", selectedCreative.htmlCreative || "");
+    formData.set("promptUsed", selectedCreative.promptUsed);
+    formData.set("generatedHeadline", selectedCreative.headline);
+    formData.set("generatedSubheadline", selectedCreative.subheadline);
+    formData.set("adSize", selectedCreative.adSize);
+    formData.set("ctaText", selectedCreative.ctaText);
+    formData.set("targetUrl", form.website || "#");
+    formData.set("phone", form.phone);
+    formData.set("couponCode", selectedCreative.couponCode);
+    formData.set("status", "ACTIVE");
+    formData.set("scope", form.scope);
+    formData.set("issueId", form.issueId);
+    formData.set("slotNumber", slotNumber);
+    formData.set("monthlyPriceDollars", "0");
+
+    startTransition(() => {
+      void createAd(formData);
+    });
+  }
+
+  const canGenerate = form.businessName.trim() && form.offer.trim();
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border-4 border-ink bg-white shadow-brutal">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(124,44,255,.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,45,45,.18),transparent_28%)]" />
-      <div className="relative grid gap-0 xl:grid-cols-[1.05fr_.95fr]">
-        <div className="border-b-4 border-ink bg-ink p-5 text-white xl:border-b-0 xl:border-r-4">
-          <p className="text-xs font-black uppercase tracking-[.35em] text-stallYellow">AI advertising agency</p>
-          <h1 className="mt-2 font-display text-6xl uppercase leading-none md:text-8xl">Ad Studio</h1>
-          <p className="mt-3 max-w-2xl text-lg font-black">A guided campaign room that turns a business, offer, audience, and tone into ready-to-publish creative for Stall Talk ad inventory.</p>
-
-          <div className="mt-6 grid gap-3">
-            {[{ step: "Step 1", label: "Business name", value: businessName, setValue: setBusinessName, placeholder: "e.g. Neon Taco Co." }, { step: "Step 2", label: "Offer", value: offer, setValue: setOffer, placeholder: "e.g. Free chips with any entrée" }, { step: "Step 3", label: "Target audience", value: audience, setValue: setAudience, placeholder: "e.g. late-night diners near the Strip" }].map((field) => (
-              <label key={field.step} className="rounded-2xl border-2 border-white/20 bg-white/10 p-4 backdrop-blur">
-                <span className="text-xs font-black uppercase tracking-widest text-stallYellow">{field.step}</span>
-                <span className="mt-1 block font-display text-3xl uppercase">{field.label}</span>
-                <input value={field.value} onChange={(event) => field.setValue(event.target.value)} placeholder={field.placeholder} className="mt-3 w-full rounded-xl border-2 border-white bg-white p-3 font-black text-ink outline-none focus:border-stallYellow" />
-              </label>
-            ))}
-
-            <div className="rounded-2xl border-2 border-white/20 bg-white/10 p-4 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-widest text-stallYellow">Step 4</p>
-              <h2 className="font-display text-3xl uppercase">Tone</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {tones.map((item) => <button key={item} type="button" onClick={() => setTone(item)} className={`rounded-full border-2 px-4 py-2 text-sm font-black uppercase ${tone === item ? "border-stallYellow bg-stallYellow text-ink" : "border-white bg-transparent text-white"}`}>{item}</button>)}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border-2 border-white/20 bg-white/10 p-4 backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-stallYellow">Step 5</p>
-                  <h2 className="font-display text-3xl uppercase">Generate Campaign</h2>
-                </div>
-                <select value={format} onChange={(event) => setFormat(event.target.value as Format)} className="rounded-xl border-2 border-white bg-white p-3 font-black text-ink">
-                  {Object.keys(formats).map((item) => <option key={item}>{item}</option>)}
-                </select>
-              </div>
-              <button type="button" onClick={generateCampaign} className="mt-4 w-full rounded-2xl bg-stallYellow px-5 py-4 font-black uppercase text-ink shadow-red transition hover:-translate-y-0.5">Generate Campaign</button>
-            </div>
-          </div>
+    <section className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal md:p-6">
+      <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">AI Creative Studio</p>
+          <h1 className="font-display text-6xl uppercase leading-none text-stallRed md:text-8xl">Campaign Builder</h1>
+          <p className="mt-2 max-w-3xl text-lg font-bold">Guided AI agency workflow for real graphic ad generation, multi-size output, preview editing, campaign history, and one-click publishing to Stall Talk ad slots.</p>
         </div>
-
-        <div className="p-5 md:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">Creative output</p>
-              <h2 className="font-display text-5xl uppercase">Campaign Deck</h2>
-            </div>
-            <span className="rounded-full border-2 border-ink bg-paper px-3 py-2 text-xs font-black uppercase">{formats[campaign.format].label} • {generatedAt}</span>
-          </div>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px]">
-            <div className={`relative ${previewClass} min-h-36 overflow-hidden rounded-[1.5rem] border-4 border-ink bg-ink shadow-purple`}>
-              <div className="absolute inset-0 ad-gradient-8 opacity-95" />
-              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-sm" />
-              <div className="absolute bottom-4 right-4 rounded-2xl border-2 border-white/60 bg-white/20 p-4 text-white backdrop-blur">
-                <p className="font-display text-5xl uppercase leading-none">{initials(campaign.businessName)}</p>
-              </div>
-              <div className="relative flex h-full flex-col justify-between p-5 text-white">
-                <div>
-                  <p className="inline-flex rounded-full bg-ink px-3 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">AI graphic ad preview</p>
-                  <h3 className="mt-3 max-w-2xl font-display text-4xl uppercase leading-none md:text-6xl">{campaign.headline}</h3>
-                  <p className="mt-2 max-w-xl text-sm font-black md:text-base">{campaign.subheadline}</p>
-                </div>
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <span className="rounded-xl bg-white px-4 py-3 font-black uppercase text-ink">{campaign.cta}</span>
-                  <span className="rounded-xl border-2 border-white px-4 py-3 font-black uppercase">Code {campaign.coupon}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              {["Banner", "Square", "Tall", "Footer"].map((item) => <button key={item} type="button" onClick={() => { setFormat(item as Format); setCampaign(buildCampaign(businessName || campaign.businessName, offer || campaign.offer, audience || campaign.audience, tone || campaign.tone, item as Format)); }} className={`rounded-2xl border-2 border-ink p-3 text-left font-black uppercase ${campaign.format === item ? "bg-stallYellow shadow-red" : "bg-white"}`}>{item}<span className="block text-xs normal-case text-ink/70">{formats[item as Format].label}</span></button>)}
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border-4 border-ink bg-paper p-4">
-              <h3 className="font-display text-4xl uppercase">Campaign assets</h3>
-              <dl className="mt-3 grid gap-3 text-sm font-bold">
-                <div><dt className="text-xs font-black uppercase text-stallRed">Headline</dt><dd>{campaign.headline}</dd></div>
-                <div><dt className="text-xs font-black uppercase text-stallRed">Subheadline</dt><dd>{campaign.subheadline}</dd></div>
-                <div><dt className="text-xs font-black uppercase text-stallRed">CTA</dt><dd>{campaign.cta}</dd></div>
-                <div><dt className="text-xs font-black uppercase text-stallRed">Coupon</dt><dd>{campaign.coupon}</dd></div>
-              </dl>
-            </div>
-
-            <div className="rounded-2xl border-4 border-ink bg-ink p-4 text-white">
-              <h3 className="font-display text-4xl uppercase text-stallYellow">AI Creative Brief</h3>
-              <p className="mt-1 text-xs font-black uppercase tracking-widest text-white/70">Exact image-generation prompt</p>
-              <textarea readOnly value={campaign.imagePrompt} className="mt-3 h-56 w-full rounded-xl border-2 border-white bg-white p-3 text-sm font-bold text-ink" />
-              <p className="mt-2 text-xs font-bold text-white/70">Future AI image generation can send this prompt plus the selected format to an image model.</p>
-            </div>
-          </div>
-
-          <form action={createAd} className="mt-5 rounded-2xl border-4 border-ink bg-white p-4 shadow-brutal">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-stallPurple">Publish</p>
-                <h3 className="font-display text-4xl uppercase">Send to Ad Slots 1-8</h3>
-              </div>
-              <button className="rounded-2xl bg-stallRed px-5 py-3 font-black uppercase text-white">Publish campaign</button>
-            </div>
-
-            <input type="hidden" name="businessName" value={campaign.businessName} />
-            <input type="hidden" name="title" value={campaign.headline} />
-            <input type="hidden" name="offer" value={campaign.subheadline} />
-            <input type="hidden" name="ctaText" value={campaign.cta} />
-            <input type="hidden" name="couponCode" value={campaign.coupon} />
-            <input type="hidden" name="artworkUrl" value={`ai-image-prompt:${campaign.imagePrompt}`} />
-            <input type="hidden" name="targetUrl" value="https://example.com" />
-            <input type="hidden" name="status" value="ACTIVE" />
-            <input type="hidden" name="monthlyPriceDollars" value="499" />
-            <input type="hidden" name="stripePriceId" value="" />
-            <input type="hidden" name="phone" value="" />
-            <input type="hidden" name="city" value={activeVenue?.city ?? ""} />
-            <input type="hidden" name="state" value={activeVenue?.state ?? ""} />
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <label className="grid gap-1 text-xs font-black uppercase text-ink/70">Publisher<select name="publisherId" value={publisherId} onChange={(event) => setPublisherId(event.target.value)} required className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink">{publishers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-              <label className="grid gap-1 text-xs font-black uppercase text-ink/70">Advertiser<select name="advertiserId" value={advertiserId} onChange={(event) => setAdvertiserId(event.target.value)} required className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink">{advertisers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-              <label className="grid gap-1 text-xs font-black uppercase text-ink/70">Scope<select name="scope" value={scope} onChange={(event) => setScope(event.target.value)} className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink"><option>GLOBAL</option><option>CITY</option><option>VENUE</option><option>RESTROOM</option></select></label>
-              <label className="grid gap-1 text-xs font-black uppercase text-ink/70">Venue scope<select name="venueId" className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink"><option value="">Auto / no venue</option>{venues.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-              <label className="grid gap-1 text-xs font-black uppercase text-ink/70">Restroom scope<select name="restroomId" className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink"><option value="">Auto / no restroom</option>{restrooms.map((item) => <option key={item.id} value={item.id}>{item.venueName} • {item.name}</option>)}</select></label>
-              <label className="grid gap-1 text-xs font-black uppercase text-ink/70">Issue<select name="issueId" value={issueId} onChange={(event) => setIssueId(event.target.value)} className="rounded-xl border-2 border-ink bg-paper p-3 text-sm text-ink"><option value="">Save without slot</option>{issues.map((item) => <option key={item.id} value={item.id}>{item.title} • {item.venueName} • {item.status}</option>)}</select></label>
-            </div>
-            <div className="mt-3 grid grid-cols-4 gap-2 md:grid-cols-8">
-              {Array.from({ length: 8 }, (_, index) => String(index + 1)).map((item) => <label key={item} className={`cursor-pointer rounded-xl border-2 border-ink p-3 text-center font-black uppercase ${slotNumber === item ? "bg-stallYellow shadow-red" : "bg-paper"}`}><input className="sr-only" type="radio" name="slotNumber" value={item} checked={slotNumber === item} onChange={(event) => setSlotNumber(event.target.value)} />Slot {item}</label>)}
-            </div>
-          </form>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border-4 border-ink bg-paper p-4">
-              <h3 className="font-display text-4xl uppercase">Campaign history</h3>
-              <div className="mt-3 grid gap-2">
-                {history.length ? history.map((item, index) => <button key={`${item.imagePrompt}-${index}`} type="button" onClick={() => loadCampaign(item)} className="rounded-xl border-2 border-ink bg-white p-3 text-left"><span className="block font-black uppercase">{item.businessName}</span><span className="text-sm font-bold">{item.headline}</span></button>) : <p className="rounded-xl border-2 border-dashed border-ink bg-white p-3 font-bold">Generated campaigns will appear here during this session.</p>}
-              </div>
-            </div>
-            <div className="rounded-2xl border-4 border-ink bg-white p-4">
-              <h3 className="font-display text-4xl uppercase">Published campaigns</h3>
-              <div className="mt-3 grid gap-2">
-                {recentCampaigns.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleDateString()}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.title}</p><p className="text-xs font-black uppercase text-stallPurple">{item.ctaText} {item.couponCode ? `• ${item.couponCode}` : ""}</p></article>)}
-              </div>
-            </div>
-          </div>
+        <div className="rounded-2xl border-4 border-ink bg-paper p-4">
+          <p className="text-xs font-black uppercase tracking-widest text-stallRed">Publish Target</p>
+          <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={form.issueId} onChange={(event) => update("issueId", event.target.value)}>
+            {issues.map((issue) => <option key={issue.id} value={issue.id}>{issue.title} • {issue.venueName}</option>)}
+          </select>
+          <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={slotNumber} onChange={(event) => setSlotNumber(event.target.value)}>
+            {Array.from({ length: 8 }, (_, index) => <option key={index + 1} value={index + 1}>Slot {index + 1}</option>)}
+          </select>
         </div>
       </div>
+
+      <div className="mb-6 grid gap-2 md:grid-cols-5">
+        {["Business", "Offer", "Audience", "Creative", "Generate"].map((label, index) => (
+          <button key={label} className={`rounded-xl border-2 border-ink px-3 py-2 text-sm font-black uppercase ${step === index + 1 ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setStep(index + 1)}>{index + 1}. {label}</button>
+        ))}
+      </div>
+
+      {step === 1 ? <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Business Name" value={form.businessName} onChange={(value) => update("businessName", value)} />
+        <Field label="Category" value={form.category} onChange={(value) => update("category", value)} placeholder="Restaurant, bar, attraction..." />
+        <Field label="Website" value={form.website} onChange={(value) => update("website", value)} />
+        <Field label="Phone" value={form.phone} onChange={(value) => update("phone", value)} />
+        <label className="rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase md:col-span-2">Logo Upload<span className="mt-2 block text-sm normal-case text-ink/70">Stored client-side for now; use the logo name as brand context.</span><input className="mt-3 w-full" type="file" accept="image/*" onChange={(event) => update("logoName", event.target.files?.[0]?.name || "")} /></label>
+      </div> : null}
+
+      {step === 2 ? <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Offer" value={form.offer} onChange={(value) => update("offer", value)} placeholder="15% OFF, free appetizer..." />
+        <Field label="Coupon Code" value={form.couponCode} onChange={(value) => update("couponCode", value)} />
+        <Field label="CTA Button Text" value={form.ctaText} onChange={(value) => update("ctaText", value)} />
+        <Field label="Expiration Date" value={form.expirationDate} onChange={(value) => update("expirationDate", value)} type="date" />
+      </div> : null}
+
+      {step === 3 ? <div className="grid gap-3 md:grid-cols-3">
+        {audienceOptions.map((option) => <button key={option} className={`rounded-2xl border-2 border-ink p-4 font-black uppercase ${form.audience === option ? "bg-stallYellow" : "bg-paper"}`} onClick={() => update("audience", option)}>{option}</button>)}
+        {form.audience === "Custom Audience" ? <div className="md:col-span-3"><Field label="Custom Audience" value={form.customAudience} onChange={(value) => update("customAudience", value)} /></div> : null}
+      </div> : null}
+
+      {step === 4 ? <div className="grid gap-6 lg:grid-cols-2">
+        <ChoiceGroup title="Tone" options={tones} value={form.tone} onChange={(value) => update("tone", value)} />
+        <ChoiceGroup title="Visual Style" options={visualStyles} value={form.visualStyle} onChange={(value) => update("visualStyle", value)} />
+        <div className="lg:col-span-2"><Field label="Brand Colors" value={form.brandColors} onChange={(value) => update("brandColors", value)} placeholder="#ff2d55, #ffd400, #5b2cff" /></div>
+      </div> : null}
+
+      {step === 5 ? <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div>
+          <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.adSize} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>{creative.adSize}</button>)}</div>
+          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate a campaign to preview Banner, Square, Tall, and Footer creatives.</p>}
+          {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">OpenAI fallback mode: {error}</p> : null}
+        </div>
+        <div className="rounded-2xl border-4 border-ink bg-paper p-4">
+          <h3 className="font-display text-4xl uppercase">Edit Before Publish</h3>
+          {selectedCreative ? <div className="mt-3 grid gap-3">
+            <Field label="Headline" value={selectedCreative.headline} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, headline: value } : item))} />
+            <Field label="Subheadline" value={selectedCreative.subheadline} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, subheadline: value } : item))} />
+            <Field label="CTA" value={selectedCreative.ctaText} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, ctaText: value } : item))} />
+            <Field label="Coupon" value={selectedCreative.couponCode} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, couponCode: value } : item))} />
+            <button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : `Publish to Slot ${slotNumber}`}</button>
+          </div> : null}
+        </div>
+      </div> : null}
+
+      <div className="mt-6 flex flex-wrap justify-between gap-3 border-t-4 border-ink pt-4">
+        <button className="rounded-xl border-2 border-ink bg-paper px-4 py-2 font-black uppercase" onClick={() => setStep(Math.max(1, step - 1))}>Back</button>
+        {step < 5 ? <button className="rounded-xl border-2 border-ink bg-stallYellow px-4 py-2 font-black uppercase" onClick={() => setStep(Math.min(5, step + 1))}>Next</button> : null}
+        <button className="rounded-xl border-4 border-ink bg-stallPurple px-5 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={!canGenerate || isGenerating} onClick={generateCampaign}>{isGenerating ? "Generating 4 sizes..." : "Generate Campaign"}</button>
+      </div>
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        <HistoryPanel title="Local AI Campaign History" items={history} onLoad={(item) => { setCreatives([item]); setSelectedCreativeIndex(0); setStep(5); }} />
+        <div className="rounded-2xl border-4 border-ink bg-white p-4">
+          <h3 className="font-display text-4xl uppercase">Published Ad History</h3>
+          <div className="mt-3 grid gap-2">{recentCampaigns.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleDateString()}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.title}</p><p className="text-xs font-black uppercase text-stallPurple">{item.ctaText} {item.couponCode ? `• ${item.couponCode}` : ""}</p></article>)}</div>
+        </div>
+      </div>
+
+      <p className="mt-6 text-sm font-bold text-ink/70">Default venue context: {activeVenue ? `${activeVenue.name}, ${activeVenue.city}` : "Add venues to target campaigns."} Restroom options loaded: {restrooms.length}. Publisher: {publishers.find((publisher) => publisher.id === form.publisherId)?.name || "None"}. Advertiser: {advertisers.find((advertiser) => advertiser.id === form.advertiserId)?.name || "None"}.</p>
     </section>
   );
+}
+
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
+  return <label className="block font-black uppercase">{label}<input className="mt-2 w-full rounded-xl border-2 border-ink bg-white p-3 font-bold normal-case" type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function ChoiceGroup({ title, options, value, onChange }: { title: string; options: string[]; value: string; onChange: (value: string) => void }) {
+  return <div><h3 className="mb-2 font-display text-4xl uppercase">{title}</h3><div className="grid gap-2 sm:grid-cols-2">{options.map((option) => <button key={option} className={`rounded-2xl border-2 border-ink p-3 font-black uppercase ${value === option ? "bg-stallYellow" : "bg-paper"}`} onClick={() => onChange(option)}>{option}</button>)}</div></div>;
+}
+
+function PreviewCard({ creative }: { creative: GeneratedCreative }) {
+  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}><img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><div><p className="text-xs font-black uppercase text-stallPurple">Headline</p><h3 className="font-display text-4xl uppercase">{creative.headline}</h3><p className="mt-2 font-bold">{creative.subheadline}</p><p className="mt-2 font-black uppercase text-stallRed">{creative.ctaText} • {creative.couponCode}</p></div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto text-sm font-bold">{creative.promptUsed}</p>{creative.fallback ? <p className="mt-2 text-xs font-black uppercase text-stallRed">Fallback HTML/CSS mock advertisement</p> : null}</div></div></article>;
+}
+
+function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {
+  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">{title}</h3><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <button key={item.campaignId} className="rounded-xl border-2 border-ink bg-paper p-3 text-left" onClick={() => onLoad(item)}><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleString()} • {item.adSize}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.headline}</p></button>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No local campaigns yet.</p>}</div></div>;
 }

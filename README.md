@@ -219,8 +219,21 @@ npm run build
 
 Manual checks:
 
-* Generate a campaign at `/admin/ads/new` with and without `OPENAI_API_KEY`.
-* Confirm all four ad sizes render in preview mode.
-* Publish a generated creative to Slot 1–8.
-* Confirm the homepage loads generated slot artwork.
-* Confirm the public issue page renders image ads, HTML fallback ads, and responsive mobile/desktop ad layouts.
+The database includes subscription and coupon campaign tables so live Stripe checkout/webhook routes can be added without changing the core data model.
+
+## AI Creative Studio + OpenAI Image Generation
+
+The AI Creative Studio lives at `/admin/ads/new` and replaces manual ad creation with a guided campaign builder.
+
+Workflow:
+
+1. **Business** — business name, category, website, phone, and logo context.
+2. **Offer** — offer, coupon code, CTA button text, and expiration date.
+3. **Audience** — tourists, locals, casino guests, sports fans, concert goers, convention attendees, or a custom audience.
+4. **Creative Direction** — tone, visual style, brand colors, and ad size.
+5. **Generate Campaign** — creates Banner, Square, Tall, and Footer creative previews from one campaign brief.
+
+The Vercel/Next.js API route is:
+
+```text
+POST /api/generate-ad-image

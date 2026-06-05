@@ -26,6 +26,8 @@ const blocks = [
 
 async function main() {
   await prisma.analyticsEvent.deleteMany();
+  await prisma.stalltalkCampaignHistory.deleteMany();
+  await prisma.stalltalkAdSlot.deleteMany();
   await prisma.issueAdSlot.deleteMany();
   await prisma.issueContentBlock.deleteMany();
   await prisma.issue.deleteMany();
@@ -49,35 +51,82 @@ async function main() {
   const qrCode = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, code: "ST-MGM-CASINO-M-001", label: "MGM Casino Men’s #001", destination: "/issue/mgm-grand-las-vegas?qr=ST-MGM-CASINO-M-001", status: "ASSIGNED" } });
 
   const categories = await Promise.all(["Funny", "Facts", "Entertainment", "Deals"].map((name) => prisma.category.create({ data: { publisherId: publisher.id, name, slug: name.toLowerCase(), color: name === "Deals" ? "#ff2d2d" : "#ffd400" } })));
-  const articles = await Promise.all(blocks.map(([type, title, body], index) => prisma.article.create({ data: { publisherId: publisher.id, categoryId: categories[index % categories.length].id, title, slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), excerpt: body.slice(0, 110), body, status: "PUBLISHED", publishedAt: new Date("2024-07-01T12:00:00.000Z") } }))));
+  const articles = await Promise.all(
+    blocks.map(([type, title, body], index) =>
+      prisma.article.create({
+        data: {
+          publisherId: publisher.id,
+          categoryId: categories[index % categories.length].id,
+          title,
+          slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+          excerpt: body.slice(0, 110),
+          body,
+          status: "PUBLISHED",
+          publishedAt: new Date("2024-07-01T12:00:00.000Z")
+        }
+      })
+    )
+  );
 
-  const advertiserRecords = await Promise.all(sponsorAds.map(([businessName]) => prisma.advertiser.create({ data: { publisherId: publisher.id, name: businessName, slug: businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), contactEmail: `${businessName.toLowerCase().replace(/[^a-z0-9]+/g, "")}@example.com`, portalNote: "Seed advertiser can upload artwork, update coupons, and view analytics." } }))));
-  const ads = await Promise.all(sponsorAds.map(([businessName, title, offer, scope, couponCode, monthlyPriceCents], index) => prisma.ad.create({
-    data: {
-      publisherId: publisher.id,
-      advertiserId: advertiserRecords[index].id,
-      businessName,
-      title,
-      offer,
-      ctaText: index % 2 ? "Claim Deal" : "Tap Offer",
-      targetUrl: "https://example.com",
-      phone: `702-555-01${String(index + 1).padStart(2, "0")}`,
-      couponCode,
-      scope: scope as AdScope,
-      city: scope === "CITY" ? "Las Vegas" : null,
-      state: scope === "CITY" ? "NV" : null,
-      venueId: scope === "VENUE" ? venue.id : null,
-      restroomId: scope === "RESTROOM" ? restroom.id : null,
-      monthlyPriceCents,
-      stripePriceId: `price_seed_${scope.toLowerCase()}_${index + 1}`,
-      campaignStartsAt: new Date("2024-07-01T00:00:00.000Z"),
-      campaignEndsAt: new Date("2024-07-31T23:59:59.000Z")
-    }
-  })));
+  const advertiserRecords = await Promise.all(
+    sponsorAds.map(([businessName]) =>
+      prisma.advertiser.create({
+        data: {
+          publisherId: publisher.id,
+          name: businessName,
+          slug: businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+          contactEmail: `${businessName.toLowerCase().replace(/[^a-z0-9]+/g, "")}@example.com`,
+          portalNote: "Seed advertiser can upload artwork, update coupons, and view analytics."
+        }
+      })
+    )
+  );
+  const ads = await Promise.all(
+    sponsorAds.map(([businessName, title, offer, scope, couponCode, monthlyPriceCents], index) =>
+      prisma.ad.create({
+        data: {
+          publisherId: publisher.id,
+          advertiserId: advertiserRecords[index].id,
+          businessName,
+          title,
+          offer,
+          ctaText: index % 2 ? "Claim Deal" : "Tap Offer",
+          targetUrl: "https://example.com",
+          phone: `702-555-01${String(index + 1).padStart(2, "0")}`,
+          couponCode,
+          scope: scope as AdScope,
+          city: scope === "CITY" ? "Las Vegas" : null,
+          state: scope === "CITY" ? "NV" : null,
+          venueId: scope === "VENUE" ? venue.id : null,
+          restroomId: scope === "RESTROOM" ? restroom.id : null,
+          monthlyPriceCents,
+          stripePriceId: `price_seed_${scope.toLowerCase()}_${index + 1}`,
+          campaignStartsAt: new Date("2024-07-01T00:00:00.000Z"),
+          campaignEndsAt: new Date("2024-07-31T23:59:59.000Z")
+        }
+      })
+    )
+  );
 
   const issue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "Potty Favor", month: "July", year: 2024, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2024-07-01T12:00:00.000Z") } });
   await prisma.issueContentBlock.createMany({ data: blocks.map(([type, title, body], index) => ({ issueId: issue.id, articleId: articles[index].id, type, title, body, sortOrder: index + 1, layout: { column: index % 2, row: Math.floor(index / 2), span: index === 6 ? 2 : 1 } })) });
   await prisma.issueAdSlot.createMany({ data: ads.map((ad, index) => ({ issueId: issue.id, adId: ad.id, slotNumber: index + 1, source: ad.scope })) });
+  await prisma.stalltalkAdSlot.createMany({
+    data: ads.map((ad, index) => ({
+      slotNumber: index + 1,
+      adId: ad.id,
+      publisherId: publisher.id,
+      business: ad.businessName,
+      creativeType: "IMAGE",
+      image: ad.artworkUrl,
+      headline: ad.title,
+      subheadline: ad.offer,
+      ctaText: ad.ctaText,
+      couponCode: ad.couponCode,
+      targetUrl: ad.targetUrl,
+      phone: ad.phone
+    }))
+  });
 
   await prisma.stripeSubscription.create({ data: { advertiserId: advertiserRecords[0].id, adId: ads[0].id, stripeCustomerId: "cus_seed_hooters", stripeSubscriptionId: "sub_seed_monthly", status: "ACTIVE", locations: 1, monthlyAmountCents: 49900, currentPeriodEndsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });

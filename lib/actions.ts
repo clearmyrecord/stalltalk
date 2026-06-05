@@ -58,6 +58,7 @@ export async function createAdvertiser(formData: FormData) {
   await prisma.advertiser.create({ data: { publisherId: text(formData, "publisherId"), name, slug: text(formData, "slug", slugify(name)) || slugify(name), contactEmail: text(formData, "contactEmail"), portalNote: nullableText(formData, "portalNote") } });
   revalidatePath("/admin/advertisers");
   revalidatePath("/portal/advertiser");
+  revalidatePath("/");
 }
 
 export async function createAd(formData: FormData) {
@@ -65,6 +66,7 @@ export async function createAd(formData: FormData) {
   await publishAdToSlot(ad.id, formData);
   revalidatePath("/admin/ads");
   revalidatePath("/admin/issue-builder");
+  revalidatePath("/");
   redirect("/admin/ads");
 }
 
@@ -85,6 +87,13 @@ function adData(formData: FormData) {
     title: text(formData, "title"),
     offer: text(formData, "offer"),
     artworkUrl: nullableText(formData, "artworkUrl"),
+    creativeType: text(formData, "creativeType", "IMAGE"),
+    htmlCreative: nullableText(formData, "htmlCreative"),
+    videoUrl: nullableText(formData, "videoUrl"),
+    promptUsed: nullableText(formData, "promptUsed"),
+    generatedHeadline: nullableText(formData, "generatedHeadline"),
+    generatedSubheadline: nullableText(formData, "generatedSubheadline"),
+    adSize: nullableText(formData, "adSize"),
     ctaText: text(formData, "ctaText", "Claim Offer"),
     targetUrl: text(formData, "targetUrl", "#"),
     phone: nullableText(formData, "phone"),
@@ -103,14 +112,65 @@ function adData(formData: FormData) {
 async function publishAdToSlot(adId: string, formData: FormData) {
   const issueId = nullableText(formData, "issueId");
   const slotNumber = intValue(formData, "slotNumber");
-  if (!issueId || slotNumber < 1 || slotNumber > 8) return;
+  if (slotNumber < 1 || slotNumber > 8) return;
 
   const scope = text(formData, "scope", "GLOBAL") as AdScope;
-  await prisma.issueAdSlot.upsert({
-    where: { issueId_slotNumber: { issueId, slotNumber } },
-    update: { adId, source: scope },
-    create: { issueId, adId, slotNumber, source: scope }
+  if (issueId) {
+    await prisma.issueAdSlot.upsert({
+      where: { issueId_slotNumber: { issueId, slotNumber } },
+      update: { adId, source: scope },
+      create: { issueId, adId, slotNumber, source: scope }
+    });
+  }
+
+  await prisma.stalltalkAdSlot.upsert({
+    where: { slotNumber },
+    update: adSlotData(adId, formData),
+    create: { slotNumber, ...adSlotData(adId, formData) }
   });
+
+  const campaignId = text(formData, "campaignId", `${adId}-${slotNumber}`);
+  await prisma.stalltalkCampaignHistory.upsert({
+    where: { campaignId },
+    update: campaignHistoryData(adId, slotNumber, formData),
+    create: { campaignId, ...campaignHistoryData(adId, slotNumber, formData) }
+  });
+}
+
+function adSlotData(adId: string, formData: FormData) {
+  return {
+    adId,
+    publisherId: nullableText(formData, "publisherId"),
+    business: text(formData, "businessName"),
+    creativeType: text(formData, "creativeType", "IMAGE"),
+    image: nullableText(formData, "artworkUrl"),
+    htmlCreative: nullableText(formData, "htmlCreative"),
+    videoUrl: nullableText(formData, "videoUrl"),
+    prompt: nullableText(formData, "promptUsed"),
+    headline: nullableText(formData, "generatedHeadline") || text(formData, "title"),
+    subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
+    ctaText: text(formData, "ctaText", "Claim Offer"),
+    couponCode: nullableText(formData, "couponCode"),
+    targetUrl: text(formData, "targetUrl", "#"),
+    phone: nullableText(formData, "phone")
+  };
+}
+
+function campaignHistoryData(adId: string, slotPublished: number, formData: FormData) {
+  return {
+    publisherId: nullableText(formData, "publisherId"),
+    advertiserId: nullableText(formData, "advertiserId"),
+    adId,
+    business: text(formData, "businessName"),
+    image: nullableText(formData, "artworkUrl"),
+    prompt: text(formData, "promptUsed", "HTML/CSS fallback creative"),
+    headline: nullableText(formData, "generatedHeadline") || text(formData, "title"),
+    subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
+    ctaText: text(formData, "ctaText", "Claim Offer"),
+    couponCode: nullableText(formData, "couponCode"),
+    adSize: text(formData, "adSize", "Banner"),
+    slotPublished
+  };
 }
 
 export async function createArticle(formData: FormData) {
