@@ -13,6 +13,10 @@ const STORAGE_KEYS = {
   advertisers: "stalltalk_advertisers",
   analyticsEvents: "stalltalk_analytics_events",
   distributors: "stalltalk_distributors",
+  standardIssue: "stalltalk_standard_issue",
+  cityIssues: "stalltalk_city_issues",
+  venueIssueOverrides: "stalltalk_venue_issue_overrides",
+  marketAds: "stalltalk_market_ads",
 };
 
 const DEFAULT_SETTINGS = {
@@ -25,6 +29,10 @@ const DEFAULT_SETTINGS = {
   city: "Las Vegas, NV",
   venue: "MGM Grand",
   monthYear: "June 2026",
+  standardMonthlyIssue: "Enabled",
+  venueContentOverride: "Use when published",
+  cityContentOverride: "Use when published",
+  adTargetingMode: "QR/Venue",
 };
 
 const DEMO_CONTENT = {
@@ -538,6 +546,7 @@ function saveDraft() {
 function publishContent() {
   const published = { ...getContentValues(), savedAt: timestamp() };
   saveJson(STORAGE_KEYS.published, published);
+  saveJson(STORAGE_KEYS.standardIssue, { id: `standard-${Date.now()}`, title: published.featuredTitle || "Standard Monthly Issue", monthYear: getSettings().monthYear, status: "published", issueType: "standard", content: published, savedAt: published.publishedAt });
   // Future backend/database publishing will POST this payload to an authenticated issue endpoint.
   document.querySelector("#content-status").textContent = "Published. Open the public issue in this browser to see it.";
   refreshAdmin();
@@ -794,10 +803,19 @@ function saveQrRecord() {
 function saveIssueRecord() {
   const form = networkFormObject("#issue-form");
   const venue = ensureArray(STORAGE_KEYS.venues).find((v) => v.id === form.venueId) || {};
-  const record = { id: `issue-${slugify(form.title || `${venue.slug}-${Date.now()}`)}`, ...form, venueName: venue.name, contentBlocks: safeText(form.contentBlocks).split(/\n+/).filter(Boolean), assignedAdSlots: safeText(form.assignedSlots, "1,2,3,4,5,6,7,8").split(/\s*,\s*/).filter(Boolean), publishedAt: form.status === "published" ? createdAt() : "" };
-  saveJson(STORAGE_KEYS.issues, [...ensureArray(STORAGE_KEYS.issues).filter((issue) => issue.id !== record.id), record]); refreshPhase3();
+  const record = { id: `issue-${slugify(form.title || `${venue.slug || form.city || "standard"}-${Date.now()}`)}`, ...form, venueName: venue.name, venueSlug: venue.slug, contentBlocks: safeText(form.contentBlocks).split(/\n+/).filter(Boolean), assignedAdSlots: safeText(form.assignedSlots, "1,2,3,4,5,6,7,8").split(/\s*,\s*/).filter(Boolean), publishedAt: form.status === "published" ? createdAt() : "" };
+  saveJson(STORAGE_KEYS.issues, [...ensureArray(STORAGE_KEYS.issues).filter((issue) => issue.id !== record.id), record]);
+  if (record.status === "published" && record.issueType === "standard") saveJson(STORAGE_KEYS.standardIssue, record);
+  if (record.status === "published" && record.issueType === "city") {
+    const cityIssues = readJson(STORAGE_KEYS.cityIssues, {});
+    saveJson(STORAGE_KEYS.cityIssues, { ...cityIssues, [slugify(record.city)]: record });
+  }
+  if (record.status === "published" && record.issueType === "venue" && venue.slug) {
+    const venueOverrides = readJson(STORAGE_KEYS.venueIssueOverrides, {});
+    saveJson(STORAGE_KEYS.venueIssueOverrides, { ...venueOverrides, [venue.slug]: record });
+  }
+  refreshPhase3();
 }
-
 function duplicatePreviousIssue() {
   const issues = ensureArray(STORAGE_KEYS.issues); const previous = issues[0]; if (!previous) return;
   const copy = { ...previous, id: `${previous.id}-copy-${Date.now()}`, title: `${previous.title} Copy`, status: "draft", duplicatedFrom: previous.id };
@@ -837,7 +855,7 @@ function upsertCampaignFromCreative(ad) {
 }
 
 function exportAllData() {
-  const keys = [STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.campaignHistory, STORAGE_KEYS.published, STORAGE_KEYS.draft];
+  const keys = [STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.campaignHistory, STORAGE_KEYS.published, STORAGE_KEYS.draft, STORAGE_KEYS.standardIssue, STORAGE_KEYS.cityIssues, STORAGE_KEYS.venueIssueOverrides, STORAGE_KEYS.marketAds];
   const payload = Object.fromEntries(keys.map((key) => [key, readJson(key, null)]));
   const json = JSON.stringify(payload, null, 2);
   document.querySelector("#data-export-output").value = json;
@@ -848,7 +866,7 @@ function exportAllData() {
 
 function importAllData(file) {
   if (!file) return;
-  const allowedKeys = new Set([STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.campaignHistory, STORAGE_KEYS.published, STORAGE_KEYS.draft]);
+  const allowedKeys = new Set([STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.campaignHistory, STORAGE_KEYS.published, STORAGE_KEYS.draft, STORAGE_KEYS.standardIssue, STORAGE_KEYS.cityIssues, STORAGE_KEYS.venueIssueOverrides, STORAGE_KEYS.marketAds]);
   const reader = new FileReader();
   reader.onload = () => {
     try {
