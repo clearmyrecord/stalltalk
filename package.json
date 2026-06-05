@@ -12,7 +12,8 @@
     "prisma:seed": "prisma db seed",
     "check:phase2": "node scripts/check-phase2.mjs",
     "db:up": "docker compose up -d postgres",
-    "prebuild": "prisma generate"
+    "prebuild": "prisma generate",
+    "smoke:site": "node scripts/smoke-site.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
@@ -31,8 +32,5 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }

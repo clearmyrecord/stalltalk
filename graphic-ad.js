@@ -21,6 +21,11 @@ function stallTalkSafeText(value, fallback = "") {
   return String(value || "").trim() || fallback;
 }
 
+function stallTalkShortText(value, max, fallback = "") {
+  const normalized = stallTalkSafeText(value, fallback).replace(/\s+/g, " ");
+  return normalized.length <= max ? normalized : `${normalized.slice(0, Math.max(0, max - 1)).trim()}…`;
+}
+
 function stallTalkNormalizeUrl(value) {
   const url = stallTalkSafeText(value);
   if (!url) return "";
@@ -62,6 +67,7 @@ function stallTalkImageSource(ad) {
 function stallTalkBuildGraphicAd(ad, options = {}) {
   const slotNumber = options.slotNumber ? `Slot ${options.slotNumber}` : STALLTALK_TEMPLATE_NAMES[ad.template] || "Graphic Ad";
   const size = stallTalkAdSizeKey(ad.adSizeKey || ad.adSize);
+  const compact = Boolean(options.compact);
   const template = stallTalkClassToken(ad.template, "vegas");
   const primary = stallTalkSafeText(ad.primaryColor, "#ff2d2d");
   const secondary = stallTalkSafeText(ad.secondaryColor, "#ffd400");
@@ -69,7 +75,7 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
   const imageSource = ad.adMode === "image" ? stallTalkImageSource(ad) : "";
   const wrapper = document.createElement(options.link === false ? "div" : "a");
 
-  wrapper.className = `graphic-ad graphic-template-${template} graphic-size-${size}${imageSource ? " graphic-ad-image" : ""}${options.compact ? " graphic-ad-compact" : ""}`;
+  wrapper.className = `graphic-ad graphic-template-${template} graphic-size-${size}${imageSource ? " graphic-ad-image" : ""}${compact ? " graphic-ad-compact" : ""}`;
   wrapper.style.setProperty("--graphic-primary", primary);
   wrapper.style.setProperty("--graphic-secondary", secondary);
   wrapper.style.setProperty("--graphic-accent", accent);
@@ -108,7 +114,7 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
   const slot = document.createElement("span");
   slot.textContent = slotNumber;
   const category = document.createElement("span");
-  category.textContent = stallTalkSafeText(ad.businessCategory, "Local Favorite");
+  category.textContent = stallTalkShortText(ad.businessCategory, compact ? 18 : 26, "Local Favorite");
   top.append(slot, category);
 
   const logo = document.createElement("div");
@@ -121,7 +127,7 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
     img.crossOrigin = "anonymous";
     logo.append(img);
   } else {
-    logo.textContent = stallTalkSafeText(ad.businessName, "AD").slice(0, 2).toUpperCase();
+    logo.textContent = stallTalkShortText(ad.businessName, 2, "AD").slice(0, 2).toUpperCase();
   }
 
   const body = document.createElement("div");
@@ -129,38 +135,38 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
 
   const name = document.createElement("p");
   name.className = "graphic-business";
-  name.textContent = stallTalkSafeText(ad.businessName, "Your Business");
+  name.textContent = stallTalkShortText(ad.businessName, compact ? 24 : 34, "Your Business");
 
   const headline = document.createElement("h3");
   headline.className = "graphic-headline";
-  headline.textContent = stallTalkSafeText(ad.headline, "A Deal Worth Stopping For");
+  headline.textContent = stallTalkShortText(ad.headline, compact ? 42 : 58, "A Deal Worth Stopping For");
 
   const audience = document.createElement("p");
   audience.className = "graphic-audience";
-  audience.textContent = stallTalkSafeText(ad.subheadline, "Made for nearby customers ready to act.");
+  audience.textContent = stallTalkShortText(ad.subheadline, compact ? 56 : 82, "Made for nearby customers ready to act.");
 
   const offer = document.createElement("div");
   offer.className = "graphic-offer-badge";
   const offerLabel = document.createElement("span");
   offerLabel.textContent = "Offer";
   const offerText = document.createElement("strong");
-  offerText.textContent = stallTalkSafeText(ad.offer, "Limited-time special");
+  offerText.textContent = stallTalkShortText(ad.offer, compact ? 48 : 72, "Limited-time special");
   offer.append(offerLabel, offerText);
 
   const coupon = document.createElement("div");
   coupon.className = "graphic-coupon";
   coupon.innerHTML = "<span>Use code</span>";
   const couponCode = document.createElement("strong");
-  couponCode.textContent = stallTalkSafeText(ad.couponCode, "STALL10");
+  couponCode.textContent = stallTalkShortText(ad.couponCode, 16, "STALL10");
   coupon.append(couponCode);
 
   const cta = document.createElement("span");
   cta.className = "graphic-cta";
-  cta.textContent = stallTalkSafeText(ad.ctaButtonText, "Claim This Deal");
+  cta.textContent = stallTalkShortText(ad.ctaButtonText, 22, "Claim This Deal");
 
   const contact = document.createElement("p");
   contact.className = "graphic-contact";
-  contact.textContent = [stallTalkSafeText(ad.phone), stallTalkSafeText(ad.website)].filter(Boolean).join(" • ") || "Ask for details today";
+  contact.textContent = stallTalkShortText([stallTalkSafeText(ad.phone), stallTalkSafeText(ad.website)].filter(Boolean).join(" • ") || "Ask for details today", compact ? 48 : 76);
 
   body.append(name, headline, audience, offer, coupon, cta, contact);
   wrapper.append(shapes, top, logo, body);

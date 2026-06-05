@@ -43,8 +43,11 @@ let activeAd = null;
 let isGeneratingGraphic = false;
 
 function readJson(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw === "") return fallback;
   try {
-    return JSON.parse(localStorage.getItem(key)) || fallback;
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
   } catch (error) {
     console.warn(`Unable to read ${key}`, error);
     return fallback;
@@ -181,9 +184,10 @@ function saveCampaign(ad = activeAd) {
   const history = getCampaignHistory();
   const next = [campaignSummary(ad), ...history].slice(0, 24);
   saveJson(STORAGE_KEYS.campaignHistory, next);
-  upsertCampaignFromCreative(ad);
+  const campaign = upsertCampaignFromCreative(ad);
   renderCampaignHistory();
   document.querySelector("#ad-status").textContent = `Saved ${ad.businessName} to campaign history.`;
+  return campaign;
 }
 
 function setGraphicLoading(loading) {
@@ -243,7 +247,8 @@ async function generateGraphicAd() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draftAd),
     });
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json") ? await response.json() : { error: `Ad image endpoint returned ${response.status} ${response.statusText || "non-JSON response"}. Check STALLTALK_AD_IMAGE_ENDPOINT for static/GitHub Pages mode.` };
 
     if (!response.ok) {
       const diagnostic = data?.diagnostic || {};
@@ -288,9 +293,7 @@ function publishToSlot(slotNumber) {
     return;
   }
   const publishedAd = { ...activeAd, slotPublishedTo: String(slotNumber), savedAt: timestamp() };
-  saveCampaign(publishedAd);
-  const campaigns = ensureArray(STORAGE_KEYS.campaigns);
-  const campaign = campaigns[0];
+  const campaign = saveCampaign(publishedAd);
   const slots = getNetworkAdSlots().map((slot) => String(slot.slotNumber) === String(slotNumber) ? { ...slot, availability: "sold", advertiserAssigned: publishedAd.businessName, campaignAssigned: campaign?.id || publishedAd.businessName, campaignId: campaign?.id || "", advertiserId: campaign?.advertiserId || "", startDate: new Date().toISOString().slice(0, 10), endDate: publishedAd.expiration || "" } : slot);
   setNetworkAdSlots(slots);
   document.querySelector("#ad-status").textContent = `Published ${publishedAd.businessName} to Ad Slot ${slotNumber}.`;
@@ -487,7 +490,7 @@ function demoNetworkData() {
     { id: "venue-lee-canyon", name: "Lee Canyon", slug: "lee-canyon", businessType: "Outdoor recreation", address: "6725 Lee Canyon Rd", city: "Las Vegas", state: "NV", contactName: "Guest Experience", contactEmail: "guest@leecanyon.example", contactPhone: "702-555-0104", status: "active", notes: "Seasonal ski and mountain visitors." },
   ];
   const qrLocations = venues.flatMap((venue) => [
-    { qrId: "mens-stall-1", venueId: venue.id, locationName: "Men’s restroom stall 1", placementType: "stall-door", targetUrl: `/?venue=${venue.slug}&qr=mens-stall-1`, active: true, scanCount: 0 },
+    { qrId: venue.id === "venue-mgm" ? "ST-MGM-CASINO-M-001" : "mens-stall-1", venueId: venue.id, locationName: "Men’s restroom stall 1", placementType: "stall-door", targetUrl: `/?venue=${venue.slug}&qr=${venue.id === "venue-mgm" ? "ST-MGM-CASINO-M-001" : "mens-stall-1"}`, active: true, scanCount: 0 },
     { qrId: "womens-stall-1", venueId: venue.id, locationName: "Women’s restroom stall 1", placementType: "stall-door", targetUrl: `/?venue=${venue.slug}&qr=womens-stall-1`, active: true, scanCount: 0 },
     { qrId: "mirror-1", venueId: venue.id, locationName: "Mirror sponsor frame", placementType: "mirror", targetUrl: `/?venue=${venue.slug}&qr=mirror-1`, active: true, scanCount: 0 },
   ]);
@@ -512,6 +515,10 @@ function seedDemoNetwork(force = false) {
   Object.entries(map).forEach(([name, key]) => {
     if (force || !localStorage.getItem(key)) saveJson(key, demo[name]);
   });
+  if (!force) {
+    const qrLocations = ensureArray(STORAGE_KEYS.qrLocations);
+    if (!qrLocations.some((qr) => qr.qrId === "ST-MGM-CASINO-M-001")) saveJson(STORAGE_KEYS.qrLocations, [demo.qrLocations[0], ...qrLocations]);
+  }
   if (force || !localStorage.getItem(STORAGE_KEYS.settings)) saveJson(STORAGE_KEYS.settings, { ...DEFAULT_SETTINGS, savedAt: timestamp() });
   if (force || !localStorage.getItem(STORAGE_KEYS.published)) saveJson(STORAGE_KEYS.published, DEMO_CONTENT);
 }
@@ -699,12 +706,14 @@ function upsertCampaignFromCreative(ad) {
   const advertisers = ensureArray(STORAGE_KEYS.advertisers);
   let adv = advertisers.find((item) => item.businessName === ad.businessName);
   if (!adv) { adv = { id: `adv-${slugify(ad.businessName)}`, businessName: ad.businessName, category: ad.category || ad.businessCategory || "Generated creative", contactName: "", email: "", phone: ad.phone || "", website: ad.website || "", status: "lead", notes: "Created from AI Creative Studio", assignedVenues: [], assignedCampaigns: [], monthlySpend: 0 }; saveJson(STORAGE_KEYS.advertisers, [...advertisers, adv]); }
-  const campaign = { id: `camp-${slugify(ad.businessName)}-${Date.now()}`, advertiserId: adv.id, advertiserName: adv.businessName, businessName: adv.businessName, offer: ad.offer, couponCode: ad.couponCode, startDate: new Date().toISOString().slice(0, 10), endDate: ad.expiration || "", selectedVenues: ensureArray(STORAGE_KEYS.venues).map((v) => v.id), selectedSlots: ad.slotPublishedTo ? [String(ad.slotPublishedTo)] : [], creativeImages: [ad.imageAdUrl || ad.imageUrl || ""].filter(Boolean), status: "draft", ...ad };
-  saveJson(STORAGE_KEYS.campaigns, [campaign, ...ensureArray(STORAGE_KEYS.campaigns)]);
+  const existingCampaigns = ensureArray(STORAGE_KEYS.campaigns).filter((campaign) => !(campaign.businessName === ad.businessName && String(campaign.slotPublishedTo || "") === String(ad.slotPublishedTo || "")));
+  const campaign = { id: `camp-${slugify(ad.businessName)}-${Date.now()}`, advertiserId: adv.id, advertiserName: adv.businessName, businessName: adv.businessName, offer: ad.offer, couponCode: ad.couponCode, startDate: new Date().toISOString().slice(0, 10), endDate: ad.expiration || "", selectedVenues: ensureArray(STORAGE_KEYS.venues).map((v) => v.id), selectedSlots: ad.slotPublishedTo ? [String(ad.slotPublishedTo)] : [], creativeImages: [ad.imageAdUrl || ad.imageUrl || ""].filter(Boolean), status: ad.slotPublishedTo ? "active" : "draft", ...ad };
+  saveJson(STORAGE_KEYS.campaigns, [campaign, ...existingCampaigns]);
+  return campaign;
 }
 
 function exportAllData() {
-  const keys = [STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.published, STORAGE_KEYS.draft];
+  const keys = [STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.campaignHistory, STORAGE_KEYS.published, STORAGE_KEYS.draft];
   const payload = Object.fromEntries(keys.map((key) => [key, readJson(key, null)]));
   const json = JSON.stringify(payload, null, 2);
   document.querySelector("#data-export-output").value = json;
@@ -715,8 +724,20 @@ function exportAllData() {
 
 function importAllData(file) {
   if (!file) return;
+  const allowedKeys = new Set([STORAGE_KEYS.settings, STORAGE_KEYS.venues, STORAGE_KEYS.qrLocations, STORAGE_KEYS.issues, STORAGE_KEYS.advertisers, STORAGE_KEYS.campaigns, STORAGE_KEYS.ads, STORAGE_KEYS.analyticsEvents, STORAGE_KEYS.distributors, STORAGE_KEYS.campaignHistory, STORAGE_KEYS.published, STORAGE_KEYS.draft]);
   const reader = new FileReader();
-  reader.onload = () => { const payload = JSON.parse(reader.result); Object.entries(payload).forEach(([key, value]) => saveJson(key, value)); document.querySelector("#data-status").textContent = "Imported Phase 3 network data."; refreshAdmin(); refreshPhase3(); };
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(String(reader.result || "{}"));
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("Export file must be a JSON object keyed by Stall Talk storage keys.");
+      Object.entries(payload).forEach(([key, value]) => { if (allowedKeys.has(key)) saveJson(key, value); });
+      document.querySelector("#data-status").textContent = "Imported Phase 3 network data.";
+      refreshAdmin(); refreshPhase3();
+    } catch (error) {
+      document.querySelector("#data-status").textContent = `Import failed: ${error.message}. Choose a valid Stall Talk JSON export.`;
+    }
+  };
+  reader.onerror = () => { document.querySelector("#data-status").textContent = "Import failed: the selected file could not be read."; };
   reader.readAsText(file);
 }
 
