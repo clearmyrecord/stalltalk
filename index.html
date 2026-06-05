@@ -5,180 +5,168 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Potty Favor by Stall Talk is a mobile-first restroom publication with readable local content and eight premium sponsor placements."
+      content="Potty Favor by Stall Talk is a mobile-first restroom publication with readable local content and eight always-visible premium sponsor placements."
     />
     <title>Potty Favor by Stall Talk</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body class="public-issue-page">
-    <header class="pf-masthead" aria-label="Publication masthead">
-      <nav class="pf-topbar" aria-label="Issue links">
+  <body class="public-issue-page public-issue-redesign">
+    <header class="pf-masthead issue-masthead" aria-label="Publication masthead">
+      <nav class="pf-topbar issue-topbar" aria-label="Issue links">
         <a class="pf-admin-link" href="admin/">Publisher Dashboard</a>
       </nav>
-      <div class="pf-brand-lockup">
+      <div class="pf-brand-lockup issue-brand-lockup">
         <p class="eyebrow" data-issue-field="brand">Potty Favor</p>
-        <h1 data-brand-title>Potty Favor</h1>
-        <p class="pf-tagline">A polished restroom read from Stall Talk.</p>
-        <p class="issue-meta">
-          <span data-issue-field="city">Las Vegas, NV</span> •
-          <span data-issue-field="venue">MGM Grand</span> •
-          <span data-issue-field="monthYear">June 2026</span> •
-          Issue <span data-issue-field="issueNumber">001</span>
-        </p>
+        <h1 data-brand-title>Potty Favor <span>/ Stall Talk</span></h1>
+        <dl class="issue-identity" aria-label="Issue identity">
+          <div>
+            <dt>Venue</dt>
+            <dd data-issue-field="venue">MGM Grand</dd>
+          </div>
+          <div>
+            <dt>City</dt>
+            <dd data-issue-field="city">Las Vegas, NV</dd>
+          </div>
+          <div>
+            <dt>Issue</dt>
+            <dd><span data-issue-field="monthYear">June 2026</span> · No. <span data-issue-field="issueNumber">001</span></dd>
+          </div>
+        </dl>
+        <p class="pf-tagline">Scan. Read. Save.</p>
       </div>
     </header>
 
-    <main class="pf-shell">
-      <section class="pf-sponsor-strip" aria-label="Premium sponsor placements">
-        <article class="pf-ad-card pf-ad-hero ad-gradient-1" data-ad="1">
-          <span class="ad-label">Ad Slot 1</span>
-          <strong>Nacho Average</strong>
-          <p>Half-price loaded fries during happy hour.</p>
-          <a href="#sponsor-wall">Claim offer</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-2" data-ad="2">
-          <span class="ad-label">Ad Slot 2</span>
-          <strong>Lucky Suds</strong>
-          <p>$2 off a local draft.</p>
-          <a href="#sponsor-wall">Tap to save</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-3" data-ad="3">
-          <span class="ad-label">Ad Slot 3</span>
-          <strong>Glow Cab</strong>
-          <p>Late-night rides in minutes.</p>
-          <a href="#sponsor-wall">Book ride</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-4" data-ad="4">
-          <span class="ad-label">Ad Slot 4</span>
-          <strong>Fresh Fit</strong>
-          <p>Travel tees for the after-party.</p>
-          <a href="#sponsor-wall">Shop drop</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-5" data-ad="5">
-          <span class="ad-label">Ad Slot 5</span>
-          <strong>Arcade Ace</strong>
-          <p>Free play token with reload.</p>
-          <a href="#sponsor-wall">Play now</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-6" data-ad="6">
-          <span class="ad-label">Ad Slot 6</span>
-          <strong>Taco Orbit</strong>
-          <p>Two-for-one tacos after 10 PM.</p>
-          <a href="#sponsor-wall">Orbit tacos</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-7" data-ad="7">
-          <span class="ad-label">Ad Slot 7</span>
-          <strong>Hydro Hero</strong>
-          <p>Find nearby refill stations.</p>
-          <a href="#sponsor-wall">Find water</a>
-        </article>
-        <article class="pf-ad-card ad-gradient-8" data-ad="8">
-          <span class="ad-label">Ad Slot 8</span>
-          <strong>Moon Booth</strong>
-          <p>Retro photos sent to your phone.</p>
-          <a href="#sponsor-wall">Snap it</a>
-        </article>
-      </section>
+    <aside class="mobile-ad-strip mobile-ad-strip-top" aria-label="Sticky sponsor strip ad slots 1 through 4">
+      <p>Top sponsors</p>
+      <div class="mobile-ad-scroll">
+        <article class="pf-ad-card sponsor-chip ad-gradient-1" data-ad="1"><span class="ad-label">Ad Slot 1</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-1">Learn more</a></article>
+        <article class="pf-ad-card sponsor-chip ad-gradient-2" data-ad="2"><span class="ad-label">Ad Slot 2</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-2">Learn more</a></article>
+        <article class="pf-ad-card sponsor-chip ad-gradient-3" data-ad="3"><span class="ad-label">Ad Slot 3</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-3">Learn more</a></article>
+        <article class="pf-ad-card sponsor-chip ad-gradient-4" data-ad="4"><span class="ad-label">Ad Slot 4</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-4">Learn more</a></article>
+      </div>
+    </aside>
 
-      <section class="pf-hero-card">
-        <p class="kicker">Restroom magazine • quick reads • local perks</p>
-        <h2 data-content="heroTitle">Your quick city guide while you take five.</h2>
-        <p data-content="intro">
-          Fresh local bites, quick laughs, useful venue tips, and eight sponsor offers that are easy to tap without interrupting the read.
-        </p>
-      </section>
+    <main class="issue-layout issue-three-column">
+      <aside class="ad-rail issue-ad-rail issue-ad-rail-left" aria-label="Sticky left sponsor rail ad slots 1 through 4">
+        <article class="pf-ad-card rail-ad ad-gradient-1" data-ad="1"><span class="ad-label">Ad Slot 1</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-1">Learn more</a></article>
+        <article class="pf-ad-card rail-ad ad-gradient-2" data-ad="2"><span class="ad-label">Ad Slot 2</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-2">Learn more</a></article>
+        <article class="pf-ad-card rail-ad ad-gradient-3" data-ad="3"><span class="ad-label">Ad Slot 3</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-3">Learn more</a></article>
+        <article class="pf-ad-card rail-ad ad-gradient-4" data-ad="4"><span class="ad-label">Ad Slot 4</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-4">Learn more</a></article>
+      </aside>
 
-      <section class="pf-articles" aria-label="Expandable articles">
-        <details class="story-card pf-story" open>
-          <summary>
-            <span>Featured Article</span>
-            <h3 data-content="featuredTitle">The Two-Minute Guide to Winning the Line</h3>
-            <em class="summary-action">Tap to collapse</em>
-          </summary>
-          <p data-content="article">
-            Keep your crew moving: pick a meeting spot, screenshot your tickets, hydrate before the encore, and never trust a casino hallway that says the exit is only one more turn away.
+      <section class="issue-content-column" aria-label="Potty Favor issue articles">
+        <section class="pf-hero-card issue-featured-intro">
+          <p class="kicker">Clean restroom publication · quick reads · local perks</p>
+          <h2 data-content="heroTitle">Your quick city guide while you take five.</h2>
+          <p data-content="intro">
+            Fresh local bites, quick laughs, useful venue tips, and sponsor offers that are easy to tap without interrupting the read.
           </p>
-        </details>
+        </section>
 
-        <details class="story-card pf-story">
-          <summary>
-            <span>Local Intel</span>
-            <h3>Tonight's Detour</h3>
-            <em class="summary-action">Tap to expand</em>
-          </summary>
-          <p data-content="event">Look for a pop-up performance, late-night menu, or photo-worthy stop near the venue before heading home.</p>
-        </details>
+        <section class="pf-articles issue-article-grid" aria-label="Expandable articles">
+          <details class="story-card pf-story featured-story" open>
+            <summary>
+              <span>Featured Article</span>
+              <h3 data-content="featuredTitle">The Two-Minute Guide to Winning the Line</h3>
+              <em class="summary-action">Tap to collapse</em>
+            </summary>
+            <p data-content="article">
+              Keep your crew moving: pick a meeting spot, screenshot your tickets, hydrate before the encore, and never trust a casino hallway that says the exit is only one more turn away.
+            </p>
+          </details>
 
-        <details class="story-card pf-story">
-          <summary>
-            <span>Stall Poll</span>
-            <h3>Snack Debate</h3>
-            <em class="summary-action">Tap to expand</em>
-          </summary>
-          <p data-content="joke">Why did the restroom magazine get promoted? It had excellent stall presence.</p>
-        </details>
+          <details class="story-card pf-story">
+            <summary>
+              <span>Hilariously Funny</span>
+              <h3>Stall-Sized Laugh</h3>
+              <em class="summary-action">Tap to expand</em>
+            </summary>
+            <p data-content="joke">Why did the toilet paper avoid spoilers? It wanted every roll to have a fresh twist.</p>
+          </details>
 
-        <details class="story-card pf-story">
-          <summary>
-            <span>Word of the Day</span>
-            <h3>Lexicon Upgrade</h3>
-            <em class="summary-action">Tap to expand</em>
-          </summary>
-          <p data-content="word"><strong>Serendipity</strong> — finding something good while looking for something else.</p>
-        </details>
+          <details class="story-card pf-story">
+            <summary>
+              <span>Did You Know</span>
+              <h3>Fast Facts</h3>
+              <em class="summary-action">Tap to expand</em>
+            </summary>
+            <ol data-content="trivia">
+              <li>Las Vegas has more hotel rooms than many entire cities.</li>
+              <li>Neon signs glow through electrified gas in glass tubes.</li>
+              <li>A good restroom publication should be readable in under two minutes.</li>
+            </ol>
+          </details>
+
+          <details class="story-card pf-story">
+            <summary>
+              <span>Word of the Day</span>
+              <h3>Lexicon Upgrade</h3>
+              <em class="summary-action">Tap to expand</em>
+            </summary>
+            <p data-content="word"><strong>Serendipity</strong> — finding something good while looking for something else.</p>
+          </details>
+
+          <details class="story-card pf-story">
+            <summary>
+              <span>Inspirational Quote</span>
+              <h3>Pause With Purpose</h3>
+              <em class="summary-action">Tap to expand</em>
+            </summary>
+            <p data-content="quote">“Make the most of the pause; even a quick stop can point you toward the next good thing.”</p>
+          </details>
+
+          <details class="story-card pf-story">
+            <summary>
+              <span>Local Deal</span>
+              <h3>Nearby Offer</h3>
+              <em class="summary-action">Tap to expand</em>
+            </summary>
+            <p data-content="deal">Show this issue at a participating local spot for a surprise restroom-reader perk.</p>
+          </details>
+
+          <details class="story-card pf-story">
+            <summary>
+              <span>Event Spotlight</span>
+              <h3>Tonight's Detour</h3>
+              <em class="summary-action">Tap to expand</em>
+            </summary>
+            <p data-content="event">Look for a pop-up performance, late-night menu, or photo-worthy stop near the venue before heading home.</p>
+          </details>
+        </section>
+
+        <section id="sponsor-wall" class="sponsor-wall pf-sponsor-wall issue-sponsor-summary" aria-label="Sponsor directory with all eight ad slots">
+          <div class="section-heading">
+            <p>Premium inventory</p>
+            <h2>All 8 Sponsor Slots</h2>
+          </div>
+          <div class="sponsor-grid pf-published-grid">
+            <article id="ad-1" class="mini-ad ad-gradient-1" data-mini-ad="1"><span>Ad Slot 1</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-2" class="mini-ad ad-gradient-2" data-mini-ad="2"><span>Ad Slot 2</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-3" class="mini-ad ad-gradient-3" data-mini-ad="3"><span>Ad Slot 3</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-4" class="mini-ad ad-gradient-4" data-mini-ad="4"><span>Ad Slot 4</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-5" class="mini-ad ad-gradient-5" data-mini-ad="5"><span>Ad Slot 5</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-6" class="mini-ad ad-gradient-6" data-mini-ad="6"><span>Ad Slot 6</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-7" class="mini-ad ad-gradient-7" data-mini-ad="7"><span>Ad Slot 7</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+            <article id="ad-8" class="mini-ad ad-gradient-8" data-mini-ad="8"><span>Ad Slot 8</span><strong>Premium Sponsor</strong><small>Available now</small></article>
+          </div>
+        </section>
       </section>
 
-      <section class="pf-content-grid" aria-label="Published quick reads">
-        <article class="pf-note-card">
-          <span>Did You Know</span>
-          <h3>Fast Facts</h3>
-          <ol data-content="trivia">
-            <li>Las Vegas has more hotel rooms than many entire cities.</li>
-            <li>Neon signs glow through electrified gas in glass tubes.</li>
-            <li>A good restroom publication should be readable in under two minutes.</li>
-          </ol>
-        </article>
-        <article class="pf-note-card">
-          <span>Quote</span>
-          <h3>Pause With Purpose</h3>
-          <p data-content="quote">“Make the most of the pause; even a quick stop can point you toward the next good thing.”</p>
-        </article>
-        <article class="pf-note-card">
-          <span>Local Deal</span>
-          <h3>Nearby Offer</h3>
-          <p data-content="deal">Show this issue at a participating local spot for a surprise restroom-reader perk.</p>
-        </article>
-      </section>
-
-      <section id="sponsor-wall" class="sponsor-wall pf-sponsor-wall" aria-label="Sponsor wall with all eight ad slots">
-        <div class="section-heading">
-          <p>Premium inventory</p>
-          <h2>All 8 Published Ad Slots</h2>
-        </div>
-        <div class="sponsor-grid pf-published-grid">
-          <article id="ad-1" class="mini-ad ad-gradient-1" data-mini-ad="1"><span>Ad Slot 1</span><strong>Nacho Average</strong><small>Loaded fries</small></article>
-          <article id="ad-2" class="mini-ad ad-gradient-2" data-mini-ad="2"><span>Ad Slot 2</span><strong>Lucky Suds</strong><small>Draft deal</small></article>
-          <article id="ad-3" class="mini-ad ad-gradient-3" data-mini-ad="3"><span>Ad Slot 3</span><strong>Glow Cab</strong><small>Fast rides</small></article>
-          <article id="ad-4" class="mini-ad ad-gradient-4" data-mini-ad="4"><span>Ad Slot 4</span><strong>Fresh Fit</strong><small>Travel tees</small></article>
-          <article id="ad-5" class="mini-ad ad-gradient-5" data-mini-ad="5"><span>Ad Slot 5</span><strong>Arcade Ace</strong><small>Free play</small></article>
-          <article id="ad-6" class="mini-ad ad-gradient-6" data-mini-ad="6"><span>Ad Slot 6</span><strong>Taco Orbit</strong><small>2-for-1 tacos</small></article>
-          <article id="ad-7" class="mini-ad ad-gradient-7" data-mini-ad="7"><span>Ad Slot 7</span><strong>Hydro Hero</strong><small>Water refill</small></article>
-          <article id="ad-8" class="mini-ad ad-gradient-8" data-mini-ad="8"><span>Ad Slot 8</span><strong>Moon Booth</strong><small>Photo strip</small></article>
-        </div>
-      </section>
+      <aside class="ad-rail issue-ad-rail issue-ad-rail-right" aria-label="Sticky right sponsor rail ad slots 5 through 8">
+        <article class="pf-ad-card rail-ad ad-gradient-5" data-ad="5"><span class="ad-label">Ad Slot 5</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-5">Learn more</a></article>
+        <article class="pf-ad-card rail-ad ad-gradient-6" data-ad="6"><span class="ad-label">Ad Slot 6</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-6">Learn more</a></article>
+        <article class="pf-ad-card rail-ad ad-gradient-7" data-ad="7"><span class="ad-label">Ad Slot 7</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-7">Learn more</a></article>
+        <article class="pf-ad-card rail-ad ad-gradient-8" data-ad="8"><span class="ad-label">Ad Slot 8</span><strong>Premium Sponsor</strong><p>Open premium placement.</p><a href="#ad-8">Learn more</a></article>
+      </aside>
     </main>
 
-    <aside class="pf-sticky-sponsor" aria-label="Sticky sponsor navigation">
-      <span>Sponsored</span>
-      <div>
-        <a class="ad-dot ad-gradient-1" href="#ad-1" aria-label="Jump to Ad Slot 1">1</a>
-        <a class="ad-dot ad-gradient-2" href="#ad-2" aria-label="Jump to Ad Slot 2">2</a>
-        <a class="ad-dot ad-gradient-3" href="#ad-3" aria-label="Jump to Ad Slot 3">3</a>
-        <a class="ad-dot ad-gradient-4" href="#ad-4" aria-label="Jump to Ad Slot 4">4</a>
-        <a class="ad-dot ad-gradient-5" href="#ad-5" aria-label="Jump to Ad Slot 5">5</a>
-        <a class="ad-dot ad-gradient-6" href="#ad-6" aria-label="Jump to Ad Slot 6">6</a>
-        <a class="ad-dot ad-gradient-7" href="#ad-7" aria-label="Jump to Ad Slot 7">7</a>
-        <a class="ad-dot ad-gradient-8" href="#ad-8" aria-label="Jump to Ad Slot 8">8</a>
+    <aside class="mobile-ad-strip mobile-ad-strip-bottom" aria-label="Sticky sponsor strip ad slots 5 through 8">
+      <p>More sponsors</p>
+      <div class="mobile-ad-scroll">
+        <article class="pf-ad-card sponsor-chip ad-gradient-5" data-ad="5"><span class="ad-label">Ad Slot 5</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-5">Learn more</a></article>
+        <article class="pf-ad-card sponsor-chip ad-gradient-6" data-ad="6"><span class="ad-label">Ad Slot 6</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-6">Learn more</a></article>
+        <article class="pf-ad-card sponsor-chip ad-gradient-7" data-ad="7"><span class="ad-label">Ad Slot 7</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-7">Learn more</a></article>
+        <article class="pf-ad-card sponsor-chip ad-gradient-8" data-ad="8"><span class="ad-label">Ad Slot 8</span><strong>Premium Sponsor</strong><p>Available now.</p><a href="#ad-8">Learn more</a></article>
       </div>
     </aside>
 

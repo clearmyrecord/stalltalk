@@ -1787,3 +1787,496 @@ body[data-theme="stalltalk-b2b"] .pf-masthead {
 }
 
 }
+
+/* Public issue redesign: mobile-first article hierarchy with always-visible ads. */
+body.public-issue-redesign {
+  --issue-ink: #14110f;
+  --issue-paper: #fff8ed;
+  --issue-card: #fffdf8;
+  --issue-muted: #6f6258;
+  --issue-yellow: #ffd76b;
+  --issue-coral: #e85d4f;
+  --issue-blue: #1f6f8b;
+  --issue-shadow: 0 14px 0 rgba(20, 17, 15, 0.12);
+  min-width: 320px;
+  padding: 4.9rem 0 6.7rem;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 215, 107, 0.55), transparent 22rem),
+    linear-gradient(180deg, #fffaf2 0%, #fff1df 42%, #fffaf4 100%);
+  color: var(--issue-ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body.public-issue-redesign::before {
+  opacity: 0.28;
+}
+
+.public-issue-redesign .issue-masthead {
+  max-width: 76rem;
+  padding: 0.9rem clamp(1rem, 4vw, 2rem) 1rem;
+}
+
+.public-issue-redesign .issue-topbar {
+  margin-bottom: 0.7rem;
+}
+
+.public-issue-redesign .issue-brand-lockup {
+  border: 3px solid var(--issue-ink);
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(135deg, rgba(255, 215, 107, 0.92), rgba(255, 253, 248, 0.96) 52%, rgba(232, 93, 79, 0.14)),
+    var(--issue-card);
+  box-shadow: 0 9px 0 var(--issue-ink);
+  padding: clamp(1.2rem, 5vw, 2.4rem);
+}
+
+.public-issue-redesign .issue-brand-lockup::after {
+  display: none;
+}
+
+.public-issue-redesign .issue-brand-lockup h1 {
+  max-width: 12ch;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(3rem, 14vw, 7.25rem);
+  letter-spacing: -0.055em;
+  line-height: 0.82;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .issue-brand-lockup h1 span {
+  display: block;
+  color: var(--issue-blue);
+  font-size: 0.42em;
+  letter-spacing: -0.025em;
+}
+
+.issue-identity {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 1fr;
+  margin: 1rem 0 0;
+}
+
+.issue-identity div {
+  border: 2px solid var(--issue-ink);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 0.68rem 0.75rem;
+}
+
+.issue-identity dt {
+  color: var(--issue-muted);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.issue-identity dd {
+  margin: 0.12rem 0 0;
+  font-size: clamp(1rem, 4vw, 1.35rem);
+  font-weight: 950;
+}
+
+.public-issue-redesign .pf-tagline {
+  display: inline-flex;
+  margin: 1rem 0 0;
+  border: 2px solid var(--issue-ink);
+  border-radius: 999px;
+  background: var(--issue-ink);
+  color: var(--issue-yellow);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .issue-three-column {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 76rem);
+  margin: 0 auto;
+  padding: 0 clamp(0.9rem, 4vw, 2rem);
+}
+
+.issue-content-column {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.public-issue-redesign .issue-featured-intro,
+.public-issue-redesign .story-card.pf-story,
+.public-issue-redesign .issue-sponsor-summary {
+  border: 3px solid var(--issue-ink);
+  border-radius: 1.25rem;
+  background: var(--issue-card);
+  box-shadow: var(--issue-shadow);
+}
+
+.public-issue-redesign .issue-featured-intro {
+  padding: clamp(1.1rem, 4vw, 2rem);
+}
+
+.public-issue-redesign .issue-featured-intro h2 {
+  color: var(--issue-ink);
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(2.4rem, 12vw, 5.2rem);
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .issue-featured-intro p:last-child,
+.public-issue-redesign .story-card.pf-story p,
+.public-issue-redesign .story-card.pf-story li,
+.public-issue-redesign .story-card.pf-story ol {
+  color: var(--issue-muted);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1rem, 2.6vw, 1.08rem);
+  font-weight: 750;
+  line-height: 1.62;
+  text-transform: none;
+}
+
+.issue-article-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.public-issue-redesign .story-card.pf-story {
+  margin: 0;
+  padding: clamp(1rem, 3vw, 1.35rem);
+}
+
+.public-issue-redesign .featured-story {
+  background: #fff;
+}
+
+.public-issue-redesign .story-card.pf-story summary span,
+.public-issue-redesign .kicker,
+.public-issue-redesign .section-heading p,
+.public-issue-redesign .eyebrow {
+  color: var(--issue-blue);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .story-card.pf-story h3 {
+  color: var(--issue-ink);
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(1.9rem, 8vw, 3rem);
+  letter-spacing: -0.025em;
+  line-height: 0.95;
+  margin: 0.42rem 0 0.1rem;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .featured-story h3 {
+  font-size: clamp(2.5rem, 11vw, 4.6rem);
+}
+
+.public-issue-redesign .story-card.pf-story ol {
+  margin: 0.9rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.public-issue-redesign .summary-action {
+  color: var(--issue-coral);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .ad-rail {
+  display: none;
+}
+
+.mobile-ad-strip {
+  position: fixed;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  border-color: var(--issue-ink);
+  background: rgba(255, 250, 242, 0.96);
+  padding: 0.42rem 0.65rem;
+  box-shadow: 0 10px 26px rgba(20, 17, 15, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.mobile-ad-strip-top {
+  top: 0;
+  border-bottom: 3px solid var(--issue-ink);
+}
+
+.mobile-ad-strip-bottom {
+  bottom: 0;
+  border-top: 3px solid var(--issue-ink);
+  box-shadow: 0 -10px 26px rgba(20, 17, 15, 0.18);
+}
+
+.mobile-ad-strip p {
+  margin: 0 0 0.28rem;
+  color: var(--issue-muted);
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.mobile-ad-scroll {
+  display: grid;
+  grid-auto-columns: minmax(7.4rem, 1fr);
+  grid-auto-flow: column;
+  gap: 0.45rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.public-issue-redesign .pf-ad-card,
+.public-issue-redesign .mini-ad {
+  border: 3px solid var(--issue-ink);
+  border-radius: 1rem;
+  box-shadow: 4px 4px 0 var(--issue-ink);
+  color: #fff;
+  overflow: hidden;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.36);
+}
+
+.public-issue-redesign .sponsor-chip {
+  min-height: 4.3rem;
+  padding: 0.45rem;
+}
+
+.public-issue-redesign .sponsor-chip .ad-label,
+.public-issue-redesign .rail-ad .ad-label {
+  margin: 0 0 0.25rem;
+  padding: 0.16rem 0.38rem;
+  font-size: 0.56rem;
+}
+
+.public-issue-redesign .sponsor-chip strong {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.02;
+}
+
+.public-issue-redesign .sponsor-chip p {
+  margin: 0.12rem 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.62rem;
+  line-height: 1.16;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.public-issue-redesign .sponsor-chip a {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.public-issue-redesign .rail-ad {
+  display: grid;
+  align-content: start;
+  min-height: 7.35rem;
+  padding: 0.72rem;
+}
+
+.public-issue-redesign .rail-ad strong {
+  margin: 0.2rem 0 0.18rem;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.public-issue-redesign .rail-ad p {
+  margin: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.78rem;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.public-issue-redesign .rail-ad a {
+  width: max-content;
+  max-width: 100%;
+  margin-top: 0.45rem;
+  border: 2px solid var(--issue-ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--issue-ink);
+  padding: 0.32rem 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 950;
+  text-decoration: none;
+  text-shadow: none;
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .issue-sponsor-summary {
+  padding: 1rem;
+}
+
+.public-issue-redesign .issue-sponsor-summary h2 {
+  color: var(--issue-ink);
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(2rem, 9vw, 4rem);
+  text-transform: uppercase;
+}
+
+.public-issue-redesign .pf-published-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.public-issue-redesign .mini-ad {
+  min-height: 7.2rem;
+  padding: 0.7rem;
+}
+
+.public-issue-redesign .mini-ad strong {
+  margin: 0.4rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.public-issue-redesign .mini-ad small {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.78rem;
+}
+
+.public-issue-redesign .pf-ad-card-generated,
+.public-issue-redesign .pf-mini-generated {
+  border: 0;
+  background: transparent !important;
+  box-shadow: none;
+  padding: 0;
+}
+
+.public-issue-redesign .pf-ad-card-generated .graphic-ad,
+.public-issue-redesign .pf-mini-generated .graphic-ad {
+  border: 3px solid var(--issue-ink);
+  border-radius: inherit;
+  box-shadow: 4px 4px 0 var(--issue-ink);
+}
+
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-ad {
+  min-height: 4.3rem;
+  padding: 0.45rem;
+}
+
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-topline,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-logo,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-offer-badge,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-coupon,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-contact,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-shapes {
+  display: none;
+}
+
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-headline {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-business,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-audience,
+.public-issue-redesign .sponsor-chip.pf-ad-card-generated .graphic-cta {
+  font-size: 0.62rem;
+}
+
+.public-issue-redesign .rail-ad.pf-ad-card-generated .graphic-ad {
+  min-height: 7.35rem;
+}
+
+@media (min-width: 44rem) {
+  .issue-identity {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .public-issue-redesign .issue-article-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-issue-redesign .featured-story {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 58rem) {
+  body.public-issue-redesign {
+    padding: 0;
+  }
+
+  .mobile-ad-strip {
+    display: none;
+  }
+
+  .public-issue-redesign .issue-masthead {
+    padding-top: 1.25rem;
+  }
+
+  .public-issue-redesign .issue-three-column {
+    grid-template-columns: minmax(8.5rem, 11rem) minmax(0, 1fr) minmax(8.5rem, 11rem);
+    align-items: start;
+    padding-bottom: 2rem;
+  }
+
+  .public-issue-redesign .ad-rail {
+    position: sticky;
+    top: 1rem;
+    display: grid;
+    gap: 0.65rem;
+    max-height: calc(100vh - 2rem);
+    overflow: visible;
+  }
+
+  .public-issue-redesign .pf-published-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 72rem) {
+  .public-issue-redesign .issue-three-column {
+    grid-template-columns: 12rem minmax(0, 1fr) 12rem;
+  }
+}
+
+.public-issue-redesign .ad-slot-badge {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  left: 0.45rem;
+  z-index: 3;
+  display: inline-flex;
+  justify-content: center;
+  border: 2px solid var(--issue-ink);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--issue-ink);
+  padding: 0.22rem 0.4rem;
+  font: 950 0.58rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.public-issue-redesign .sponsor-chip .ad-slot-badge {
+  display: none;
+}
