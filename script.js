@@ -1,5 +1,6 @@
 const stories = document.querySelectorAll(".story-card");
-const STALLTALK_PUBLIC_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
+const STALLTALK_PUBLIC_AD_STORAGE_KEY = window.StallTalkGraphicAds?.storageKey || "stalltalk_ad_slots_v1";
+const STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
 
 stories.forEach((story) => {
   const action = story.querySelector(".summary-action");
@@ -13,14 +14,16 @@ stories.forEach((story) => {
   story.addEventListener("toggle", updateActionText);
 });
 
-const adLinks = document.querySelectorAll(".ad-card a, .ad-dot");
-
-adLinks.forEach((link) => {
-  link.addEventListener("click", () => {
-    link.classList.add("was-tapped");
-    window.setTimeout(() => link.classList.remove("was-tapped"), 500);
+function addTapFeedback() {
+  document.querySelectorAll(".ad-card a, .ad-dot, .graphic-ad").forEach((link) => {
+    if (link.dataset.tapFeedbackBound === "true") return;
+    link.dataset.tapFeedbackBound = "true";
+    link.addEventListener("click", () => {
+      link.classList.add("was-tapped");
+      window.setTimeout(() => link.classList.remove("was-tapped"), 500);
+    });
   });
-});
+}
 
 function readSavedAdSlots() {
   try {
@@ -37,8 +40,15 @@ function normalizeContactHref(contact) {
   if (/^[+\d][\d\s().-]+$/.test(contact)) return `tel:${contact.replace(/\s/g, "")}`;
   return `https://${contact}`;
 }
+
+function adContact(ad) {
+  return ad.website || ad.phone || ad.contact || ad.contactUrl || "#sponsor-wall";
+}
+
 function updateRailAd(card, slotNumber, ad) {
-  if (window.StallTalkGraphicAds && ad.headline) {
+  if (!ad) return;
+
+  if (window.StallTalkGraphicAds && (ad.headline || window.StallTalkGraphicAds.imageSource(ad))) {
     card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
     return;
   }
@@ -49,9 +59,22 @@ function updateRailAd(card, slotNumber, ad) {
   const link = card.querySelector("a");
 
   if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSize || ad.adSlotSize || "Custom"}`;
-  if (title) title.textContent = ad.businessName || ad.headline;
-@@ -65,25 +65,62 @@ function updateMiniAd(card, slotNumber, ad) {
-    card.title = `${ad.headline || "Saved graphic ad"} ${ad.couponCode || ""}`.trim();
+  if (title) title.textContent = ad.businessName || ad.headline || "Saved ad";
+  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || "Tap to claim this sponsor offer.";
+  if (link) {
+    link.href = normalizeContactHref(adContact(ad));
+    link.textContent = ad.ctaButtonText || "Claim offer";
+    link.setAttribute("aria-label", `View ${ad.businessName || "sponsor"} offer`);
+  }
+}
+
+function updateMiniAd(card, slotNumber, ad) {
+  if (!ad) return;
+
+  if (window.StallTalkGraphicAds && (ad.headline || window.StallTalkGraphicAds.imageSource(ad))) {
+    card.replaceChildren(window.StallTalkGraphicAds.build(ad, { slotNumber, compact: true }));
+    card.dataset.coupon = ad.couponCode || "";
+    card.title = `${ad.headline || ad.businessName || "Saved graphic ad"} ${ad.couponCode || ""}`.trim();
     return;
   }
 
@@ -60,24 +83,25 @@ function updateRailAd(card, slotNumber, ad) {
 
   card.dataset.coupon = ad.couponCode || "";
   card.title = `${ad.headline || "Saved ad"} ${ad.disclaimer || ""}`.trim();
-  if (title) title.textContent = ad.businessName || ad.headline;
+  if (title) title.textContent = ad.businessName || ad.headline || "Saved ad";
   if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || `Saved slot ${slotNumber}`;
 }
 
 function loadSavedAdSlots() {
   const savedSlots = readSavedAdSlots();
 
-  Object.entries(savedSlots).forEach(([slotNumber, ad]) => {
+  for (let slotNumber = 1; slotNumber <= 8; slotNumber += 1) {
+    const ad = savedSlots[String(slotNumber)] || savedSlots[slotNumber];
+    if (!ad) continue;
+
     document.querySelectorAll(`[data-ad="${slotNumber}"]`).forEach((card) => updateRailAd(card, slotNumber, ad));
 
     const miniAd = document.querySelector(`#ad-${slotNumber}`);
     if (miniAd) updateMiniAd(miniAd, slotNumber, ad);
-  });
+  }
+
+  addTapFeedback();
 }
-
-loadSavedAdSlots();
-
-const STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
 
 function readPublishedIssueContent() {
   try {
@@ -112,4 +136,15 @@ function updatePublishedIssueContent() {
   });
 }
 
-updatePublishedIssueContent();
+function updateHomepageFromLocalStorage() {
+  loadSavedAdSlots();
+  updatePublishedIssueContent();
+}
+
+window.addEventListener("DOMContentLoaded", updateHomepageFromLocalStorage);
+window.addEventListener("load", updateHomepageFromLocalStorage);
+window.addEventListener("storage", (event) => {
+  if ([STALLTALK_PUBLIC_AD_STORAGE_KEY, STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY].includes(event.key)) {
+    updateHomepageFromLocalStorage();
+  }
+});

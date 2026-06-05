@@ -1,6 +1,13 @@
 const STALLTALK_AD_STORAGE_KEY = "stalltalk_ad_slots_v1";
 const STALLTALK_DRAFT_STORAGE_KEY = "stalltalk_graphic_ad_draft_v1";
 
+const STALLTALK_AD_SIZES = {
+  square: { label: "Square 1024x1024", imageSize: "1024x1024" },
+  tall: { label: "Tall 1024x1792", imageSize: "1024x1792" },
+  banner: { label: "Banner 1792x1024", imageSize: "1792x1024" },
+  footer: { label: "Footer banner 1792x512", imageSize: "1792x512" },
+};
+
 const STALLTALK_TEMPLATE_NAMES = {
   vegas: "Vegas Neon",
   coupon: "Coupon Blast",
@@ -35,16 +42,34 @@ function stallTalkClassToken(value, fallback) {
   return stallTalkSafeText(value, fallback).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback;
 }
 
+function stallTalkAdSizeKey(value) {
+  const key = stallTalkClassToken(value, "banner");
+  if (STALLTALK_AD_SIZES[key]) return key;
+  if (key.includes("square")) return "square";
+  if (key.includes("tall") || key.includes("portrait")) return "tall";
+  if (key.includes("footer")) return "footer";
+  return "banner";
+}
+
+function stallTalkImageSource(ad) {
+  const imageAdUrl = stallTalkSafeText(ad.imageAdUrl || ad.imageUrl);
+  const imageAdBase64 = stallTalkSafeText(ad.imageAdBase64 || ad.b64_json);
+  if (imageAdUrl) return imageAdUrl;
+  if (!imageAdBase64) return "";
+  return imageAdBase64.startsWith("data:") ? imageAdBase64 : `data:image/png;base64,${imageAdBase64}`;
+}
+
 function stallTalkBuildGraphicAd(ad, options = {}) {
   const slotNumber = options.slotNumber ? `Slot ${options.slotNumber}` : STALLTALK_TEMPLATE_NAMES[ad.template] || "Graphic Ad";
-  const size = stallTalkClassToken(ad.adSize, "banner");
+  const size = stallTalkAdSizeKey(ad.adSizeKey || ad.adSize);
   const template = stallTalkClassToken(ad.template, "vegas");
   const primary = stallTalkSafeText(ad.primaryColor, "#ff2d2d");
   const secondary = stallTalkSafeText(ad.secondaryColor, "#ffd400");
   const accent = stallTalkSafeText(ad.accentColor, "#7c2cff");
+  const imageSource = ad.adMode === "image" ? stallTalkImageSource(ad) : "";
   const wrapper = document.createElement(options.link === false ? "div" : "a");
 
-  wrapper.className = `graphic-ad graphic-template-${template} graphic-size-${size}${options.compact ? " graphic-ad-compact" : ""}`;
+  wrapper.className = `graphic-ad graphic-template-${template} graphic-size-${size}${imageSource ? " graphic-ad-image" : ""}${options.compact ? " graphic-ad-compact" : ""}`;
   wrapper.style.setProperty("--graphic-primary", primary);
   wrapper.style.setProperty("--graphic-secondary", secondary);
   wrapper.style.setProperty("--graphic-accent", accent);
@@ -54,6 +79,15 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
     wrapper.href = stallTalkContactHref(ad);
     wrapper.target = wrapper.href.startsWith("http") ? "_blank" : "";
     wrapper.rel = wrapper.href.startsWith("http") ? "noopener" : "";
+  }
+
+  if (imageSource) {
+    const img = document.createElement("img");
+    img.className = "graphic-generated-image";
+    img.src = imageSource;
+    img.alt = `${stallTalkSafeText(ad.businessName, "Sponsor")} ${stallTalkSafeText(ad.offer, "advertisement")}`;
+    wrapper.append(img);
+    return wrapper;
   }
 
   const shapes = document.createElement("div");
@@ -130,6 +164,9 @@ window.StallTalkGraphicAds = {
   storageKey: STALLTALK_AD_STORAGE_KEY,
   draftStorageKey: STALLTALK_DRAFT_STORAGE_KEY,
   templates: STALLTALK_TEMPLATE_NAMES,
+  sizes: STALLTALK_AD_SIZES,
+  adSizeKey: stallTalkAdSizeKey,
+  imageSource: stallTalkImageSource,
   build: stallTalkBuildGraphicAd,
   safeText: stallTalkSafeText,
   normalizeUrl: stallTalkNormalizeUrl,

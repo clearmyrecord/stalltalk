@@ -30,7 +30,12 @@ const toneCopy = {
     headlinePrefix: "Premium perks await",
     subheadline: "A polished black-and-gold offer for guests who expect the night to feel first class.",
     cta: "Unlock VIP Offer",
-@@ -38,219 +39,351 @@ const toneCopy = {
+    template: "luxury",
+  },
+  Local: {
+    headlinePrefix: "Locals know the move",
+    subheadline: "A neighborhood-first ad with practical details and a direct reason to visit now.",
+    cta: "Visit Like A Local",
     template: "contractor",
   },
   "Family-Friendly": {
