@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "check:phase2": "node scripts/check-phase2.mjs",
-    "db:up": "docker compose up -d postgres"
+    "db:up": "docker compose up -d postgres",
+    "prebuild": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
