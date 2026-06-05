@@ -1,7 +1,33 @@
+import { AdStudioAgency } from "@/components/AdStudioAgency";
 import { createAd } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 
+type PublisherRecord = { id: string; name: string };
+type AdvertiserRecord = { id: string; name: string };
+type VenueRecord = { id: string; name: string; city: string; state: string };
+type RestroomRecord = { id: string; name: string; venue: { name: string } };
+type IssueRecord = { id: string; title: string; status: string; venue: { name: string } };
+type AdRecord = { id: string; businessName: string; title: string; offer: string; ctaText: string; couponCode: string | null; createdAt: Date };
+
 export default async function NewAdPage() {
-  const [publishers, advertisers, venues, restrooms] = await Promise.all([prisma.publisher.findMany(), prisma.advertiser.findMany(), prisma.venue.findMany(), prisma.restroom.findMany({ include: { venue: true } })]);
-  return <section><h1 className="font-display text-7xl uppercase">New Ad Buy</h1><form action={createAd} className="mt-6 grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3"><select name="publisherId" className="rounded border-2 border-ink p-3">{publishers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select><select name="advertiserId" className="rounded border-2 border-ink p-3">{advertisers.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select><select name="scope" className="rounded border-2 border-ink p-3"><option>GLOBAL</option><option>CITY</option><option>VENUE</option><option>RESTROOM</option></select><input name="businessName" placeholder="Business name" required className="rounded border-2 border-ink p-3"/><input name="title" placeholder="Ad title" required className="rounded border-2 border-ink p-3"/><input name="offer" placeholder="Offer" required className="rounded border-2 border-ink p-3"/><input name="city" placeholder="City scope" className="rounded border-2 border-ink p-3"/><input name="state" placeholder="State" className="rounded border-2 border-ink p-3"/><select name="venueId" className="rounded border-2 border-ink p-3"><option value="">Venue scope</option>{venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select><select name="restroomId" className="rounded border-2 border-ink p-3"><option value="">Restroom scope</option>{restrooms.map((r) => <option key={r.id} value={r.id}>{r.venue.name} • {r.name}</option>)}</select><input name="artworkUrl" placeholder="Artwork URL" className="rounded border-2 border-ink p-3"/><input name="ctaText" defaultValue="Claim Offer" className="rounded border-2 border-ink p-3"/><input name="targetUrl" defaultValue="https://example.com" className="rounded border-2 border-ink p-3"/><input name="phone" placeholder="Phone" className="rounded border-2 border-ink p-3"/><input name="couponCode" placeholder="Coupon code" className="rounded border-2 border-ink p-3"/><input name="monthlyPriceDollars" defaultValue="499" className="rounded border-2 border-ink p-3"/><input name="stripePriceId" placeholder="Stripe price ID" className="rounded border-2 border-ink p-3"/><select name="status" className="rounded border-2 border-ink p-3"><option>ACTIVE</option><option>PAUSED</option><option>ARCHIVED</option></select><button className="rounded-xl bg-stallRed px-5 py-3 font-black uppercase text-white md:col-span-3">Save Ad</button></form></section>;
+  const [publishers, advertisers, venues, restrooms, issues, recentCampaigns] = await Promise.all([
+    prisma.publisher.findMany({ orderBy: { name: "asc" } }),
+    prisma.advertiser.findMany({ orderBy: { name: "asc" } }),
+    prisma.venue.findMany({ orderBy: { name: "asc" } }),
+    prisma.restroom.findMany({ include: { venue: true }, orderBy: { name: "asc" } }),
+    prisma.issue.findMany({ include: { venue: true }, orderBy: { createdAt: "desc" }, take: 12 }),
+    prisma.ad.findMany({ orderBy: { createdAt: "desc" }, take: 8 })
+  ]);
+
+  return (
+    <AdStudioAgency
+      createAd={createAd}
+      publishers={(publishers as PublisherRecord[]).map((publisher) => ({ id: publisher.id, name: publisher.name }))}
+      advertisers={(advertisers as AdvertiserRecord[]).map((advertiser) => ({ id: advertiser.id, name: advertiser.name }))}
+      venues={(venues as VenueRecord[]).map((venue) => ({ id: venue.id, name: venue.name, city: venue.city, state: venue.state }))}
+      restrooms={(restrooms as RestroomRecord[]).map((restroom) => ({ id: restroom.id, name: restroom.name, venueName: restroom.venue.name }))}
+      issues={(issues as IssueRecord[]).map((issue) => ({ id: issue.id, title: issue.title, venueName: issue.venue.name, status: issue.status }))}
+      recentCampaigns={(recentCampaigns as AdRecord[]).map((ad) => ({ id: ad.id, businessName: ad.businessName, title: ad.title, offer: ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, createdAt: ad.createdAt.toISOString() }))}
+    />
+  );
 }

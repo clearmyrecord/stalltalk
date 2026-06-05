@@ -61,14 +61,18 @@ export async function createAdvertiser(formData: FormData) {
 }
 
 export async function createAd(formData: FormData) {
-  await prisma.ad.create({ data: adData(formData) });
+  const ad = await prisma.ad.create({ data: adData(formData) });
+  await publishAdToSlot(ad.id, formData);
   revalidatePath("/admin/ads");
+  revalidatePath("/admin/issue-builder");
   redirect("/admin/ads");
 }
 
 export async function updateAd(id: string, formData: FormData) {
   await prisma.ad.update({ where: { id }, data: adData(formData) });
+  await publishAdToSlot(id, formData);
   revalidatePath("/admin/ads");
+  revalidatePath("/admin/issue-builder");
   revalidatePath("/portal/advertiser");
 }
 
@@ -94,6 +98,19 @@ function adData(formData: FormData) {
     monthlyPriceCents: intValue(formData, "monthlyPriceDollars") * 100,
     stripePriceId: nullableText(formData, "stripePriceId")
   };
+}
+
+async function publishAdToSlot(adId: string, formData: FormData) {
+  const issueId = nullableText(formData, "issueId");
+  const slotNumber = intValue(formData, "slotNumber");
+  if (!issueId || slotNumber < 1 || slotNumber > 8) return;
+
+  const scope = text(formData, "scope", "GLOBAL") as AdScope;
+  await prisma.issueAdSlot.upsert({
+    where: { issueId_slotNumber: { issueId, slotNumber } },
+    update: { adId, source: scope },
+    create: { issueId, adId, slotNumber, source: scope }
+  });
 }
 
 export async function createArticle(formData: FormData) {
