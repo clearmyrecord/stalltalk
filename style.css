@@ -1358,3 +1358,123 @@ body.publisher-dashboard-page {
 .pf-mini-generated > .graphic-ad {
   min-height: 9.5rem;
 }
+
+.creative-studio-grid {
+  align-items: start;
+}
+
+.studio-step {
+  border: 1px solid var(--pf-line);
+  border-radius: 22px;
+  margin: 0 0 16px;
+  padding: 16px;
+}
+
+.studio-step legend {
+  color: var(--pf-ink);
+  font-size: 1rem;
+  font-weight: 950;
+  padding: 0 8px;
+}
+
+.studio-step legend span {
+  background: linear-gradient(135deg, var(--pf-coral), var(--pf-plum));
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.75rem;
+  margin-right: 8px;
+  padding: 5px 9px;
+  text-transform: uppercase;
+}
+
+.help-copy {
+  color: var(--pf-muted);
+  font-size: 0.9rem;
+  margin: 8px 0 0;
+}
+
+.primary-button:disabled,
+.primary-button.is-loading {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.prompt-used {
+  background: #fffdf8;
+  border: 1px solid var(--pf-line);
+  border-radius: 18px;
+  color: var(--pf-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 14px 0;
+  max-height: 170px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.editable-copy-grid,
+.publish-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.editable-copy-grid label {
+  color: var(--pf-muted);
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 900;
+  gap: 7px;
+  text-transform: uppercase;
+}
+
+.editable-copy-grid input,
+.editable-copy-grid textarea {
+  background: #fffdf8;
+  border: 1px solid var(--pf-line);
+  border-radius: 15px;
+  color: var(--pf-ink);
+  font: inherit;
+  padding: 12px 13px;
+  text-transform: none;
+  width: 100%;
+}
+
+.publish-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.campaign-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.campaign-history-item {
+  background: #fffdf8;
+  border: 1px solid var(--pf-line);
+  border-radius: 18px;
+  padding: 13px;
+}
+
+.campaign-history-item strong,
+.campaign-history-item span,
+.campaign-history-item small {
+  display: block;
+}
+
+.campaign-history-item span {
+  color: var(--pf-ink);
+  margin-top: 4px;
+}
+
+.campaign-history-item small {
+  color: var(--pf-muted);
+  margin-top: 6px;
+}
+
+@media (min-width: 720px) {
+  .publish-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

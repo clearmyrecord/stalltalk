@@ -83,41 +83,105 @@
       </section>
 
       <section id="ads" class="tab-panel" aria-labelledby="ads-tab">
-        <div class="ad-studio-grid">
-          <form id="ad-form" class="admin-card studio-form">
+        <div class="ad-studio-grid creative-studio-grid">
+          <form id="ad-form" class="admin-card studio-form creative-form">
             <div class="section-heading compact-heading">
-              <p>Ad Studio</p>
-              <h2>AI Graphic Ad Generator</h2>
+              <p>AI Creative Studio</p>
+              <h2>Finished graphic ad workflow</h2>
             </div>
-            <label>Business name <input name="businessName" type="text" placeholder="Nacho Average" /></label>
-            <label>Business category <input name="businessCategory" type="text" placeholder="Late-night restaurant" /></label>
-            <label>Offer <input name="offer" type="text" placeholder="Half-price loaded fries after 9 PM" /></label>
-            <label>Audience <input name="targetAudience" type="text" placeholder="Concert crowds and casino guests" /></label>
-            <label>Coupon <input name="couponCode" type="text" placeholder="NACHO50" /></label>
-            <label>Website or phone <input name="website" type="text" placeholder="nacho.example.com" /></label>
-            <div class="three-column-form">
-              <label>Style
-                <select name="style">
-                  <option>Funny</option>
-                  <option selected>Bold</option>
-                  <option>Luxury</option>
-                  <option>Local</option>
+
+            <fieldset class="studio-step">
+              <legend><span>Step 1</span> Business</legend>
+              <div class="two-column-form">
+                <label>Business name <input name="businessName" type="text" placeholder="Nacho Average" /></label>
+                <label>Category <input name="businessCategory" type="text" placeholder="Late-night restaurant" /></label>
+                <label>Website <input name="website" type="url" placeholder="https://nacho.example.com" /></label>
+                <label>Phone <input name="phone" type="tel" placeholder="702-555-0199" /></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="studio-step">
+              <legend><span>Step 2</span> Offer</legend>
+              <label>Offer <input name="offer" type="text" placeholder="Half-price loaded fries after 9 PM" /></label>
+              <div class="three-column-form">
+                <label>Coupon code <input name="couponCode" type="text" placeholder="NACHO50" /></label>
+                <label>Expiration <input name="expiration" type="text" placeholder="Ends this Sunday" /></label>
+                <label>CTA <input name="cta" type="text" placeholder="Claim This Deal" /></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="studio-step">
+              <legend><span>Step 3</span> Creative Direction</legend>
+              <label>Audience <input name="audience" type="text" placeholder="Concert crowds and casino guests" /></label>
+              <div class="two-column-form">
+                <label>Tone
+                  <select name="tone">
+                    <option>Funny</option>
+                    <option selected>Bold</option>
+                    <option>Luxury</option>
+                    <option>Local</option>
+                    <option>Clean and premium</option>
+                  </select>
+                </label>
+                <label>Visual style
+                  <select name="visualStyle">
+                    <option selected>Polished modern editorial</option>
+                    <option>Neon Vegas poster</option>
+                    <option>Luxury magazine spread</option>
+                    <option>Playful illustrated coupon</option>
+                    <option>Bold product photography</option>
+                  </select>
+                </label>
+                <label>Brand colors <input name="brandColors" type="text" placeholder="#ff2d2d, #ffd400, #7c2cff" /></label>
+                <label>Optional logo URL <input name="optionalLogoUrl" type="url" placeholder="https://example.com/logo.png" /></label>
+              </div>
+              <label>Ad size
+                <select name="adSize">
+                  <option selected>Banner</option>
+                  <option>Square</option>
+                  <option>Tall</option>
+                  <option>Footer</option>
                 </select>
               </label>
-              <label>Primary <input name="primaryColor" type="color" value="#ff2d2d" /></label>
-              <label>Accent <input name="accentColor" type="color" value="#7c2cff" /></label>
-            </div>
-            <button id="generate-ad" class="primary-button" type="button">Generate Graphic Ad</button>
+            </fieldset>
+
+            <fieldset class="studio-step">
+              <legend><span>Step 4</span> Generate</legend>
+              <div class="button-row">
+                <button id="generate-copy" class="primary-button secondary-button" type="button">Generate Copy</button>
+                <button id="generate-ad" class="primary-button" type="button">Generate Graphic Ad</button>
+                <button id="regenerate-ad" class="primary-button secondary-button" type="button">Regenerate</button>
+                <button id="save-campaign" class="primary-button success-button" type="button">Save Campaign</button>
+              </div>
+              <p class="help-copy">Graphic generation calls the Vercel API only; no OpenAI API key is ever exposed in browser JavaScript.</p>
+            </fieldset>
           </form>
 
-          <section class="admin-card ad-preview-panel" aria-label="Ad preview and slot controls">
+          <section class="admin-card ad-preview-panel" aria-label="Generated ad preview and publishing controls">
             <div class="section-heading compact-heading">
-              <p>Ad Preview</p>
-              <h2>Ready to publish</h2>
+              <p>Generated Ad Preview</p>
+              <h2>Finished creative</h2>
             </div>
             <div id="ad-preview" class="graphic-preview-stage"></div>
+            <div id="prompt-used" class="prompt-used" hidden></div>
+            <div class="editable-copy-grid">
+              <label>Headline <input id="preview-headline" type="text" /></label>
+              <label>Subheadline <textarea id="preview-subheadline" rows="3"></textarea></label>
+              <label>CTA <input id="preview-cta" type="text" /></label>
+              <label>Coupon <input id="preview-coupon" type="text" /></label>
+            </div>
+            <div class="publish-grid" aria-label="Publish generated ad to slot">
+              <button type="button" class="primary-button success-button" data-publish-slot="1">Publish to Slot 1</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="2">Publish to Slot 2</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="3">Publish to Slot 3</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="4">Publish to Slot 4</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="5">Publish to Slot 5</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="6">Publish to Slot 6</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="7">Publish to Slot 7</button>
+              <button type="button" class="primary-button success-button" data-publish-slot="8">Publish to Slot 8</button>
+            </div>
             <div class="slot-apply-row">
-              <label>Apply to Slot
+              <label>Manage Slot
                 <select id="slot-select">
                   <option value="1">Ad Slot 1</option>
                   <option value="2">Ad Slot 2</option>
@@ -129,12 +193,20 @@
                   <option value="8">Ad Slot 8</option>
                 </select>
               </label>
-              <button id="apply-slot" class="primary-button success-button" type="button">Apply to Slot 1–8</button>
+              <button id="apply-slot" class="primary-button success-button" type="button">Publish Selected Slot</button>
               <button id="clear-slot" class="text-button" type="button">Clear Slot</button>
             </div>
             <p id="ad-status" class="form-status" aria-live="polite"></p>
           </section>
         </div>
+
+        <section class="admin-card campaign-history-panel">
+          <div class="section-heading compact-heading">
+            <p>Campaign history</p>
+            <h2>Saved generated campaigns</h2>
+          </div>
+          <div id="campaign-history" class="campaign-history-list"></div>
+        </section>
 
         <section class="admin-card">
           <div class="section-heading compact-heading">
@@ -179,6 +251,7 @@
     </main>
 
     <script src="../graphic-ad.js" defer></script>
+    <script src="config.js" defer></script>
     <script src="admin.js" defer></script>
   </body>
 </html>
