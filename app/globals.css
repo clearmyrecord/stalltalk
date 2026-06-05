@@ -33,3 +33,35 @@ body { margin: 0; background: #08070a; color: #08070a; }
   .mobile-ad-tray { scrollbar-width: none; }
   .mobile-ad-tray::-webkit-scrollbar { display: none; }
 }
+
+.ad-creative-frame > * {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.ad-creative-frame iframe,
+.ad-creative-frame img,
+.ad-creative-frame svg,
+.ad-creative-frame canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.ad-creative-frame img,
+.ad-creative-frame video {
+  object-fit: contain;
+}
+
+@media (min-width: 768px) {
+  .issue-shell aside {
+    scrollbar-color: #08070a transparent;
+    scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 767px) {
+  .issue-shell {
+    scroll-padding-bottom: 18rem;
+  }
+}
