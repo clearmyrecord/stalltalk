@@ -13,11 +13,11 @@ const DEFAULT_DEMO = {
   issue: {
     issueMonthYear: "June 2026",
     mastheadBrand: "Potty Favor",
-    missionText: "To inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall.",
+    missionText: "Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall.",
     humorTitle: "Hilariously Funny",
     humorBody: "A restroom reader walks into a stall and says, ‘I only have two minutes.’ The magazine replies, ‘Perfect. That is exactly what I was built for.’",
     mainFeatureTitle: "How It All Started",
-    mainFeatureBody: "Potty Favor began as a simple one-page publication: a big masthead, a QR code, useful stories, jokes, trivia, quotes, a calendar, and sponsor messages placed around the content.\n\nThe Phase 1 product keeps that idea intact. Every venue receives the same monthly issue, while the QR code identifies the venue so the ad slots can change by venue, city, or state.",
+    mainFeatureBody: "Potty Favor began as a simple one-page publication: a big masthead, useful stories, jokes, trivia, quotes, a calendar, and sponsor messages placed around the content.\n\nThe Phase 1 product keeps that idea intact. Every venue receives the same monthly issue, while sponsor slots can still adapt by venue, city, or state.",
     secondaryFeatureTitle: "The History of Box Chairs",
     secondaryFeatureBody: "Great product ideas are often simple enough to explain quickly. Box Chairs were portable, useful, and memorable — exactly the kind of story that belongs in a short restroom publication.\n\nThe lesson is practical: turn small pauses into useful attention, and give readers something worth remembering before they leave.",
     wordOfTheDay: "transmute",
@@ -132,35 +132,6 @@ function setList(selector, items, ordered = false) {
   });
 }
 
-function drawQr(canvas, text) {
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const size = canvas.width;
-  const cells = 29;
-  const cell = size / cells;
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, size, size);
-  function finder(x, y) {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(x * cell, y * cell, 7 * cell, 7 * cell);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect((x + 1) * cell, (y + 1) * cell, 5 * cell, 5 * cell);
-    ctx.fillStyle = "#000";
-    ctx.fillRect((x + 2) * cell, (y + 2) * cell, 3 * cell, 3 * cell);
-  }
-  finder(1, 1); finder(21, 1); finder(1, 21);
-  let seed = 0;
-  for (const char of text) seed = (seed * 31 + char.charCodeAt(0)) >>> 0;
-  for (let y = 0; y < cells; y += 1) {
-    for (let x = 0; x < cells; x += 1) {
-      const inFinder = (x < 9 && y < 9) || (x > 19 && y < 9) || (x < 9 && y > 19);
-      if (inFinder) continue;
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      if (seed % 4 === 0) ctx.fillRect(x * cell, y * cell, Math.ceil(cell), Math.ceil(cell));
-    }
-  }
-}
-
 function renderIssue(issue) {
   pageContext.issue = issue;
   Object.entries(issue).forEach(([key, value]) => {
@@ -185,10 +156,6 @@ function resolveVenue(venues) {
   const venue = venues.find((item) => slugify(item.slug || item.name) === pageContext.venueSlug) || null;
   pageContext.venue = venue;
   pageContext.market = venue ? { city: venue.city || "", state: venue.state || "" } : { city: "", state: "" };
-  setText("[data-venue-label]", venue ? venue.name : "General Scan");
-  setText("[data-venue-name]", venue ? venue.name : "Standard Venue");
-  setText("[data-venue-market]", venue ? `${venue.city || ""}${venue.city && venue.state ? ", " : ""}${venue.state || ""}` : "National");
-  drawQr(document.querySelector("#qr-canvas"), window.location.href);
   if (pageContext.venueSlug) recordAnalytics("qr_scan", { venueSlug: pageContext.venueSlug, matched: Boolean(venue) });
 }
 
