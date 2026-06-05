@@ -59,8 +59,8 @@ function updateRailAd(card, slotNumber, ad) {
   const link = card.querySelector("a");
 
   if (label) label.textContent = `Ad #${slotNumber} • ${ad.adSize || ad.adSlotSize || "Custom"}`;
-  if (title) title.textContent = ad.businessName || ad.headline || "Saved ad";
-  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || "Tap to claim this sponsor offer.";
+  if (title) title.textContent = ad.businessName || ad.headline || "Saved sponsor";
+  if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || "Saved local offer.";
   if (link) {
     link.href = normalizeContactHref(adContact(ad));
     link.textContent = ad.ctaButtonText || "Claim offer";
@@ -83,7 +83,7 @@ function updateMiniAd(card, slotNumber, ad) {
 
   card.dataset.coupon = ad.couponCode || "";
   card.title = `${ad.headline || "Saved ad"} ${ad.disclaimer || ""}`.trim();
-  if (title) title.textContent = ad.businessName || ad.headline || "Saved ad";
+  if (title) title.textContent = ad.businessName || ad.headline || `Saved slot ${slotNumber}`;
   if (copy) copy.textContent = ad.offer || ad.offerText || ad.subheadline || `Saved slot ${slotNumber}`;
 }
 
@@ -112,8 +112,7 @@ function readPublishedIssueContent() {
   }
 }
 
-function updatePublishedIssueContent() {
-  const content = readPublishedIssueContent();
+function updatePublishedIssueContent(content = readPublishedIssueContent()) {
   if (!content) return;
 
   Object.entries(content).forEach(([key, value]) => {
@@ -144,7 +143,16 @@ function updateHomepageFromLocalStorage() {
 window.addEventListener("DOMContentLoaded", updateHomepageFromLocalStorage);
 window.addEventListener("load", updateHomepageFromLocalStorage);
 window.addEventListener("storage", (event) => {
-  if ([STALLTALK_PUBLIC_AD_STORAGE_KEY, STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY].includes(event.key)) {
-    updateHomepageFromLocalStorage();
+  if (event.key === STALLTALK_PUBLIC_AD_STORAGE_KEY) {
+    loadSavedAdSlots();
+    return;
+  }
+
+  if (event.key !== STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY) return;
+
+  try {
+    updatePublishedIssueContent(JSON.parse(event.newValue) || null);
+  } catch (error) {
+    console.warn("Unable to refresh Stall Talk published content", error);
   }
 });

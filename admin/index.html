@@ -165,6 +165,60 @@
       </section>
     </main>
 
+    <main class="admin-layout content-admin-layout" aria-label="Issue content studio">
+      <section class="admin-panel" aria-labelledby="ai-content-title">
+        <div class="section-heading">
+          <p>Publication content studio</p>
+          <h2 id="ai-content-title">AI Issue Content</h2>
+        </div>
+        <p class="panel-copy">Generate every public homepage section, save a browser draft, preview edits instantly, then publish the selection for the public issue.</p>
+        <button id="ai-generate-content" class="primary-button" type="button">AI Generate Content</button>
+        <div class="editable-output content-editor" aria-label="Editable generated issue content">
+          <label>
+            Did You Know facts
+            <textarea id="content-trivia" data-content-field="trivia" rows="5"></textarea>
+          </label>
+          <label>
+            Hilariously Funny joke
+            <textarea id="content-joke" data-content-field="joke" rows="4"></textarea>
+          </label>
+          <label>
+            Inspirational quote
+            <textarea id="content-quote" data-content-field="quote" rows="4"></textarea>
+          </label>
+          <label>
+            Word of the day
+            <textarea id="content-word" data-content-field="word" rows="4"></textarea>
+          </label>
+          <label>
+            Featured article
+            <textarea id="content-article" data-content-field="article" rows="6"></textarea>
+          </label>
+          <label>
+            Local deal
+            <textarea id="content-deal" data-content-field="deal" rows="4"></textarea>
+          </label>
+          <label>
+            Event spotlight
+            <textarea id="content-event" data-content-field="event" rows="4"></textarea>
+          </label>
+        </div>
+        <div class="export-actions" aria-label="Issue content actions">
+          <button id="save-content-draft" class="primary-button secondary-button" type="button">Save draft to localStorage</button>
+          <button id="publish-content" class="primary-button" type="button">Publish to homepage</button>
+        </div>
+        <p id="content-status" class="save-status" aria-live="polite">Generate issue content to populate all publication sections.</p>
+      </section>
+
+      <section class="admin-panel output-panel" aria-labelledby="content-preview-title">
+        <div class="section-heading compact-heading">
+          <p>Homepage-ready issue</p>
+          <h2 id="content-preview-title">Content Preview</h2>
+        </div>
+        <div id="content-preview" class="content-preview-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
     <script src="config.js" defer></script>
     <script src="../graphic-ad.js" defer></script>
     <script src="admin.js" defer></script>

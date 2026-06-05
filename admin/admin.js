@@ -33,9 +33,9 @@ const toneCopy = {
     template: "luxury",
   },
   Local: {
-    headlinePrefix: "Locals know the move",
-    subheadline: "A neighborhood-first ad with practical details and a direct reason to visit now.",
-    cta: "Visit Like A Local",
+    headlinePrefix: "Your neighborhood favorite",
+    subheadline: "A practical, friendly offer that feels made for locals and regulars.",
+    cta: "Visit Local",
     template: "contractor",
   },
   "Family-Friendly": {
@@ -387,3 +387,133 @@ buildSlotButtons();
 applyTemplateDefaults();
 updateModeControls();
 renderGeneratedAd(generateGraphicAdLocally(collectFormValues()));
+
+const STALLTALK_CONTENT_DRAFT_STORAGE_KEY = "stalltalk_content_draft";
+const STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY = "stalltalk_content_published";
+const contentGenerateButton = document.querySelector("#ai-generate-content");
+const contentSaveDraftButton = document.querySelector("#save-content-draft");
+const contentPublishButton = document.querySelector("#publish-content");
+const contentStatus = document.querySelector("#content-status");
+const contentPreview = document.querySelector("#content-preview");
+const contentFields = Array.from(document.querySelectorAll("[data-content-field]"));
+
+const contentSectionLabels = {
+  trivia: "Did You Know",
+  joke: "Hilariously Funny",
+  quote: "Inspirational Quote",
+  word: "Word of the Day",
+  article: "Featured Article",
+  deal: "Local Deal",
+  event: "Event Spotlight",
+};
+
+function generateIssueContent() {
+  const stamp = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  return {
+    trivia: [
+      "Bathroom hand dryers can move air at highway speeds.",
+      "The first patent for perforated toilet paper appeared in the 1890s.",
+      "A two-minute read is about the perfect length for a quick restroom pause.",
+      `This ${stamp} edition was generated for a fresh Stall Talk visit.`,
+    ].join("\n"),
+    joke: "Why did the restroom newsletter get invited everywhere? Because it always knew how to break the ice without clogging the conversation.",
+    quote: "“A good pause is not wasted time; it is where the next bright idea gets room to stretch.”",
+    word: "Interlude — a short pause between bigger moments; exactly what a Stall Talk visit turns into.",
+    article: "Tonight's best plans can start with one small detour. Pick the glowing sign you have not tried, split a snack with someone fun, and give yourself permission to make the next stop the story you tell tomorrow.",
+    deal: "Show this Stall Talk issue at a nearby participating counter and ask for the reader perk of the night.",
+    event: "Before heading home, look for a late pop-up, patio set, trivia round, or photo-worthy corner within a few blocks of the venue.",
+  };
+}
+
+function readContentDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(STALLTALK_CONTENT_DRAFT_STORAGE_KEY)) || null;
+  } catch (error) {
+    console.warn("Unable to read Stall Talk content draft", error);
+    return null;
+  }
+}
+
+function collectIssueContent() {
+  return contentFields.reduce((content, field) => {
+    content[field.dataset.contentField] = field.value.trim();
+    return content;
+  }, {});
+}
+
+function populateIssueContentFields(content) {
+  contentFields.forEach((field) => {
+    field.value = content?.[field.dataset.contentField] || "";
+  });
+}
+
+function saveIssueContentDraft(content = collectIssueContent(), statusMessage = "Saved issue content draft to localStorage.") {
+  localStorage.setItem(STALLTALK_CONTENT_DRAFT_STORAGE_KEY, JSON.stringify({ ...content, savedAt: new Date().toISOString() }));
+  if (contentStatus) contentStatus.textContent = statusMessage;
+}
+
+function renderIssueContentPreview(content = collectIssueContent()) {
+  if (!contentPreview) return;
+
+  contentPreview.replaceChildren(
+    ...Object.entries(contentSectionLabels).map(([key, label]) => {
+      const card = document.createElement("article");
+      card.className = `studio-story${key === "trivia" || key === "article" ? " studio-story-wide" : ""}`;
+
+      const eyebrow = document.createElement("span");
+      eyebrow.textContent = label;
+      const heading = document.createElement("h3");
+      heading.textContent = key === "trivia" ? "10 Fast Facts for the Stall" : label;
+
+      card.append(eyebrow, heading);
+
+      if (key === "trivia") {
+        const list = document.createElement("ol");
+        (content[key] || "").split(/\n+/).map((fact) => fact.trim()).filter(Boolean).forEach((fact) => {
+          const item = document.createElement("li");
+          item.textContent = fact;
+          list.append(item);
+        });
+        card.append(list);
+      } else {
+        const copy = document.createElement("p");
+        copy.textContent = content[key] || "Generate or type content for this section.";
+        card.append(copy);
+      }
+
+      return card;
+    }),
+  );
+}
+
+function handleIssueContentGenerate() {
+  const content = generateIssueContent();
+  populateIssueContentFields(content);
+  renderIssueContentPreview(content);
+  saveIssueContentDraft(content, "Generated every publication section, saved the draft to localStorage, and updated the preview.");
+}
+
+function publishIssueContent() {
+  const content = collectIssueContent();
+  saveIssueContentDraft(content, "Saved issue content draft to localStorage.");
+  localStorage.setItem(STALLTALK_CONTENT_PUBLISHED_STORAGE_KEY, JSON.stringify({ ...content, publishedAt: new Date().toISOString() }));
+  if (contentStatus) contentStatus.textContent = "Published issue content to localStorage. Open or refresh the public homepage in this browser to see it.";
+}
+
+if (contentGenerateButton && contentPreview && contentFields.length) {
+  const initialContent = readContentDraft() || generateIssueContent();
+  populateIssueContentFields(initialContent);
+  renderIssueContentPreview(initialContent);
+
+  contentGenerateButton.addEventListener("click", handleIssueContentGenerate);
+  contentSaveDraftButton.addEventListener("click", () => saveIssueContentDraft());
+  contentPublishButton.addEventListener("click", publishIssueContent);
+  contentFields.forEach((field) => {
+    field.addEventListener("input", () => {
+      const content = collectIssueContent();
+      renderIssueContentPreview(content);
+      saveIssueContentDraft(content, "Draft updated in localStorage and preview refreshed.");
+    });
+  });
+}
