@@ -42,76 +42,8 @@ type PortalEvent = {
 type AdvertiserPortalData = {
   advertisers: PortalAdvertiser[];
   events: PortalEvent[];
-  isDemo: boolean;
+  isMissingDatabase: boolean;
 };
-
-const demoAdvertisers: PortalAdvertiser[] = [
-  {
-    id: "demo-advertiser-1",
-    contactEmail: "marketing@neonburrito.example",
-    name: "Neon Burrito",
-    subscriptions: [{ id: "demo-subscription-global" }],
-    ads: [
-      {
-        id: "demo-ad-1",
-        publisherId: "demo-publisher",
-        advertiserId: "demo-advertiser-1",
-        businessName: "Neon Burrito",
-        title: "Late-night tacos near the strip",
-        offer: "Show this screen for 15% off after 9 PM.",
-        artworkUrl: "",
-        couponCode: "STALL15",
-        ctaText: "Claim the coupon",
-        targetUrl: "https://example.com/neon-burrito",
-        phone: "702-555-0188",
-        status: "ACTIVE",
-        scope: "CITY",
-        city: "Las Vegas",
-        state: "NV",
-        venueId: null,
-        restroomId: null,
-        monthlyPriceCents: 29900,
-        stripePriceId: "price_demo_city"
-      }
-    ]
-  },
-  {
-    id: "demo-advertiser-2",
-    contactEmail: "ads@jackpotrides.example",
-    name: "Jackpot Rideshare Lounge",
-    subscriptions: [{ id: "demo-subscription-venue" }, { id: "demo-subscription-restroom" }],
-    ads: [
-      {
-        id: "demo-ad-2",
-        publisherId: "demo-publisher",
-        advertiserId: "demo-advertiser-2",
-        businessName: "Jackpot Rideshare Lounge",
-        title: "Skip the curb chaos",
-        offer: "Free bottled water with every pickup reservation.",
-        artworkUrl: "",
-        couponCode: "COOLRIDE",
-        ctaText: "Book pickup",
-        targetUrl: "https://example.com/jackpot-rideshare",
-        phone: "702-555-0144",
-        status: "ACTIVE",
-        scope: "VENUE",
-        city: null,
-        state: null,
-        venueId: "demo-venue",
-        restroomId: null,
-        monthlyPriceCents: 49900,
-        stripePriceId: "price_demo_venue"
-      }
-    ]
-  }
-];
-
-const demoEvents: PortalEvent[] = [
-  ...Array.from({ length: 34 }, () => ({ advertiserId: "demo-advertiser-1", type: "AD_CLICK" })),
-  ...Array.from({ length: 9 }, () => ({ advertiserId: "demo-advertiser-1", type: "COUPON_REDEMPTION" })),
-  ...Array.from({ length: 48 }, () => ({ advertiserId: "demo-advertiser-2", type: "AD_CLICK" })),
-  ...Array.from({ length: 13 }, () => ({ advertiserId: "demo-advertiser-2", type: "COUPON_REDEMPTION" }))
-];
 
 function isMissingTableError(error: unknown) {
   if (!error || typeof error !== "object") return false;
@@ -122,32 +54,45 @@ function isMissingTableError(error: unknown) {
 }
 
 async function getAdvertiserPortalData(): Promise<AdvertiserPortalData> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return { advertisers: [], events: [], isMissingDatabase: false };
+  }
+
   try {
     const [advertisers, events] = await Promise.all([
       prisma.advertiser.findMany({ include: { ads: true, subscriptions: true } }),
       prisma.analyticsEvent.findMany({ where: { adId: { not: null } } })
     ]);
 
-    return { advertisers, events, isDemo: false };
+    return { advertisers, events, isMissingDatabase: false };
   } catch (error) {
     if (!isMissingTableError(error)) throw error;
-    console.warn("Advertiser portal tables are missing; rendering demo portal data instead.", error);
-    return { advertisers: demoAdvertisers, events: demoEvents, isDemo: true };
+    console.warn("Advertiser portal tables are missing; rendering empty advertiser portal state instead.", error);
+    return { advertisers: [], events: [], isMissingDatabase: true };
   }
 }
 
+function AdvertiserEmptyState({ message }: { message: string }) {
+  return (
+    <div className="mt-6 rounded-2xl border-4 border-dashed border-ink bg-white p-8 text-center shadow-brutal">
+      <h2 className="font-display text-5xl uppercase">No advertiser data</h2>
+      <p className="mt-2 font-bold text-stallPurple">{message}</p>
+    </div>
+  );
+}
+
 export default async function AdvertiserPortalPage() {
-  const { advertisers, events, isDemo } = await getAdvertiserPortalData();
+  const { advertisers, events, isMissingDatabase } = await getAdvertiserPortalData();
 
   return (
     <main className="min-h-screen bg-paper p-4 text-ink md:p-8">
       <h1 className="font-display text-7xl uppercase">Advertiser Portal</h1>
       <p className="font-bold">Advertisers can upload artwork, update coupons, and see analytics for their campaigns.</p>
-      {isDemo ? (
-        <div className="mt-4 rounded-2xl border-4 border-stallRed bg-white p-4 font-bold shadow-red">
-          Database tables are not available yet, so this page is showing demo advertiser portal data. Run Prisma migrations before
-          production builds to enable live campaign updates.
-        </div>
+      {isMissingDatabase ? (
+        <AdvertiserEmptyState message="Advertiser tables are not available yet. Run Prisma migrations to enable live campaign updates." />
+      ) : null}
+      {!isMissingDatabase && advertisers.length === 0 ? (
+        <AdvertiserEmptyState message="No advertisers have been created yet." />
       ) : null}
       <div className="mt-6 grid gap-6">
         {advertisers.map((advertiser) => {
@@ -173,7 +118,7 @@ export default async function AdvertiserPortalPage() {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {advertiser.ads.map((ad) => (
-                  <form key={ad.id} action={isDemo ? undefined : updateAd.bind(null, ad.id)} className="grid gap-2 rounded-xl border-2 border-ink p-3">
+                  <form key={ad.id} action={updateAd.bind(null, ad.id)} className="grid gap-2 rounded-xl border-2 border-ink p-3">
                     <input type="hidden" name="publisherId" value={ad.publisherId} />
                     <input type="hidden" name="advertiserId" value={ad.advertiserId} />
                     <input type="hidden" name="scope" value={ad.scope} />
@@ -184,16 +129,16 @@ export default async function AdvertiserPortalPage() {
                     <input type="hidden" name="status" value={ad.status} />
                     <input type="hidden" name="monthlyPriceDollars" value={Math.round(ad.monthlyPriceCents / 100)} />
                     <input type="hidden" name="stripePriceId" value={ad.stripePriceId || ""} />
-                    <input name="businessName" defaultValue={ad.businessName} className="rounded border-2 border-ink p-2 font-black" readOnly={isDemo} />
-                    <input name="title" defaultValue={ad.title} className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <textarea name="offer" defaultValue={ad.offer} className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <input name="artworkUrl" defaultValue={ad.artworkUrl || ""} placeholder="Upload/paste artwork URL" className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <input name="couponCode" defaultValue={ad.couponCode || ""} placeholder="Coupon" className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <input name="ctaText" defaultValue={ad.ctaText} className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <input name="targetUrl" defaultValue={ad.targetUrl} className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <input name="phone" defaultValue={ad.phone || ""} className="rounded border-2 border-ink p-2" readOnly={isDemo} />
-                    <button disabled={isDemo} className="rounded bg-ink p-2 font-black uppercase text-white disabled:cursor-not-allowed disabled:bg-stallPurple">
-                      {isDemo ? "Demo creative" : "Update creative"}
+                    <input name="businessName" defaultValue={ad.businessName} className="rounded border-2 border-ink p-2 font-black" />
+                    <input name="title" defaultValue={ad.title} className="rounded border-2 border-ink p-2" />
+                    <textarea name="offer" defaultValue={ad.offer} className="rounded border-2 border-ink p-2" />
+                    <input name="artworkUrl" defaultValue={ad.artworkUrl || ""} placeholder="Upload/paste artwork URL" className="rounded border-2 border-ink p-2" />
+                    <input name="couponCode" defaultValue={ad.couponCode || ""} placeholder="Coupon" className="rounded border-2 border-ink p-2" />
+                    <input name="ctaText" defaultValue={ad.ctaText} className="rounded border-2 border-ink p-2" />
+                    <input name="targetUrl" defaultValue={ad.targetUrl} className="rounded border-2 border-ink p-2" />
+                    <input name="phone" defaultValue={ad.phone || ""} className="rounded border-2 border-ink p-2" />
+                    <button className="rounded bg-ink p-2 font-black uppercase text-white">
+                      Update creative
                     </button>
                     <p className="text-xs font-black uppercase text-stallPurple">
                       {ad.scope} • {money(ad.monthlyPriceCents)}/mo
