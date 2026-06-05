@@ -28,9 +28,12 @@ type GeneratedCreative = {
   subheadline: string;
   ctaText: string;
   couponCode: string;
-  fallback?: boolean;
-  error?: string;
-  htmlCreative?: string;
+  businessName?: string;
+  model?: string;
+  diagnostic?: ApiDiagnostic;
+  campaignId?: string;
+  historySaved?: boolean;
+  historyError?: string;
 };
 
 type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number };
@@ -49,32 +52,34 @@ function safe(value: string, fallback: string) {
   return value.trim() || fallback;
 }
 
-function dataUrlFromSvg(svg: string) {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+function shortenLabel(value: string, max = 28) {
+  const normalized = safe(value, "").replace(/\s+/g, " ");
+  return normalized.length <= max ? normalized : `${normalized.slice(0, max - 1).trim()}…`;
 }
 
-function fallbackCreative(input: Record<string, string>, adSize: AdSize, error?: string): GeneratedCreative {
-  const business = safe(input.businessName, "Your Business");
-  const offer = safe(input.offer, "Limited-Time Offer");
-  const couponCode = safe(input.couponCode, business.replace(/[^a-z0-9]/gi, "").slice(0, 5).toUpperCase() + "15");
-  const headline = `${offer}`;
-  const subheadline = `${business} for ${safe(input.audience, "nearby guests")}`;
-  const ctaText = safe(input.ctaText, "Claim Offer");
-  const colors = safe(input.brandColors, "#ff2d55,#ffd400,#5b2cff").split(",").map((color) => color.trim()).filter(Boolean);
-  const [primary = "#ff2d55", secondary = "#ffd400", accent = "#5b2cff"] = colors;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${primary}"/><stop offset=".55" stop-color="${accent}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><rect width="1200" height="700" rx="48" fill="url(#g)"/><circle cx="1040" cy="130" r="170" fill="${secondary}" opacity=".9"/><text x="72" y="130" font-family="Arial Black,Arial" font-size="44" fill="white">${business.toUpperCase()}</text><text x="72" y="300" font-family="Arial Black,Arial" font-size="92" fill="${secondary}">${headline.toUpperCase()}</text><text x="76" y="388" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="white">${subheadline}</text><rect x="72" y="486" width="360" height="92" rx="24" fill="${secondary}"/><text x="104" y="546" font-family="Arial Black,Arial" font-size="34" fill="#111827">${ctaText.toUpperCase()}</text><text x="72" y="636" font-family="Arial Black,Arial" font-size="34" fill="white">CODE ${couponCode}</text></svg>`;
-  return {
-    adSize,
-    imageUrl: dataUrlFromSvg(svg),
-    promptUsed: `HTML/CSS fallback ad for ${business}: ${offer}, audience ${safe(input.audience, "nearby guests")}, tone ${safe(input.tone, "Professional")}, style ${safe(input.visualStyle, "Vegas Neon")}.`,
-    headline,
-    subheadline,
-    ctaText,
-    couponCode,
-    fallback: true,
-    error,
-    htmlCreative: svg
-  };
+type ApiDiagnostic = {
+  apiStatus?: string;
+  openAiStatus?: string;
+  model?: string;
+  errorType?: string;
+  error?: string;
+  openAiStatusCode?: number;
+  requestId?: string | null;
+  rateLimited?: boolean;
+};
+
+function diagnosticMessage(data: { error?: string; diagnostic?: ApiDiagnostic }) {
+  const diagnostic = data.diagnostic;
+  return [
+    data.error ? `Error: ${data.error}` : "Image generation failed.",
+    diagnostic?.apiStatus ? `API: ${diagnostic.apiStatus}` : "",
+    diagnostic?.openAiStatus ? `OpenAI: ${diagnostic.openAiStatus}` : "",
+    diagnostic?.model ? `Model: ${diagnostic.model}` : "",
+    diagnostic?.errorType ? `Type: ${diagnostic.errorType}` : "",
+    diagnostic?.openAiStatusCode ? `HTTP: ${diagnostic.openAiStatusCode}` : "",
+    diagnostic?.requestId ? `Request ID: ${diagnostic.requestId}` : "",
+    diagnostic?.rateLimited ? "Rate limited: yes" : ""
+  ].filter(Boolean).join(" • ");
 }
 
 export function AdStudioAgency({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns }: Props) {
@@ -82,6 +87,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [apiStatus, setApiStatus] = useState<ApiDiagnostic | null>(null);
   const [selectedCreativeIndex, setSelectedCreativeIndex] = useState(0);
   const [slotNumber, setSlotNumber] = useState("1");
   const [history, setHistory] = useState<CampaignHistoryItem[]>([]);
@@ -128,7 +134,8 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   async function generateCampaign() {
     setIsGenerating(true);
     setError("");
-    const base = { ...form, audience: activeAudience };
+    const campaignBatchId = crypto.randomUUID();
+    const base = { ...form, audience: activeAudience, campaignId: campaignBatchId };
     const generated: GeneratedCreative[] = [];
 
     for (const adSize of Object.keys(sizes) as AdSize[]) {
@@ -138,8 +145,16 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...base, adSize })
         });
-        const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || "Image generation failed.");
+        const raw = await response.text();
+        let data;
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (parseError) {
+          const message = parseError instanceof Error ? parseError.message : "Invalid API JSON response.";
+          throw new Error(`API JSON parse error: ${message}`);
+        }
+        setApiStatus(data.diagnostic || { apiStatus: response.ok ? "ok" : "failed", model: data.model });
+        if (!response.ok || data.error) throw new Error(diagnosticMessage(data));
         generated.push({
           adSize,
           imageUrl: data.imageUrl,
@@ -148,18 +163,25 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           subheadline: data.subheadline,
           ctaText: data.ctaText,
           couponCode: data.couponCode,
-          fallback: data.fallback,
-          error: data.error,
-          htmlCreative: data.htmlCreative
+          businessName: data.businessName,
+          model: data.model,
+          diagnostic: data.diagnostic,
+          campaignId: data.campaignId,
+          historySaved: data.historySaved,
+          historyError: data.historyError
         });
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Image generation failed.";
-        generated.push(fallbackCreative(base, adSize, message));
         setError(message);
+        setCreatives(generated);
+        setSelectedCreativeIndex(0);
+        setStep(5);
+        setIsGenerating(false);
+        return;
       }
     }
 
-    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: crypto.randomUUID(), businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString() }));
+    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || crypto.randomUUID(), businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString() }));
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
     setCreatives(generated);
     setSelectedCreativeIndex(0);
@@ -180,8 +202,8 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     formData.set("title", selectedCreative.headline);
     formData.set("offer", selectedCreative.subheadline);
     formData.set("artworkUrl", selectedCreative.imageUrl);
-    formData.set("creativeType", selectedCreative.fallback ? "HTML" : "IMAGE");
-    formData.set("htmlCreative", selectedCreative.htmlCreative || "");
+    formData.set("creativeType", "IMAGE");
+    formData.set("htmlCreative", "");
     formData.set("promptUsed", selectedCreative.promptUsed);
     formData.set("generatedHeadline", selectedCreative.headline);
     formData.set("generatedSubheadline", selectedCreative.subheadline);
@@ -257,8 +279,9 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       {step === 5 ? <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div>
           <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.adSize} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>{creative.adSize}</button>)}</div>
-          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate a campaign to preview Banner, Square, Tall, and Footer creatives.</p>}
-          {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">OpenAI fallback mode: {error}</p> : null}
+          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate a campaign to preview Banner, Square, Tall, and Footer image files.</p>}
+          {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
+          {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">Image generation failed — no HTML/CSS fallback was created. {error}</p> : null}
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <h3 className="font-display text-4xl uppercase">Edit Before Publish</h3>
@@ -300,7 +323,11 @@ function ChoiceGroup({ title, options, value, onChange }: { title: string; optio
 }
 
 function PreviewCard({ creative }: { creative: GeneratedCreative }) {
-  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}><img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><div><p className="text-xs font-black uppercase text-stallPurple">Headline</p><h3 className="font-display text-4xl uppercase">{creative.headline}</h3><p className="mt-2 font-bold">{creative.subheadline}</p><p className="mt-2 font-black uppercase text-stallRed">{creative.ctaText} • {creative.couponCode}</p></div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto text-sm font-bold">{creative.promptUsed}</p>{creative.fallback ? <p className="mt-2 text-xs font-black uppercase text-stallRed">Fallback HTML/CSS mock advertisement</p> : null}</div></div></article>;
+  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}><img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
+}
+
+function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
+  return <div className="mt-3 grid gap-2 rounded-xl border-2 border-ink bg-paper p-3 text-xs font-black uppercase md:grid-cols-4"><span>API: {diagnostic.apiStatus || "unknown"}</span><span>OpenAI: {diagnostic.openAiStatus || "unknown"}</span><span>Model: {diagnostic.model || "server default"}</span><span>{diagnostic.errorType ? `Error: ${diagnostic.errorType}` : "Image API ready"}</span></div>;
 }
 
 function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {

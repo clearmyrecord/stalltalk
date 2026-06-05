@@ -163,7 +163,7 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
     adId,
     business: text(formData, "businessName"),
     image: nullableText(formData, "artworkUrl"),
-    prompt: text(formData, "promptUsed", "HTML/CSS fallback creative"),
+    prompt: text(formData, "promptUsed", "OpenAI image creative"),
     headline: nullableText(formData, "generatedHeadline") || text(formData, "title"),
     subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
     ctaText: text(formData, "ctaText", "Claim Offer"),

@@ -90,6 +90,14 @@ function stallTalkBuildGraphicAd(ad, options = {}) {
     return wrapper;
   }
 
+  if (ad.adMode === "pending") {
+    const pending = document.createElement("div");
+    pending.className = "graphic-body";
+    pending.innerHTML = `<p class="graphic-business">OpenAI image required</p><h3 class="graphic-headline">No fallback generated</h3><p class="graphic-audience">Run image generation and fix any API diagnostics before publishing.</p>`;
+    wrapper.append(pending);
+    return wrapper;
+  }
+
   const shapes = document.createElement("div");
   shapes.className = "graphic-shapes";
   shapes.setAttribute("aria-hidden", "true");
