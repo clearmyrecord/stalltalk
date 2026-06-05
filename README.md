@@ -316,3 +316,112 @@ The Phase 3 localStorage model is intentionally shaped like backend tables. A fu
 * `qr_scan`, `issue_view`, `ad_impression`, `ad_click`, and `coupon_click` should move to append-only analytics ingestion.
 * Revenue estimates can become invoice, Stripe subscription, and commission-report records.
 * Export/import JSON can become a migration bridge for early customer pilots.
+
+## Current QA Workflow (June 2026)
+
+Stall Talk / Potty Favor supports two operating modes:
+
+1. **Next.js/Vercel production mode** for dynamic API routes, Prisma-backed admin pages, OpenAI image generation, Stripe, and deployment health checks.
+2. **Static GitHub Pages/demo mode** for `index.html` and `admin/index.html`, where venue, QR, content, ads, analytics, revenue, distributor, and campaign data are stored in browser `localStorage`.
+
+For a stabilization pass, run the full validation set from the repository root:
+
+```bash
+npm run build
+npx prisma validate
+npm run check:phase2
+node --check admin/admin.js
+node --check script.js
+node --check graphic-ad.js
+npm run smoke:site
+```
+
+`prisma.config.ts` provides a non-secret local PostgreSQL fallback URL so `npx prisma validate` can succeed in QA environments that have not set `DATABASE_URL`. Real deployments should still provide their own production database URL.
+
+## Environment Variables
+
+| Variable | Required for | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | Vercel/Prisma production | PostgreSQL connection string used by Prisma-backed pages and APIs. Missing database records are guarded so public pages show diagnostics/placeholders instead of crashing. |
+| `OPENAI_API_KEY` | AI Creative Studio image generation | Required by `/api/generate-ad-image`. Missing keys return clear JSON diagnostics and the admin does not silently publish fallback ads. |
+| `OPENAI_IMAGE_MODEL` | Optional image model override | Defaults to `gpt-image-1.5`; supported image models are validated by the API route. |
+| `OPENAI_IMAGE_QUALITY` | Optional image quality | Defaults to `medium` for GPT image models. |
+| `OPENAI_IMAGE_OUTPUT_FORMAT` | Optional image format | Defaults to `png`. |
+| `STRIPE_SECRET_KEY` / webhook settings | Stripe workflows | Needed only for live Stripe checkout/webhook routes. |
+
+## Vercel Deployment
+
+1. Connect the repository to Vercel.
+2. Set `DATABASE_URL` and any live API keys in Vercel Project Settings.
+3. Run migrations/seeding as appropriate for the production database.
+4. Deploy the Next.js app. The production build marks Prisma-backed routes dynamic and guards database reads so static generation does not query Prisma for live data.
+5. Visit `/api/system-health` and `/admin/settings` → **Test OpenAI Connection** to confirm database, OpenAI, and publish-engine diagnostics.
+
+## GitHub Pages / Static Mode
+
+Static mode uses:
+
+- `/index.html` for the public Potty Favor issue.
+- `/admin/index.html` for the localStorage admin dashboard.
+- `window.STALLTALK_AD_IMAGE_ENDPOINT` in `admin/config.js` to point static admin users at a deployed Vercel `/api/generate-ad-image` endpoint.
+
+If the endpoint is unavailable or returns non-JSON, the admin now shows a clear connection diagnostic. Static mode seeds the MGM Grand demo venue/QR/issue when needed, including:
+
+```text
+/?venue=mgm-grand-las-vegas&qr=ST-MGM-CASINO-M-001
+```
+
+## AI Creative Studio
+
+The AI Creative Studio is intentionally image-first:
+
+- **Generate Copy** creates editable campaign copy only.
+- **Generate Graphic Ad** calls the configured API endpoint.
+- Missing or failed OpenAI configuration returns exact diagnostics.
+- Failed generation leaves the ad in a pending state and blocks slot publishing.
+- Long business names, headlines, offers, CTAs, coupons, and contact text are shortened and wrapped safely across Banner, Square, Tall, and Footer ad sizes.
+- Publishing to Slot 1–8 creates/updates an active local campaign and updates the public homepage slots.
+
+## Phase 3 Venue Network
+
+The static admin supports demo/localStorage workflows for:
+
+- Venues and venue-specific issue previews.
+- QR locations and QR previews.
+- Issues and issue duplication.
+- Eight ad inventory slots with pricing and availability.
+- Advertisers, campaigns, publish/pause status, and revenue estimates.
+- Analytics events: `qr_scan`, `issue_view`, `ad_impression`, `ad_click`, and `coupon_click`.
+- Distributors and placeholder commissions.
+- Data export/import/reset across the Stall Talk storage keys without cross-key corruption.
+
+Canonical localStorage keys:
+
+```text
+stalltalk_settings
+stalltalk_venues
+stalltalk_qr_locations
+stalltalk_issues
+stalltalk_advertisers
+stalltalk_campaigns
+stalltalk_ad_slots
+stalltalk_analytics_events
+stalltalk_distributors
+stalltalk_campaign_history
+```
+
+## QA Checklist
+
+- Public issue loads on mobile and desktop with eight visible sponsor placements.
+- Default demo issue works without query parameters.
+- MGM venue/QR URL routes correctly and increments the scan-count placeholder.
+- Articles expand/collapse and update labels.
+- Image ads render when generated image data exists.
+- HTML/demo ads render only for existing demo or campaign creative; pending AI failures are not publishable.
+- Empty slots show clean placeholders.
+- Admin tabs load: Dashboard, Content Studio, Ad Studio, Preview, Settings, Venues, QR Network, Issues, Ad Inventory, Advertisers, Campaigns, Analytics, Revenue, Distributors, and Data.
+- Content Studio generate/save/publish/reset flows update preview and public issue data.
+- Ad Studio endpoint failures show diagnostics, while successful image results can publish to Slots 1–8.
+- Analytics records one ad impression per slot per page load, plus QR scans, issue views, ad clicks, and coupon clicks.
+- Data import rejects invalid JSON with a friendly error.
+- `npm run build`, `npx prisma validate`, `npm run check:phase2`, JS syntax checks, and `npm run smoke:site` pass before release.
