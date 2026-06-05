@@ -14,7 +14,7 @@ const DEMO = {
   issue: {
     issueMonthYear: "June 2026",
     mastheadBrand: "Potty Favor",
-    missionText: "To inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall.",
+    missionText: "Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall.",
     humorTitle: "Hilariously Funny",
     humorBody: "A couple of New Jersey hunters are out in the woods when one of them falls to the ground. His friend calls 911. The operator calmly says, ‘First, make sure he is dead.’ There is silence, then a shot. The guy returns and says, ‘Okay, now what?’",
     mainFeatureTitle: "How It All Started",
