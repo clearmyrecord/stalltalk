@@ -376,3 +376,24 @@ textarea { min-height: 92px; resize: vertical; }
   .admin-page { padding: 12px; }
   .admin-panel { padding: 14px; }
 }
+
+.preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+.preset-row button { border: 2px solid #111; border-radius: 999px; padding: 9px 12px; background: #fff; color: var(--ink); font-weight: 900; cursor: pointer; }
+.creative-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: end; }
+.creative-grid label { display: grid; gap: 6px; font-weight: 800; }
+.creative-output { display: grid; grid-template-columns: minmax(260px, 420px) 1fr; gap: 18px; margin-top: 18px; align-items: start; }
+.creative-output img { width: 100%; border: 3px solid #111; border-radius: 18px; background: #fff; box-shadow: var(--shadow); }
+.creative-output pre { max-height: 260px; overflow: auto; white-space: pre-wrap; border: 2px solid #111; border-radius: 14px; padding: 12px; background: #fff; font-size: .82rem; }
+.publish-box { margin-top: 18px; padding: 16px; border: 2px solid #111; border-radius: 18px; background: #fff6d7; }
+.status-line.error { color: #b00020; }
+.ad-card img.generated-ad-image { flex: 1 1 auto; max-height: none; min-height: 76px; height: auto; object-fit: cover; }
+.ad-card:has(img.generated-ad-image) { padding: 8px; gap: 5px; }
+.ad-card:has(img.generated-ad-image) h3,
+.ad-card:has(img.generated-ad-image) p { display: none; }
+.ad-card:has(img.generated-ad-image) a,
+.ad-card:has(img.generated-ad-image) button { font-size: .76rem; padding: 6px 9px; }
+.ad-mini:has(img.generated-ad-image) img.generated-ad-image { display: block; min-height: 46px; max-height: 58px; }
+
+@media (max-width: 900px) {
+  .creative-grid, .creative-output { grid-template-columns: 1fr; }
+}

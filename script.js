@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   oldIssue: "stalltalk_standard_issue",
   oldAds: "stalltalk_ad_slots",
   oldVenues: "stalltalk_venues",
+  marketAds: "stalltalk_market_ads",
 };
 
 const DEFAULT_DEMO = {
@@ -88,7 +89,7 @@ function migrateOldKeys() {
     if (Array.isArray(oldVenues)) saveJson(STORAGE_KEYS.venues, oldVenues);
   }
   if (!localStorage.getItem(STORAGE_KEYS.ads)) {
-    const oldAds = readJson(STORAGE_KEYS.oldAds, null);
+    const oldAds = readJson(STORAGE_KEYS.oldAds, null) || readJson(STORAGE_KEYS.marketAds, null);
     if (Array.isArray(oldAds)) saveJson(STORAGE_KEYS.ads, oldAds);
   }
 }
@@ -159,6 +160,13 @@ function resolveVenue(venues) {
   if (pageContext.venueSlug) recordAnalytics("qr_scan", { venueSlug: pageContext.venueSlug, matched: Boolean(venue) });
 }
 
+function imageSource(ad) {
+  const direct = normalizeText(ad.image || ad.imageUrl || ad.imageAdUrl);
+  const base64 = normalizeText(ad.imageBase64 || ad.imageAdBase64 || ad.b64_json);
+  if (direct) return direct;
+  return base64 ? (base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`) : "";
+}
+
 function normalizeAd(ad) {
   return {
     slot: Number(ad.slot || ad.slotNumber || 1),
@@ -166,12 +174,13 @@ function normalizeAd(ad) {
     headline: ad.headline || ad.offer || "Sponsor Message",
     offer: ad.offer || "A reader-only local offer.",
     couponCode: ad.couponCode || "",
-    cta: ad.cta || ad.ctaText || "Learn More",
+    cta: ad.cta || ad.ctaText || ad.ctaButtonText || "Learn More",
     targetUrl: ad.targetUrl || ad.website || "#",
-    image: ad.image || ad.imageUrl || ad.imageBase64 || "",
+    image: imageSource(ad),
     targetingType: ad.targetingType || "global",
     market: ad.market || ad.selectedMarket || ad.venueSlug || ad.city || ad.state || "",
     active: ad.active !== false,
+    adMode: ad.adMode || (imageSource(ad) ? "image" : "copy"),
   };
 }
 
@@ -201,14 +210,41 @@ function renderAdElement(element, ad, slot) {
     return;
   }
   element.classList.remove("is-empty");
-  element.innerHTML = `
-    <span class="slot">Ad Slot ${slot} · ${ad.targetingType}</span>
-    ${ad.image ? `<img src="${ad.image}" alt="${ad.advertiserName} ad image" />` : ""}
-    <h3>${ad.headline}</h3>
-    <p><strong>${ad.advertiserName}</strong></p>
-    <p>${ad.offer}</p>
-    ${ad.couponCode ? `<button class="coupon" type="button" data-coupon="${ad.couponCode}">Code: ${ad.couponCode}</button>` : ""}
-    <a href="${ad.targetUrl}" target="_blank" rel="noopener" data-ad-click>${ad.cta}</a>`;
+  const label = document.createElement("span");
+  label.className = "slot";
+  label.textContent = `Ad Slot ${slot} · ${ad.targetingType}`;
+  element.innerHTML = "";
+  element.appendChild(label);
+  if (ad.image) {
+    const img = document.createElement("img");
+    img.className = "generated-ad-image";
+    img.src = ad.image;
+    img.alt = `${ad.advertiserName} ad image`;
+    element.appendChild(img);
+  }
+  const headline = document.createElement("h3");
+  headline.textContent = ad.headline;
+  const advertiser = document.createElement("p");
+  advertiser.innerHTML = "<strong></strong>";
+  advertiser.querySelector("strong").textContent = ad.advertiserName;
+  const offer = document.createElement("p");
+  offer.textContent = ad.offer;
+  element.append(headline, advertiser, offer);
+  if (ad.couponCode) {
+    const coupon = document.createElement("button");
+    coupon.className = "coupon";
+    coupon.type = "button";
+    coupon.dataset.coupon = ad.couponCode;
+    coupon.textContent = `Code: ${ad.couponCode}`;
+    element.appendChild(coupon);
+  }
+  const link = document.createElement("a");
+  link.href = ad.targetUrl;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.dataset.adClick = "";
+  link.textContent = ad.cta;
+  element.appendChild(link);
   if (!pageContext.renderedSlots.has(slot)) {
     pageContext.renderedSlots.add(slot);
     recordAnalytics("ad_impression", { slot, advertiserName: ad.advertiserName, targetingType: ad.targetingType });

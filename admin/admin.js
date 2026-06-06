@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   oldIssue: "stalltalk_standard_issue",
   oldAds: "stalltalk_ad_slots",
   oldVenues: "stalltalk_venues",
+  marketAds: "stalltalk_market_ads",
 };
 
 const DEMO = {
@@ -45,7 +46,7 @@ const DEMO = {
     { slot: 6, advertiserName: "Freshen Up Travel Kit", headline: "Restroom Ready", offer: "Travel-size essentials bundle for readers.", couponCode: "FRESH", cta: "Shop Kit", targetUrl: "https://example.com/fresh", image: "", targetingType: "global", market: "", active: true },
     { slot: 7, advertiserName: "Two-Minute Trivia", headline: "Play & Win", offer: "Play a quick trivia round for weekly rewards.", couponCode: "TRIVIA", cta: "Play Now", targetUrl: "https://example.com/trivia", image: "", targetingType: "global", market: "", active: true },
   ],
-  settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html" },
+  settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html", vercelApiBaseUrl: "", openAiImageModel: "gpt-image-2" },
 };
 
 let activeSlot = 1;
@@ -101,9 +102,29 @@ function migrateOldKeys() {
   }
 }
 
+function saveAdsEverywhere(ads) {
+  saveJson(STORAGE_KEYS.ads, ads);
+  saveJson(STORAGE_KEYS.oldAds, ads);
+  saveJson(STORAGE_KEYS.marketAds, ads);
+}
+
 function setStatus(message) {
   const status = document.querySelector("#content-status");
   if (status) status.textContent = message;
+}
+
+function setCreativeStatus(message, isError = false) {
+  const status = document.querySelector("#creative-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", Boolean(isError));
+}
+
+function setSettingsStatus(message, isError = false) {
+  const status = document.querySelector("#settings-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", Boolean(isError));
 }
 
 function collectIssue() {
@@ -256,7 +277,7 @@ function refreshExportBox() {
 function importPayload(payload) {
   if (payload.issue) saveJson(STORAGE_KEYS.issue, payload.issue);
   if (Array.isArray(payload.venues)) saveJson(STORAGE_KEYS.venues, payload.venues);
-  if (Array.isArray(payload.ads)) saveJson(STORAGE_KEYS.ads, payload.ads);
+  if (Array.isArray(payload.ads)) saveAdsEverywhere(payload.ads);
   if (payload.settings) saveJson(STORAGE_KEYS.settings, payload.settings);
   loadAll();
   setStatus("Imported JSON into localStorage.");
@@ -280,7 +301,124 @@ function renderAnalytics() {
 
 function loadSettings() {
   const form = document.querySelector("#settings-form");
-  form.elements.qrBaseUrl.value = state().settings.qrBaseUrl || DEMO.settings.qrBaseUrl;
+  const settings = state().settings;
+  form.elements.qrBaseUrl.value = settings.qrBaseUrl || DEMO.settings.qrBaseUrl;
+  form.elements.vercelApiBaseUrl.value = settings.vercelApiBaseUrl || "";
+  form.elements.openAiImageModel.value = settings.openAiImageModel || "gpt-image-2";
+}
+
+const CREATIVE_PRESETS = {
+  restaurant: { businessCategory: "Restaurant / Bar", targetAudience: "nearby diners, nightlife guests, and venue patrons", visualStyle: "high-energy food and drink photography with bold local flavor", tone: "fun, social, and urgent", brandColors: "black, gold, neon accent" },
+  service: { businessCategory: "Local Service", targetAudience: "local residents and small businesses", visualStyle: "clean service-business ad with trustworthy people and crisp icons", tone: "helpful and reliable", brandColors: "navy, white, bright accent" },
+  event: { businessCategory: "Event / Concert", targetAudience: "fans looking for things to do tonight", visualStyle: "concert poster energy, dramatic lighting, premium ticket promotion", tone: "exciting and urgent", brandColors: "black, electric purple, warm gold" },
+  hotel: { businessCategory: "Hotel / Casino", targetAudience: "tourists, casino guests, and nightlife visitors", visualStyle: "luxury Vegas hospitality with polished neon atmosphere", tone: "premium and memorable", brandColors: "black, gold, deep red" },
+  retail: { businessCategory: "Retail", targetAudience: "nearby shoppers", visualStyle: "bright polished retail campaign with product-forward composition", tone: "friendly and promotional", brandColors: "white, bold brand color, contrast accent" },
+  home: { businessCategory: "Home Services", targetAudience: "homeowners and property managers", visualStyle: "clean professional home services ad with before-and-after confidence", tone: "trustworthy and clear", brandColors: "white, blue, green" },
+  transport: { businessCategory: "Transportation", targetAudience: "travelers who need a ride now", visualStyle: "sleek transportation ad with motion, city lights, and clear booking CTA", tone: "fast and dependable", brandColors: "black, yellow, silver" },
+  entertainment: { businessCategory: "Entertainment", targetAudience: "groups, date-night guests, and visitors", visualStyle: "bold entertainment poster with dynamic lighting and fun premium energy", tone: "playful and exciting", brandColors: "deep purple, hot pink, cyan" },
+};
+
+let generatedCreative = null;
+
+function collectCreativeBrief() {
+  const data = new FormData(document.querySelector("#creative-form"));
+  return {
+    businessName: String(data.get("businessName") || ""),
+    businessCategory: String(data.get("businessCategory") || ""),
+    offer: String(data.get("offer") || ""),
+    couponCode: String(data.get("couponCode") || ""),
+    ctaText: String(data.get("ctaText") || ""),
+    website: String(data.get("website") || ""),
+    phone: String(data.get("phone") || ""),
+    targetAudience: String(data.get("targetAudience") || ""),
+    venueTargeting: String(data.get("venueTargeting") || ""),
+    cityTargeting: String(data.get("cityTargeting") || ""),
+    stateTargeting: String(data.get("stateTargeting") || "").toUpperCase(),
+    brandColors: String(data.get("brandColors") || ""),
+    visualStyle: String(data.get("visualStyle") || ""),
+    tone: String(data.get("tone") || ""),
+    requiredText: String(data.get("requiredText") || ""),
+    optionalDisclaimer: String(data.get("optionalDisclaimer") || ""),
+    adSize: String(data.get("adSize") || "Square"),
+  };
+}
+
+function apiBaseUrl() {
+  return String(state().settings.vercelApiBaseUrl || "").replace(/\/$/, "");
+}
+
+function creativeEndpoint() {
+  const base = apiBaseUrl();
+  return base ? `${base}/api/generate-ad-image` : "/api/generate-ad-image";
+}
+
+function billingLimitMessage(payload) {
+  const text = `${payload?.error || ""} ${payload?.diagnostic?.errorType || ""}`.toLowerCase();
+  return text.includes("billing") || text.includes("hard_limit") || text.includes("insufficient_quota");
+}
+
+function showCreativeResult(payload, brief) {
+  const output = document.querySelector("#creative-output");
+  const publish = document.querySelector("#creative-publish");
+  const preview = document.querySelector("#creative-preview");
+  document.querySelector("#creative-prompt").textContent = payload.promptUsed || "No prompt returned.";
+  document.querySelector("#creative-diagnostics").textContent = JSON.stringify(payload.diagnostic || payload.diagnostics || { ok: Boolean(payload.imageUrl || payload.imageBase64) }, null, 2);
+  output.hidden = false;
+  const imageUrl = payload.imageUrl || (payload.imageBase64 ? `data:image/png;base64,${payload.imageBase64}` : "");
+  if (!imageUrl) {
+    generatedCreative = null;
+    preview.removeAttribute("src");
+    publish.hidden = true;
+    const message = billingLimitMessage(payload) ? "OpenAI billing limit reached. Update billing in OpenAI Platform." : (payload.error || "Generation failed. Diagnostics returned without image data.");
+    setCreativeStatus(message, true);
+    return;
+  }
+  preview.src = imageUrl;
+  generatedCreative = { ...payload, imageUrl, brief };
+  publish.hidden = false;
+  setCreativeStatus("Generated image ready. Review it, then publish to a slot.");
+}
+
+async function generateCreativeAd(brief) {
+  if (!brief.businessName || !brief.offer) throw new Error("Business name and offer are required.");
+  const settings = state().settings;
+  const response = await fetch(creativeEndpoint(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...brief, openAiImageModel: settings.openAiImageModel || "gpt-image-2" }),
+  });
+  const payload = await response.json().catch(() => ({ error: `API returned non-JSON HTTP ${response.status}.`, diagnostic: { errorType: "non_json_response" } }));
+  if (!response.ok && billingLimitMessage(payload)) return { ...payload, error: "OpenAI billing limit reached. Update billing in OpenAI Platform." };
+  return payload;
+}
+
+function generatedAdFromPublishForm() {
+  if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
+  const publishData = new FormData(document.querySelector("#creative-publish-form"));
+  const brief = generatedCreative.brief || {};
+  const slot = Number(publishData.get("slot") || 1);
+  const targetingType = String(publishData.get("targetingType") || "global");
+  const market = targetingType === "global" ? "" : String(publishData.get("market") || brief.venueTargeting || brief.cityTargeting || brief.stateTargeting || "");
+  return {
+    slot,
+    advertiserName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
+    businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
+    headline: generatedCreative.headline || brief.offer || "Sponsor Message",
+    subheadline: generatedCreative.subheadline || "",
+    offer: brief.offer || generatedCreative.headline || "Reader-only offer",
+    couponCode: generatedCreative.couponCode || brief.couponCode || "",
+    cta: generatedCreative.cta || generatedCreative.ctaText || brief.ctaText || "Learn More",
+    targetUrl: brief.website || "#",
+    image: generatedCreative.imageUrl,
+    imageUrl: generatedCreative.imageUrl,
+    adMode: "image",
+    adSize: brief.adSize || "Square",
+    targetingType,
+    market,
+    active: true,
+    promptUsed: generatedCreative.promptUsed || "",
+    diagnostics: generatedCreative.diagnostic || generatedCreative.diagnostics || {},
+  };
 }
 
 function loadAll() {
@@ -331,7 +469,7 @@ function bindActions() {
   document.querySelector("#reset-demo").addEventListener("click", () => {
     saveJson(STORAGE_KEYS.issue, DEMO.issue);
     saveJson(STORAGE_KEYS.venues, DEMO.venues);
-    saveJson(STORAGE_KEYS.ads, DEMO.ads);
+    saveAdsEverywhere(DEMO.ads);
     saveJson(STORAGE_KEYS.settings, DEMO.settings);
     setStatus("Demo restored.");
     loadAll();
@@ -378,13 +516,78 @@ function bindActions() {
     event.preventDefault();
     const ads = state().ads.filter((ad) => Number(ad.slot) !== Number(activeSlot));
     ads.push(collectAd());
-    saveJson(STORAGE_KEYS.ads, ads);
+    saveAdsEverywhere(ads);
     renderAds();
+  });
+  document.querySelector("#creative-presets").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-preset]");
+    if (!button) return;
+    const preset = CREATIVE_PRESETS[button.dataset.preset];
+    const form = document.querySelector("#creative-form");
+    Object.entries(preset).forEach(([key, value]) => {
+      if (form.elements[key] && !form.elements[key].value) form.elements[key].value = value;
+    });
+    setCreativeStatus(`${button.textContent} preset applied.`);
+  });
+  document.querySelector("#creative-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const brief = collectCreativeBrief();
+    document.querySelector("#creative-publish").hidden = true;
+    setCreativeStatus("Generating finished ad image…");
+    try {
+      const payload = await generateCreativeAd(brief);
+      showCreativeResult(payload, brief);
+    } catch (error) {
+      generatedCreative = null;
+      document.querySelector("#creative-output").hidden = false;
+      document.querySelector("#creative-preview").removeAttribute("src");
+      document.querySelector("#creative-prompt").textContent = "";
+      document.querySelector("#creative-diagnostics").textContent = JSON.stringify({ error: error.message }, null, 2);
+      setCreativeStatus(error.message, true);
+    }
+  });
+  document.querySelector("#creative-publish-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    try {
+      const ad = generatedAdFromPublishForm();
+      activeSlot = ad.slot;
+      const ads = state().ads.filter((item) => !(Number(item.slot) === Number(ad.slot) && String(item.targetingType || "global") === String(ad.targetingType || "global") && String(item.market || "") === String(ad.market || "")));
+      ads.push(ad);
+      saveAdsEverywhere(ads);
+      renderAds();
+      refreshExportBox();
+      setCreativeStatus(`Published generated ad to slot ${ad.slot}.`);
+    } catch (error) {
+      setCreativeStatus(error.message, true);
+    }
   });
   document.querySelector("#save-settings").addEventListener("click", () => {
     const data = new FormData(document.querySelector("#settings-form"));
-    saveJson(STORAGE_KEYS.settings, { qrBaseUrl: String(data.get("qrBaseUrl") || DEMO.settings.qrBaseUrl) });
+    saveJson(STORAGE_KEYS.settings, {
+      qrBaseUrl: String(data.get("qrBaseUrl") || DEMO.settings.qrBaseUrl),
+      vercelApiBaseUrl: String(data.get("vercelApiBaseUrl") || "").replace(/\/$/, ""),
+      openAiImageModel: String(data.get("openAiImageModel") || "gpt-image-2"),
+    });
     updateQrPreview();
+    setSettingsStatus("Settings saved locally.");
+  });
+  document.querySelector("#test-api-endpoint").addEventListener("click", async () => {
+    try {
+      const response = await fetch(creativeEndpoint(), { method: "OPTIONS" });
+      setSettingsStatus(`API endpoint responded to OPTIONS with HTTP ${response.status}.`, response.status >= 400);
+    } catch (error) {
+      setSettingsStatus(`API endpoint test failed: ${error.message}`, true);
+    }
+  });
+  document.querySelector("#test-openai-image").addEventListener("click", async () => {
+    const brief = { businessName: "Potty Favor API Test", businessCategory: "Local Service", offer: "API test graphic", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "simple clean professional", tone: "clear", requiredText: "API TEST", adSize: "Square" };
+    setSettingsStatus("Testing OpenAI image generation…");
+    try {
+      const payload = await generateCreativeAd(brief);
+      setSettingsStatus(payload.imageUrl || payload.imageBase64 ? "OpenAI image generation test succeeded." : (payload.error || "Image test returned no image."), !(payload.imageUrl || payload.imageBase64));
+    } catch (error) {
+      setSettingsStatus(error.message, true);
+    }
   });
   document.querySelector("#refresh-export").addEventListener("click", refreshExportBox);
   document.querySelector("#import-text").addEventListener("click", () => importPayload(JSON.parse(document.querySelector("#json-box").value)));
@@ -394,7 +597,7 @@ function init() {
   migrateOldKeys();
   if (!localStorage.getItem(STORAGE_KEYS.issue)) saveJson(STORAGE_KEYS.issue, DEMO.issue);
   if (!localStorage.getItem(STORAGE_KEYS.venues)) saveJson(STORAGE_KEYS.venues, DEMO.venues);
-  if (!localStorage.getItem(STORAGE_KEYS.ads)) saveJson(STORAGE_KEYS.ads, DEMO.ads);
+  if (!localStorage.getItem(STORAGE_KEYS.ads)) saveAdsEverywhere(DEMO.ads);
   if (!localStorage.getItem(STORAGE_KEYS.settings)) saveJson(STORAGE_KEYS.settings, DEMO.settings);
   bindTabs();
   bindActions();
