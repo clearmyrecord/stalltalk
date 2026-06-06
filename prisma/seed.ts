@@ -1,6 +1,13 @@
+import { pbkdf2Sync, randomBytes } from "crypto";
 import { AdScope, ContentBlockType, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("base64url");
+  const hash = pbkdf2Sync(password, salt, 310000, 32, "sha256").toString("base64url");
+  return `pbkdf2:310000:${salt}:${hash}`;
+}
 
 const sponsorAds = [
   ["Hooters", "Wings After the Win", "Free fried pickles with any 10-wing order.", "VENUE", "STALLWINGS", 49900],
@@ -25,6 +32,7 @@ const blocks = [
 ] as const;
 
 async function main() {
+  await prisma.user.deleteMany();
   await prisma.analyticsEvent.deleteMany();
   await prisma.stalltalkCampaignHistory.deleteMany();
   await prisma.stalltalkAdSlot.deleteMany();
@@ -131,6 +139,15 @@ async function main() {
   await prisma.stripeSubscription.create({ data: { advertiserId: advertiserRecords[0].id, adId: ads[0].id, stripeCustomerId: "cus_seed_hooters", stripeSubscriptionId: "sub_seed_monthly", status: "ACTIVE", locations: 1, monthlyAmountCents: 49900, currentPeriodEndsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });
   await prisma.couponCampaign.create({ data: { advertiserId: advertiserRecords[5].id, name: "Graeter’s July Scoops", couponCode: "POTTYPOP", budgetCents: 25000, redemptionLimit: 500, startsAt: new Date("2024-07-01T00:00:00.000Z"), endsAt: new Date("2024-07-31T23:59:59.000Z") } });
+
+
+  await prisma.user.createMany({
+    data: [
+      { email: "admin@stalltalk.local", name: "Stall Talk Admin", role: "ADMIN", publisherId: publisher.id, passwordHash: hashPassword("stalltalk-admin") },
+      { email: "advertiser@stalltalk.local", name: "Hooters Advertiser", role: "ADVERTISER", publisherId: publisher.id, advertiserId: advertiserRecords[0].id, passwordHash: hashPassword("stalltalk-advertiser") },
+      { email: "venue@stalltalk.local", name: "MGM Venue Manager", role: "VENUE", publisherId: publisher.id, venueId: venue.id, passwordHash: hashPassword("stalltalk-venue") }
+    ]
+  });
   await prisma.analyticsEvent.createMany({ data: [
     { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "SCAN", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.destination },
     { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "PAGE_VIEW", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.destination },

@@ -66,6 +66,12 @@ enum StripeSubscriptionStatus {
   CANCELED
 }
 
+enum UserRole {
+  ADMIN
+  ADVERTISER
+  VENUE
+}
+
 model Publisher {
   id              String                     @id @default(cuid())
   name            String
@@ -85,6 +91,7 @@ model Publisher {
   issues          Issue[]
   qrCodes         QrCode[]
   events          AnalyticsEvent[]
+  users           User[]
 }
 
 model Distributor {
@@ -120,6 +127,7 @@ model Advertiser {
   couponCampaigns CouponCampaign[]
   campaignHistory StalltalkCampaignHistory[]
   analyticsEvents AnalyticsEvent[]
+  users           User[]
 
   @@unique([publisherId, slug])
 }
@@ -143,6 +151,7 @@ model Venue {
   qrCodes       QrCode[]
   ads           Ad[]
   events        AnalyticsEvent[]
+  users         User[]
 }
 
 model Restroom {
@@ -396,6 +405,24 @@ model StripeSubscription {
   updatedAt            DateTime                 @updatedAt
   advertiser           Advertiser               @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
   ad                   Ad?                      @relation(fields: [adId], references: [id], onDelete: SetNull)
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String
+  passwordHash   String
+  role           UserRole
+  status         AccountStatus @default(ACTIVE)
+  publisherId    String?
+  advertiserId   String?
+  venueId        String?
+  lastSignedInAt DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  publisher      Publisher?    @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  advertiser     Advertiser?   @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
+  venue          Venue?        @relation(fields: [venueId], references: [id], onDelete: SetNull)
 }
 
 model CouponCampaign {

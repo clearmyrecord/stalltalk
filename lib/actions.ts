@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { slugify } from "./format";
+import { requireUser } from "./auth";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -39,9 +40,13 @@ export async function createVenue(formData: FormData) {
 }
 
 export async function createRestroom(formData: FormData) {
-  await prisma.restroom.create({ data: { venueId: text(formData, "venueId"), name: text(formData, "name"), floor: nullableText(formData, "floor"), placement: nullableText(formData, "placement") } });
+  const user = await requireUser(["ADMIN", "VENUE"]);
+  const venueId = text(formData, "venueId");
+  if (user.role === "VENUE" && user.venueId !== venueId) throw new Error("Venue accounts can only update their assigned venue.");
+  await prisma.restroom.create({ data: { venueId, name: text(formData, "name"), floor: nullableText(formData, "floor"), placement: nullableText(formData, "placement") } });
   revalidatePath("/admin/venues");
   revalidatePath("/admin/qr");
+  revalidatePath("/portal/venue");
 }
 
 export async function createQrCode(formData: FormData) {
@@ -62,6 +67,7 @@ export async function createAdvertiser(formData: FormData) {
 }
 
 export async function createAd(formData: FormData) {
+  await requireUser(["ADMIN"]);
   const ad = await prisma.ad.create({ data: adData(formData) });
   await publishAdToSlot(ad.id, formData);
   revalidatePath("/admin/ads");
@@ -71,6 +77,11 @@ export async function createAd(formData: FormData) {
 }
 
 export async function updateAd(id: string, formData: FormData) {
+  const user = await requireUser(["ADMIN", "ADVERTISER"]);
+  if (user.role === "ADVERTISER") {
+    const existing = await prisma.ad.findUnique({ where: { id }, select: { advertiserId: true } });
+    if (!existing || existing.advertiserId !== user.advertiserId) throw new Error("Advertiser accounts can only update their own ads.");
+  }
   await prisma.ad.update({ where: { id }, data: adData(formData) });
   await publishAdToSlot(id, formData);
   revalidatePath("/admin/ads");

@@ -31,7 +31,7 @@ export default async function Home() {
             <p className="mt-4 max-w-2xl rounded-xl border-4 border-white/80 bg-ink/70 p-3 text-sm font-black uppercase text-stallYellow">{diagnostic}</p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link className="rounded-xl border-4 border-stallYellow bg-stallRed px-6 py-4 font-black uppercase text-white shadow-brutal" href={venue ? `/issue/${venue.slug}${qr ? `?qr=${qr}` : ""}` : "/admin"}>Preview QR Issue</Link>
-              <Link className="rounded-xl border-4 border-white bg-stallPurple px-6 py-4 font-black uppercase text-white shadow-brutal" href="/admin/ads/new">Open AI Creative Studio</Link>
+              <Link className="rounded-xl border-4 border-white bg-stallPurple px-6 py-4 font-black uppercase text-white shadow-brutal" href="/login">Login to AI Ad Studio</Link>
             </div>
           </div>
           <div className="rounded-[2rem] border-8 border-white bg-paper p-4 text-ink shadow-purple rotate-1">
@@ -53,7 +53,7 @@ export default async function Home() {
               <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">Live Published Creative</p>
               <h2 className="font-display text-6xl uppercase leading-none text-stallRed">Homepage Ad Slots</h2>
             </div>
-            <Link className="rounded-xl border-4 border-ink bg-stallYellow px-4 py-3 font-black uppercase shadow-brutal" href="/admin/ads/new">Generate New Ad</Link>
+            <Link className="rounded-xl border-4 border-ink bg-stallYellow px-4 py-3 font-black uppercase shadow-brutal" href="/login">Generate New Ad</Link>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 8 }, (_, index) => {

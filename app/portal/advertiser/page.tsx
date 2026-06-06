@@ -1,4 +1,5 @@
 import { updateAd } from "@/lib/actions";
+import { requireUser, signOut } from "@/lib/auth";
 import { money, percent } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
@@ -53,14 +54,14 @@ function isMissingTableError(error: unknown) {
   return code === "P2021" || /(?:table|relation).*does not exist|public\.Advertiser|public\.AnalyticsEvent/i.test(message);
 }
 
-async function getAdvertiserPortalData(): Promise<AdvertiserPortalData> {
+async function getAdvertiserPortalData(advertiserId?: string | null): Promise<AdvertiserPortalData> {
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return { advertisers: [], events: [], isMissingDatabase: false };
   }
 
   try {
     const [advertisers, events] = await Promise.all([
-      prisma.advertiser.findMany({ include: { ads: true, subscriptions: true } }),
+      prisma.advertiser.findMany({ where: advertiserId ? { id: advertiserId } : undefined, include: { ads: true, subscriptions: true } }),
       prisma.analyticsEvent.findMany({ where: { adId: { not: null } } })
     ]);
 
@@ -82,12 +83,18 @@ function AdvertiserEmptyState({ message }: { message: string }) {
 }
 
 export default async function AdvertiserPortalPage() {
-  const { advertisers, events, isMissingDatabase } = await getAdvertiserPortalData();
+  const user = await requireUser(["ADMIN", "ADVERTISER"]);
+  const { advertisers, events, isMissingDatabase } = await getAdvertiserPortalData(user.role === "ADVERTISER" ? user.advertiserId : null);
 
   return (
     <main className="min-h-screen bg-paper p-4 text-ink md:p-8">
-      <h1 className="font-display text-7xl uppercase">Advertiser Portal</h1>
-      <p className="font-bold">Advertisers can upload artwork, update coupons, and see analytics for their campaigns.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-7xl uppercase">Advertiser Portal</h1>
+          <p className="font-bold">Advertisers can upload artwork, update coupons, and see analytics for their campaigns.</p>
+        </div>
+        <form action={signOut}><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal">Logout {user.name}</button></form>
+      </div>
       {isMissingDatabase ? (
         <AdvertiserEmptyState message="Advertiser tables are not available yet. Run Prisma migrations to enable live campaign updates." />
       ) : null}
