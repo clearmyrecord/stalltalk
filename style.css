@@ -397,3 +397,34 @@ textarea { min-height: 92px; resize: vertical; }
 @media (max-width: 900px) {
   .creative-grid, .creative-output { grid-template-columns: 1fr; }
 }
+
+.calendar-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(240px, .85fr); gap: 16px; align-items: start; }
+.calendar-grid span, .calendar-grid button { aspect-ratio: 1 / .72; min-height: 48px; border: 0; border-right: 1px solid #333; border-bottom: 1px solid #333; padding: 6px; font-weight: 900; color: #1d1244; background: #fff; text-align: left; }
+.calendar-grid button { cursor: pointer; }
+.calendar-grid .calendar-weekday { aspect-ratio: auto; min-height: 0; background: #292222; color: #fff; font-size: .78rem; text-align: center; }
+.calendar-grid .has-event { background: #ffd84c; color: #10106b; box-shadow: inset 0 0 0 3px #10106b; }
+.event-spotlight, .event-details { min-width: 0; border: 2px solid #111; border-radius: 16px; padding: 12px; background: #fffdf5; }
+.event-details { width: min(100%, 760px); margin: 14px auto 0; display: grid; gap: 10px; }
+.event-spotlight h3, .event-details h3, .submit-event-card h2 { margin-top: 0; }
+.event-card { display: grid; gap: 7px; min-width: 0; }
+.event-card + .event-card { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #7b6a55; }
+.event-card h3 { margin: 0; color: #10106b; }
+.event-card p { margin: 0; width: auto; }
+.event-card .event-meta { font-size: .9rem; font-weight: 900; color: #5a4126; }
+.event-card a { justify-self: start; border-radius: 999px; padding: 8px 11px; background: #10106b; color: #fff; font-weight: 900; text-decoration: none; }
+.event-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.event-form label { display: grid; gap: 6px; font-weight: 900; }
+.status-line.error { color: #b00020; }
+.issue-line a { color: inherit; font-weight: 900; }
+.event-admin-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
+.event-admin-lists { display: grid; gap: 16px; }
+.event-admin-lists h3 { margin-bottom: 6px; }
+.event-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.event-actions button { border: 0; border-radius: 999px; padding: 8px 11px; background: #12126d; color: #fff; font-weight: 900; cursor: pointer; }
+.event-actions .secondary { background: #eee0c7; color: #24180e; }
+.event-actions .danger { background: #9d1728; }
+
+@media (max-width: 760px) {
+  .calendar-layout, .event-form, .event-admin-layout { grid-template-columns: 1fr; }
+  .calendar-grid span, .calendar-grid button { min-height: 36px; padding: 4px; font-size: .78rem; }
+}

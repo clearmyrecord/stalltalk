@@ -4,6 +4,10 @@ const STORAGE_KEYS = {
   ads: "pottyfavor_ads",
   settings: "pottyfavor_settings",
   analytics: "pottyfavor_analytics",
+  events: "pottyfavor_events",
+  pendingEvents: "pottyfavor_pending_events",
+  oldEvents: "stalltalk_events",
+  oldPendingEvents: "stalltalk_pending_events",
   oldIssue: "stalltalk_standard_issue",
   oldAds: "stalltalk_ad_slots",
   oldVenues: "stalltalk_venues",
@@ -30,6 +34,12 @@ const DEFAULT_DEMO = {
   },
   venues: [{ name: "Demo Venue", city: "Las Vegas", state: "NV", slug: "demo-venue" }],
   ads: [],
+  events: [
+    { id: "demo-rooftop-happy-hour", title: "Rooftop Happy Hour", description: "Sunset drink specials and skyline views for Las Vegas locals and visitors.", venueName: "Neon Sky Lounge", address: "300 Las Vegas Blvd S", city: "Las Vegas", state: "NV", eventDate: "2026-06-12", startTime: "17:00", endTime: "19:00", category: "Nightlife", website: "https://example.com/rooftop", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: true, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+    { id: "demo-live-music-night", title: "Live Music Night", description: "Local bands take the stage for a reader-friendly night out.", venueName: "Fremont Room", address: "425 Fremont St", city: "Las Vegas", state: "NV", eventDate: "2026-06-18", startTime: "20:00", endTime: "23:00", category: "Concert", website: "https://example.com/live-music", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: false, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+    { id: "demo-local-comedy-showcase", title: "Local Comedy Showcase", description: "Fast sets from Vegas comedians built for a fun weekend warmup.", venueName: "Arts District Comedy Cellar", address: "1020 S Main St", city: "Las Vegas", state: "NV", eventDate: "2026-06-25", startTime: "19:30", endTime: "21:30", category: "Community", website: "https://example.com/comedy", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: false, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+  ],
+  pendingEvents: [],
   settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html" },
 };
 
@@ -92,6 +102,14 @@ function migrateOldKeys() {
     const oldAds = readJson(STORAGE_KEYS.oldAds, null) || readJson(STORAGE_KEYS.marketAds, null);
     if (Array.isArray(oldAds)) saveJson(STORAGE_KEYS.ads, oldAds);
   }
+  if (!localStorage.getItem(STORAGE_KEYS.events)) {
+    const oldEvents = readJson(STORAGE_KEYS.oldEvents, null);
+    if (Array.isArray(oldEvents)) saveJson(STORAGE_KEYS.events, oldEvents);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.pendingEvents)) {
+    const oldPendingEvents = readJson(STORAGE_KEYS.oldPendingEvents, null);
+    if (Array.isArray(oldPendingEvents)) saveJson(STORAGE_KEYS.pendingEvents, oldPendingEvents);
+  }
 }
 
 function detectUserMarketByIp() {
@@ -133,6 +151,199 @@ function setList(selector, items, ordered = false) {
   });
 }
 
+function parseIssueMonth(issueMonthYear) {
+  const fallback = new Date();
+  const parsed = new Date(`${normalizeText(issueMonthYear) || fallback.toLocaleString("en-US", { month: "long", year: "numeric" })} 1`);
+  return Number.isNaN(parsed.getTime()) ? { month: fallback.getMonth(), year: fallback.getFullYear() } : { month: parsed.getMonth(), year: parsed.getFullYear() };
+}
+
+function formatDate(value) {
+  if (!value) return "Date TBD";
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatTimeRange(event) {
+  const start = normalizeText(event.startTime);
+  const end = normalizeText(event.endTime);
+  if (!start && !end) return "Time TBD";
+  return end ? `${start}–${end}` : start;
+}
+
+function normalizeEvent(event) {
+  const now = new Date().toISOString();
+  return {
+    id: normalizeText(event.id) || `event-${Date.now()}`,
+    title: normalizeText(event.title),
+    description: normalizeText(event.description),
+    venueName: normalizeText(event.venueName),
+    address: normalizeText(event.address),
+    city: normalizeText(event.city),
+    state: normalizeText(event.state).toUpperCase(),
+    eventDate: normalizeText(event.eventDate),
+    startTime: normalizeText(event.startTime),
+    endTime: normalizeText(event.endTime),
+    category: normalizeText(event.category) || "Other",
+    website: normalizeText(event.website),
+    phone: normalizeText(event.phone),
+    submittedByName: normalizeText(event.submittedByName),
+    submittedByEmail: normalizeText(event.submittedByEmail),
+    status: normalizeText(event.status) || "pending",
+    featured: Boolean(event.featured),
+    createdAt: normalizeText(event.createdAt) || now,
+    updatedAt: normalizeText(event.updatedAt) || now,
+  };
+}
+
+function approvedEventsForIssue(events, issue) {
+  const { month, year } = parseIssueMonth(issue.issueMonthYear);
+  return events.map(normalizeEvent).filter((event) => {
+    const date = new Date(`${event.eventDate}T12:00:00`);
+    return event.status === "approved" && !Number.isNaN(date.getTime()) && date.getMonth() === month && date.getFullYear() === year;
+  }).sort((a, b) => `${a.eventDate} ${a.startTime}`.localeCompare(`${b.eventDate} ${b.startTime}`));
+}
+
+function eventCard(event, compact = false) {
+  const article = document.createElement("article");
+  article.className = compact ? "event-card compact" : "event-card";
+  const title = document.createElement("h3");
+  title.textContent = event.title;
+  const meta = document.createElement("p");
+  meta.className = "event-meta";
+  meta.textContent = `${event.venueName} · ${formatDate(event.eventDate)} · ${formatTimeRange(event)} · ${event.city}, ${event.state}`;
+  const description = document.createElement("p");
+  description.textContent = event.description || `${event.category} event at ${event.venueName}.`;
+  article.append(title, meta, description);
+  if (event.website) {
+    const link = document.createElement("a");
+    link.href = event.website;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.dataset.eventClick = event.id;
+    link.textContent = "Event details";
+    article.appendChild(link);
+  }
+  return article;
+}
+
+function showEventsForDay(events, day) {
+  const details = document.querySelector("#event-details");
+  if (!details) return;
+  details.innerHTML = "";
+  const dayEvents = events.filter((event) => Number(event.eventDate.slice(-2)) === Number(day));
+  if (!dayEvents.length) return;
+  const heading = document.createElement("h3");
+  heading.textContent = `Events on ${formatDate(dayEvents[0].eventDate)}`;
+  details.appendChild(heading);
+  dayEvents.forEach((event) => details.appendChild(eventCard(event, true)));
+}
+
+function renderCalendarEvents(issue, events) {
+  const grid = document.querySelector(".calendar-grid");
+  if (!grid) return;
+  const approved = approvedEventsForIssue(events, issue);
+  const { month, year } = parseIssueMonth(issue.issueMonthYear);
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const byDay = new Map();
+  approved.forEach((event) => {
+    const day = Number(event.eventDate.slice(-2));
+    byDay.set(day, [...(byDay.get(day) || []), event]);
+  });
+  grid.innerHTML = "";
+  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((name) => {
+    const cell = document.createElement("span");
+    cell.className = "calendar-weekday";
+    cell.textContent = name;
+    grid.appendChild(cell);
+  });
+  for (let slot = 0; slot < firstDay; slot += 1) grid.appendChild(document.createElement("span"));
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const cell = document.createElement(byDay.has(day) ? "button" : "span");
+    cell.className = byDay.has(day) ? "has-event" : "";
+    cell.textContent = day;
+    if (byDay.has(day)) {
+      cell.type = "button";
+      cell.title = byDay.get(day).map((event) => event.title).join(", ");
+      cell.addEventListener("click", () => showEventsForDay(approved, day));
+    }
+    grid.appendChild(cell);
+  }
+  const spotlight = document.querySelector("#event-spotlight");
+  const details = document.querySelector("#event-details");
+  if (spotlight) {
+    spotlight.innerHTML = "";
+    const featured = approved.find((event) => event.featured) || approved[0];
+    const heading = document.createElement("h3");
+    heading.textContent = "Event Spotlight";
+    spotlight.appendChild(heading);
+    if (featured) spotlight.appendChild(eventCard(featured));
+    else {
+      const copy = document.createElement("p");
+      copy.textContent = issue.calendarText || "Register your event free and discover local happenings all month.";
+      spotlight.appendChild(copy);
+    }
+  }
+  if (details) {
+    details.innerHTML = "";
+    approved.slice(0, 3).forEach((event) => details.appendChild(eventCard(event, true)));
+  }
+}
+
+function collectPublicEvent(form) {
+  const data = new FormData(form);
+  const now = new Date().toISOString();
+  return normalizeEvent({
+    id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: data.get("title"),
+    description: data.get("description"),
+    venueName: data.get("venueName"),
+    address: data.get("address"),
+    city: data.get("city"),
+    state: data.get("state"),
+    eventDate: data.get("eventDate"),
+    startTime: data.get("startTime"),
+    endTime: data.get("endTime"),
+    category: data.get("category"),
+    website: data.get("website"),
+    phone: data.get("phone"),
+    submittedByName: data.get("submittedByName"),
+    submittedByEmail: data.get("submittedByEmail"),
+    status: "pending",
+    featured: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+function validateEvent(event) {
+  return ["title", "venueName", "city", "state", "eventDate", "submittedByEmail"].filter((key) => !normalizeText(event[key]));
+}
+
+function bindEventSubmission() {
+  const form = document.querySelector("#public-event-form");
+  if (!form) return;
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const status = document.querySelector("#public-event-status");
+    const submission = collectPublicEvent(form);
+    const missing = validateEvent(submission);
+    if (missing.length) {
+      status.textContent = `Please complete: ${missing.join(", ")}.`;
+      status.classList.add("error");
+      return;
+    }
+    const pending = readJson(STORAGE_KEYS.pendingEvents, []);
+    pending.push(submission);
+    saveJson(STORAGE_KEYS.pendingEvents, pending);
+    saveJson(STORAGE_KEYS.oldPendingEvents, pending);
+    recordAnalytics("event_submission", { id: submission.id, title: submission.title, city: submission.city, state: submission.state, futureBackendHook: true });
+    form.reset();
+    status.classList.remove("error");
+    status.textContent = "Event submitted. Admin approval required before publication.";
+  });
+}
+
 function renderIssue(issue) {
   pageContext.issue = issue;
   Object.entries(issue).forEach(([key, value]) => {
@@ -143,14 +354,6 @@ function renderIssue(issue) {
   setList('[data-list="didYouKnow"]', issue.didYouKnow, true);
   setList('[data-list="noWay"]', issue.noWay);
   setText("[data-year]", new Date().getFullYear());
-  const days = document.querySelector(".calendar-grid");
-  if (days && !days.children.length) {
-    for (let day = 1; day <= 35; day += 1) {
-      const cell = document.createElement("span");
-      cell.textContent = day <= 31 ? day : "";
-      days.appendChild(cell);
-    }
-  }
 }
 
 function resolveVenue(venues) {
@@ -271,6 +474,8 @@ function bindClicks() {
       const card = coupon.closest("[data-ad-slot]");
       recordAnalytics("coupon_click", { slot: Number(card?.dataset.adSlot), couponCode: coupon.dataset.coupon });
     }
+    const eventLink = event.target.closest("[data-event-click]");
+    if (eventLink) recordAnalytics("event_click", { id: eventLink.dataset.eventClick, href: eventLink.href });
   });
 }
 
@@ -280,12 +485,15 @@ async function init() {
   const issue = { ...demo.issue, ...readJson(STORAGE_KEYS.issue, {}) };
   const venues = readJson(STORAGE_KEYS.venues, demo.venues);
   const ads = readJson(STORAGE_KEYS.ads, demo.ads);
+  const events = localStorage.getItem(STORAGE_KEYS.events) === null ? (demo.events || []) : readJson(STORAGE_KEYS.events, []);
   renderIssue(issue);
+  renderCalendarEvents(issue, events);
   resolveVenue(venues);
   await detectUserMarketByIp();
   renderAds(ads.length ? ads : demo.ads);
   recordAnalytics("issue_view", { issueMonthYear: issue.issueMonthYear, venueSlug: pageContext.venueSlug || null });
   bindClicks();
+  bindEventSubmission();
 }
 
 document.addEventListener("DOMContentLoaded", init);

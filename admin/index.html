@@ -18,6 +18,7 @@
         <button class="active" data-tab="content">Content</button>
         <button data-tab="venues">Venues / QR Codes</button>
         <button data-tab="ads">Ads</button>
+        <button data-tab="events">Events</button>
         <button data-tab="creative">AI Creative Studio</button>
         <button data-tab="preview">Preview</button>
         <button data-tab="settings">Settings</button>
@@ -93,6 +94,49 @@
         <div class="card-list" id="ad-list"></div>
       </section>
 
+
+
+      <section class="admin-panel" id="tab-events">
+        <h2>Events</h2>
+        <p>Approve public submissions, add manual events, and publish approved items to the Potty Favor Calendar / Event Spotlight. Pending submissions are localStorage-only for Phase 1 with a future backend hook.</p>
+        <div class="event-admin-layout">
+          <form id="admin-event-form" class="form-grid">
+            <input type="hidden" name="id" />
+            <label>Event title<input name="title" required /></label>
+            <label>Venue name<input name="venueName" required /></label>
+            <label class="full">Event description<textarea name="description"></textarea></label>
+            <label>Address<input name="address" /></label>
+            <label>City<input name="city" required /></label>
+            <label>State<input name="state" maxlength="2" required /></label>
+            <label>Date<input name="eventDate" type="date" required /></label>
+            <label>Start time<input name="startTime" type="time" /></label>
+            <label>End time<input name="endTime" type="time" /></label>
+            <label>Category<select name="category"><option>Nightlife</option><option>Concert</option><option>Sports</option><option>Restaurant / Bar</option><option>Community</option><option>Convention</option><option>Local Deal</option><option>Other</option></select></label>
+            <label>Website<input name="website" type="url" /></label>
+            <label>Phone<input name="phone" type="tel" /></label>
+            <label>Contact name<input name="submittedByName" /></label>
+            <label>Contact email<input name="submittedByEmail" type="email" required /></label>
+            <label>Status<select name="status"><option>approved</option><option>pending</option><option>rejected</option></select></label>
+            <label>Featured<select name="featured"><option value="false">No</option><option value="true">Yes</option></select></label>
+            <div class="full actions">
+              <button type="submit">Save Event</button>
+              <button type="button" class="secondary" id="clear-event-form">Clear</button>
+              <button type="button" class="secondary" id="publish-events">Publish Event List</button>
+            </div>
+            <p class="full status-line" id="event-status"></p>
+          </form>
+          <div class="event-admin-lists">
+            <div>
+              <h3>Pending submissions</h3>
+              <div class="card-list" id="pending-event-list"></div>
+            </div>
+            <div>
+              <h3>Approved events</h3>
+              <div class="card-list" id="approved-event-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section class="admin-panel" id="tab-creative">
         <h2>AI Creative Studio</h2>

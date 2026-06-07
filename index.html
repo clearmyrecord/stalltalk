@@ -32,7 +32,7 @@
           <h1 class="visually-hidden"><span data-field="mastheadBrand">Potty Favor</span><small>/ Stall Talk</small></h1>
           <div class="masthead-meta" aria-label="Issue information">
             <p class="issue-kicker" data-field="issueMonthYear">June 2026</p>
-            <p class="issue-line">One standard monthly issue · Designed for every reader</p>
+            <p class="issue-line">One standard monthly issue · Designed for every reader · <a href="#submit-event">Submit an event</a></p>
           </div>
           <a class="admin-link" href="admin/">Admin</a>
         </header>
@@ -81,10 +81,39 @@
             <ul data-list="noWay"></ul>
           </section>
 
-          <section class="calendar-card panel double">
+          <section class="calendar-card panel double" id="calendar">
             <h2>Calendar / Event Spotlight</h2>
-            <div class="calendar-grid" aria-hidden="true"></div>
-            <p data-field="calendarText">Outdoor Events Association: register your event free and keep the month moving.</p>
+            <div class="calendar-layout">
+              <div>
+                <div class="calendar-grid" aria-label="Published event calendar"></div>
+                <p data-field="calendarText">Outdoor Events Association: register your event free and keep the month moving.</p>
+              </div>
+              <aside class="event-spotlight" id="event-spotlight" aria-live="polite"></aside>
+            </div>
+            <div class="event-details" id="event-details" aria-live="polite"></div>
+          </section>
+
+          <section class="submit-event-card panel double" id="submit-event">
+            <h2>Submit a Local Event</h2>
+            <p>Got something happening nearby? Send it to Potty Favor for admin review. Static MVP submissions stay pending in this browser until a future backend hook is connected.</p>
+            <form id="public-event-form" class="event-form">
+              <label>Event title<input name="title" required /></label>
+              <label class="full">Event description<textarea name="description"></textarea></label>
+              <label>Venue name<input name="venueName" required /></label>
+              <label>Address<input name="address" /></label>
+              <label>City<input name="city" required /></label>
+              <label>State<input name="state" maxlength="2" required /></label>
+              <label>Date<input name="eventDate" type="date" required /></label>
+              <label>Start time<input name="startTime" type="time" /></label>
+              <label>End time<input name="endTime" type="time" /></label>
+              <label>Category<select name="category"><option>Nightlife</option><option>Concert</option><option>Sports</option><option>Restaurant / Bar</option><option>Community</option><option>Convention</option><option>Local Deal</option><option>Other</option></select></label>
+              <label>Website<input name="website" type="url" /></label>
+              <label>Phone<input name="phone" type="tel" /></label>
+              <label>Contact name<input name="submittedByName" /></label>
+              <label>Contact email<input name="submittedByEmail" type="email" required /></label>
+              <div class="full actions"><button type="submit">Submit Event</button></div>
+            </form>
+            <p class="status-line" id="public-event-status" role="status"></p>
           </section>
         </section>
 

@@ -179,5 +179,71 @@
   ],
   "settings": {
     "qrBaseUrl": "https://clearmyrecord.github.io/stalltalk/index.html"
-  }
+  },
+  "events": [
+    {
+      "id": "demo-rooftop-happy-hour",
+      "title": "Rooftop Happy Hour",
+      "description": "Sunset drink specials and skyline views for Las Vegas locals and visitors.",
+      "venueName": "Neon Sky Lounge",
+      "address": "300 Las Vegas Blvd S",
+      "city": "Las Vegas",
+      "state": "NV",
+      "eventDate": "2026-06-12",
+      "startTime": "17:00",
+      "endTime": "19:00",
+      "category": "Nightlife",
+      "website": "https://example.com/rooftop",
+      "phone": "",
+      "submittedByName": "Potty Favor Demo",
+      "submittedByEmail": "demo@pottyfavor.com",
+      "status": "approved",
+      "featured": true,
+      "createdAt": "2026-06-01T12:00:00.000Z",
+      "updatedAt": "2026-06-01T12:00:00.000Z"
+    },
+    {
+      "id": "demo-live-music-night",
+      "title": "Live Music Night",
+      "description": "Local bands take the stage for a reader-friendly night out.",
+      "venueName": "Fremont Room",
+      "address": "425 Fremont St",
+      "city": "Las Vegas",
+      "state": "NV",
+      "eventDate": "2026-06-18",
+      "startTime": "20:00",
+      "endTime": "23:00",
+      "category": "Concert",
+      "website": "https://example.com/live-music",
+      "phone": "",
+      "submittedByName": "Potty Favor Demo",
+      "submittedByEmail": "demo@pottyfavor.com",
+      "status": "approved",
+      "featured": false,
+      "createdAt": "2026-06-01T12:00:00.000Z",
+      "updatedAt": "2026-06-01T12:00:00.000Z"
+    },
+    {
+      "id": "demo-local-comedy-showcase",
+      "title": "Local Comedy Showcase",
+      "description": "Fast sets from Vegas comedians built for a fun weekend warmup.",
+      "venueName": "Arts District Comedy Cellar",
+      "address": "1020 S Main St",
+      "city": "Las Vegas",
+      "state": "NV",
+      "eventDate": "2026-06-25",
+      "startTime": "19:30",
+      "endTime": "21:30",
+      "category": "Community",
+      "website": "https://example.com/comedy",
+      "phone": "",
+      "submittedByName": "Potty Favor Demo",
+      "submittedByEmail": "demo@pottyfavor.com",
+      "status": "approved",
+      "featured": false,
+      "createdAt": "2026-06-01T12:00:00.000Z",
+      "updatedAt": "2026-06-01T12:00:00.000Z"
+    }
+  ],
+  "pendingEvents": []
 }
