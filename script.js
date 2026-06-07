@@ -447,60 +447,190 @@ function selectAdForSlot(slot, ads) {
   return matches.find((ad) => adRank(ad) < 99) || null;
 }
 
-function renderAdElement(element, ad, slot) {
-  if (!ad) {
-    element.classList.add("is-empty");
-    element.innerHTML = `<span class="slot">Ad Slot ${slot} · Sponsor Opportunity</span><h3>Available Sponsor Slot</h3><div class="ad-copy"><p><strong>Advertise Here</strong></p><p>Reach restroom readers in this venue.</p></div><div class="ad-actions"><a href="admin/">Book Slot</a></div>`;
-    return;
+function adSlotElement(slot) {
+  if (slot instanceof Element) return slot;
+  return document.querySelector(`[data-ad-slot="${slot}"]`);
+}
+
+function cssUrl(value) {
+  const url = normalizeText(value);
+  return url ? `url("${url.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}")` : "";
+}
+
+function imageDataUrl(result) {
+  const existing = normalizeText(result?.imageUrl || result?.image);
+  if (existing) return existing;
+  const base64 = normalizeText(result?.imageBase64);
+  return base64 ? `data:image/png;base64,${base64}` : "";
+}
+
+function createAdShell(element, options = {}) {
+  const {
+    slot = Number(element?.dataset?.adSlot) || "",
+    label = `Ad Slot ${slot}`,
+    sponsorName = "Potty Favor Sponsor",
+    headline = "Available Sponsor Slot",
+    subheadline = "Reach restroom readers in this venue.",
+    cta = "Book Slot",
+    href = "admin/",
+    couponCode = "",
+    image = "",
+    stateClass = "",
+    loading = false,
+  } = options;
+
+  if (!element) return null;
+  element.classList.remove("is-empty", "is-loading", "has-bg-image", "has-error");
+  element.classList.toggle("is-loading", Boolean(loading));
+  if (stateClass) element.classList.add(stateClass);
+  element.style.removeProperty("--ad-bg-image");
+  if (image) {
+    element.classList.add("has-bg-image");
+    element.style.setProperty("--ad-bg-image", cssUrl(image));
   }
-  element.classList.remove("is-empty");
-  const label = document.createElement("span");
-  label.className = "slot";
-  label.textContent = `Ad Slot ${slot} · ${ad.targetingType}`;
-  element.innerHTML = "";
-  element.appendChild(label);
-  if (ad.image) {
-    const img = document.createElement("img");
-    img.className = "generated-ad-image";
-    img.src = ad.image;
-    img.alt = `${ad.advertiserName} ad image`;
-    element.appendChild(img);
-  }
-  const headline = document.createElement("h3");
-  headline.textContent = ad.headline;
+
+  const content = document.createElement("div");
+  content.className = "ad-card-content";
+
+  const slotLabel = document.createElement("span");
+  slotLabel.className = "slot";
+  slotLabel.textContent = label;
+
+  const sponsor = document.createElement("span");
+  sponsor.className = "sponsor-name";
+  sponsor.textContent = sponsorName;
+
+  const title = document.createElement("h3");
+  title.textContent = headline;
+
   const copy = document.createElement("div");
   copy.className = "ad-copy";
-  const advertiser = document.createElement("p");
-  advertiser.innerHTML = "<strong></strong>";
-  advertiser.querySelector("strong").textContent = ad.advertiserName;
-  const offer = document.createElement("p");
-  offer.textContent = ad.offer;
-  copy.append(advertiser, offer);
-  element.append(headline, copy);
+  const sponsorLine = document.createElement("p");
+  const strong = document.createElement("strong");
+  strong.textContent = sponsorName;
+  sponsorLine.appendChild(strong);
+  const offerLine = document.createElement("p");
+  offerLine.textContent = subheadline;
+  copy.append(sponsorLine, offerLine);
+
   const actions = document.createElement("div");
   actions.className = "ad-actions";
-  if (ad.couponCode) {
+  if (couponCode) {
     const coupon = document.createElement("button");
     coupon.className = "coupon";
     coupon.type = "button";
-    coupon.dataset.coupon = ad.couponCode;
-    coupon.textContent = `Code: ${ad.couponCode}`;
+    coupon.dataset.coupon = couponCode;
+    coupon.textContent = `Code: ${couponCode}`;
     actions.appendChild(coupon);
   }
   const link = document.createElement("a");
-  link.href = ad.targetUrl;
-  link.target = "_blank";
-  link.rel = "noopener";
+  link.href = href || "#";
+  if (href && href !== "#") {
+    link.target = "_blank";
+    link.rel = "noopener";
+  }
   link.dataset.adClick = "";
-  link.textContent = ad.cta;
+  link.textContent = cta;
   actions.appendChild(link);
-  element.appendChild(actions);
+
+  content.append(slotLabel, sponsor, title, copy, actions);
+  element.innerHTML = "";
+  element.appendChild(content);
+  return element;
+}
+
+async function generateAdImage(payload) {
+  const response = await fetch("/api/generate-ad-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {}),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Unable to generate ad image.");
+  return result;
+}
+
+function renderGeneratedAd(slot, result) {
+  const element = adSlotElement(slot);
+  if (!element) return null;
+  const slotNumber = Number(element.dataset.adSlot) || Number(result?.metadata?.slot || result?.slot) || "";
+  return createAdShell(element, {
+    slot: slotNumber,
+    label: `Ad Slot ${slotNumber} · Generated Image`,
+    sponsorName: normalizeText(result?.metadata?.sponsorName || result?.sponsorName) || "Generated Sponsor",
+    headline: normalizeText(result?.metadata?.headline || result?.headline) || "Fresh Sponsor Offer",
+    subheadline: normalizeText(result?.metadata?.subheadline || result?.subheadline || result?.offer) || "Generated for this publication slot.",
+    cta: normalizeText(result?.metadata?.callToAction || result?.ctaText || result?.cta) || "Learn More",
+    href: normalizeText(result?.metadata?.targetUrl || result?.targetUrl) || "#",
+    image: imageDataUrl(result),
+  });
+}
+
+function showAdLoading(slot) {
+  const element = adSlotElement(slot);
+  if (!element) return null;
+  const slotNumber = Number(element.dataset.adSlot) || slot;
+  return createAdShell(element, {
+    slot: slotNumber,
+    label: `Ad Slot ${slotNumber} · Generating`,
+    sponsorName: "OpenAI Ad Studio",
+    headline: "Generating Ad",
+    subheadline: "Building an agency-quality image ad for this sponsor slot…",
+    cta: "Please Wait",
+    href: "#",
+    stateClass: "is-loading",
+    loading: true,
+  });
+}
+
+function showAdError(slot, message) {
+  const element = adSlotElement(slot);
+  if (!element) return null;
+  const slotNumber = Number(element.dataset.adSlot) || slot;
+  return createAdShell(element, {
+    slot: slotNumber,
+    label: `Ad Slot ${slotNumber} · Error`,
+    sponsorName: "Ad Studio",
+    headline: "Ad Not Generated",
+    subheadline: message || "Something went wrong while generating this ad.",
+    cta: "Try Again",
+    href: "#",
+    stateClass: "has-error",
+  });
+}
+
+function renderAdElement(element, ad, slot) {
+  if (!ad) {
+    createAdShell(element, {
+      slot,
+      label: `Ad Slot ${slot} · Sponsor Opportunity`,
+      sponsorName: "Your Business Here",
+      headline: "Available Sponsor Slot",
+      subheadline: "Reach restroom readers in this venue.",
+      cta: "Book Slot",
+      href: "admin/",
+      stateClass: "is-empty",
+    });
+    return;
+  }
+
+  createAdShell(element, {
+    slot,
+    label: `Ad Slot ${slot} · ${ad.targetingType}`,
+    sponsorName: ad.advertiserName,
+    headline: ad.headline,
+    subheadline: ad.offer,
+    cta: ad.cta,
+    href: ad.targetUrl,
+    couponCode: ad.couponCode,
+    image: ad.image,
+  });
+
   if (!pageContext.renderedSlots.has(slot)) {
     pageContext.renderedSlots.add(slot);
     recordAnalytics("ad_impression", { slot, advertiserName: ad.advertiserName, targetingType: ad.targetingType });
   }
 }
-
 function renderAds(ads) {
   pageContext.ads = ads.map(normalizeAd);
   document.querySelectorAll("[data-ad-slot]").forEach((element) => {
@@ -551,5 +681,10 @@ async function init() {
   bindClicks();
   bindEventSubmission();
 }
+
+window.generateAdImage = generateAdImage;
+window.renderGeneratedAd = renderGeneratedAd;
+window.showAdLoading = showAdLoading;
+window.showAdError = showAdError;
 
 document.addEventListener("DOMContentLoaded", init);
