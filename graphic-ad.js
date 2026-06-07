@@ -58,7 +58,7 @@ function stallTalkContactHref(ad) {
   const phone = stallTalkSafeText(ad.phone);
   if (/^[+\d][\d\s().-]+$/.test(phone)) return `tel:${phone.replace(/\s/g, "")}`;
 
-  return "#sponsor-wall";
+  return "#sponsor-directory";
 }
 
 function stallTalkClassToken(value, fallback) {
