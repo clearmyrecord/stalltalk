@@ -7,6 +7,7 @@
     "couponCode": "PAINT10",
     "cta": "Request Quote",
     "targetUrl": "https://example.com/painters",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -19,6 +20,7 @@
     "couponCode": "EVENT",
     "cta": "Register Free",
     "targetUrl": "https://example.com/events",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -31,6 +33,7 @@
     "couponCode": "BOX",
     "cta": "Advertise With Us",
     "targetUrl": "https://example.com/boxchairs",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -43,6 +46,7 @@
     "couponCode": "STALL",
     "cta": "Reserve Slot",
     "targetUrl": "https://example.com/ads",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -55,6 +59,7 @@
     "couponCode": "VEGAS10",
     "cta": "Claim Deal",
     "targetUrl": "https://example.com/neon",
+    "image": "",
     "targetingType": "city",
     "market": "Las Vegas",
     "active": true
@@ -67,6 +72,7 @@
     "couponCode": "MGMJAVA",
     "cta": "Get Coupon",
     "targetUrl": "https://example.com/coffee",
+    "image": "",
     "targetingType": "venue",
     "market": "mgm-grand",
     "active": true
@@ -79,6 +85,7 @@
     "couponCode": "KNOX",
     "cta": "RSVP",
     "targetUrl": "https://example.com/knox",
+    "image": "",
     "targetingType": "state",
     "market": "TN",
     "active": true
@@ -91,6 +98,7 @@
     "couponCode": "",
     "cta": "Book Slot",
     "targetUrl": "https://example.com/sponsor",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -103,6 +111,7 @@
     "couponCode": "BREAK15",
     "cta": "Order Now",
     "targetUrl": "https://example.com/coffee-global",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -115,6 +124,7 @@
     "couponCode": "FRESH",
     "cta": "Shop Kit",
     "targetUrl": "https://example.com/fresh",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
@@ -127,6 +137,7 @@
     "couponCode": "TRIVIA",
     "cta": "Play Now",
     "targetUrl": "https://example.com/trivia",
+    "image": "",
     "targetingType": "global",
     "market": "",
     "active": true
