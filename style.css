@@ -727,3 +727,53 @@ main,
   font-weight: 900;
   text-decoration: none;
 }
+
+.ad-card[data-ad-slot],
+.inline-ad[data-ad-slot] {
+  background: #fffdf5 !important;
+  color: #111 !important;
+  border: 3px dashed #111 !important;
+  border-radius: 22px !important;
+  min-height: 180px !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
+}
+
+.ad-card[data-ad-slot].is-empty,
+.inline-ad[data-ad-slot].is-empty {
+  background: #fffdf5 !important;
+  color: #111 !important;
+}
+
+.ad-card[data-ad-slot] h3,
+.ad-card[data-ad-slot] p,
+.ad-card[data-ad-slot] .slot,
+.ad-card[data-ad-slot] a,
+.inline-ad[data-ad-slot] h3,
+.inline-ad[data-ad-slot] p,
+.inline-ad[data-ad-slot] .slot,
+.inline-ad[data-ad-slot] a {
+  color: #111 !important;
+  opacity: 1 !important;
+}
+
+.ad-card[data-ad-slot]::before,
+.ad-card[data-ad-slot]::after,
+.inline-ad[data-ad-slot]::before,
+.inline-ad[data-ad-slot]::after {
+  display: none !important;
+}
+
+.ad-card[data-ad-slot] .ad-actions a,
+.inline-ad[data-ad-slot] .ad-actions a {
+  background: #151189 !important;
+  color: #fff !important;
+  padding: 10px 14px !important;
+  border-radius: 999px !important;
+  font-weight: 900 !important;
+  text-decoration: none !important;
+}
+
+.generated-ad,
+.has-bg-image {
+  background-color: #fffdf5 !important;
+}
