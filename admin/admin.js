@@ -5,6 +5,10 @@ const STORAGE_KEYS = {
   ads: "pottyfavor_ads",
   settings: "pottyfavor_settings",
   analytics: "pottyfavor_analytics",
+  events: "pottyfavor_events",
+  pendingEvents: "pottyfavor_pending_events",
+  oldEvents: "stalltalk_events",
+  oldPendingEvents: "stalltalk_pending_events",
   oldIssue: "stalltalk_standard_issue",
   oldAds: "stalltalk_ad_slots",
   oldVenues: "stalltalk_venues",
@@ -46,6 +50,12 @@ const DEMO = {
     { slot: 6, advertiserName: "Freshen Up Travel Kit", headline: "Restroom Ready", offer: "Travel-size essentials bundle for readers.", couponCode: "FRESH", cta: "Shop Kit", targetUrl: "https://example.com/fresh", image: "", targetingType: "global", market: "", active: true },
     { slot: 7, advertiserName: "Two-Minute Trivia", headline: "Play & Win", offer: "Play a quick trivia round for weekly rewards.", couponCode: "TRIVIA", cta: "Play Now", targetUrl: "https://example.com/trivia", image: "", targetingType: "global", market: "", active: true },
   ],
+  events: [
+    { id: "demo-rooftop-happy-hour", title: "Rooftop Happy Hour", description: "Sunset drink specials and skyline views for Las Vegas locals and visitors.", venueName: "Neon Sky Lounge", address: "300 Las Vegas Blvd S", city: "Las Vegas", state: "NV", eventDate: "2026-06-12", startTime: "17:00", endTime: "19:00", category: "Nightlife", website: "https://example.com/rooftop", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: true, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+    { id: "demo-live-music-night", title: "Live Music Night", description: "Local bands take the stage for a reader-friendly night out.", venueName: "Fremont Room", address: "425 Fremont St", city: "Las Vegas", state: "NV", eventDate: "2026-06-18", startTime: "20:00", endTime: "23:00", category: "Concert", website: "https://example.com/live-music", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: false, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+    { id: "demo-local-comedy-showcase", title: "Local Comedy Showcase", description: "Fast sets from Vegas comedians built for a fun weekend warmup.", venueName: "Arts District Comedy Cellar", address: "1020 S Main St", city: "Las Vegas", state: "NV", eventDate: "2026-06-25", startTime: "19:30", endTime: "21:30", category: "Community", website: "https://example.com/comedy", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: false, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+  ],
+  pendingEvents: [],
   settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html", vercelApiBaseUrl: "", openAiImageModel: "gpt-image-2" },
 };
 
@@ -84,6 +94,8 @@ function state() {
     ads: readJson(STORAGE_KEYS.ads, DEMO.ads),
     settings: { ...DEMO.settings, ...readJson(STORAGE_KEYS.settings, {}) },
     analytics: readJson(STORAGE_KEYS.analytics, []),
+    events: readJson(STORAGE_KEYS.events, DEMO.events),
+    pendingEvents: readJson(STORAGE_KEYS.pendingEvents, DEMO.pendingEvents),
   };
 }
 
@@ -99,6 +111,14 @@ function migrateOldKeys() {
   if (!localStorage.getItem(STORAGE_KEYS.ads)) {
     const oldAds = readJson(STORAGE_KEYS.oldAds, null);
     if (Array.isArray(oldAds)) saveJson(STORAGE_KEYS.ads, oldAds);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.events)) {
+    const oldEvents = readJson(STORAGE_KEYS.oldEvents, null);
+    if (Array.isArray(oldEvents)) saveJson(STORAGE_KEYS.events, oldEvents);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.pendingEvents)) {
+    const oldPendingEvents = readJson(STORAGE_KEYS.oldPendingEvents, null);
+    if (Array.isArray(oldPendingEvents)) saveJson(STORAGE_KEYS.pendingEvents, oldPendingEvents);
   }
 }
 
@@ -154,6 +174,145 @@ function fillIssueForm(issue) {
   Object.entries(issue).forEach(([key, value]) => {
     if (form.elements[key]) form.elements[key].value = Array.isArray(value) ? arrayToLines(value) : value;
   });
+}
+
+function normalizeEvent(event) {
+  const now = new Date().toISOString();
+  return {
+    id: String(event.id || `event-${Date.now()}`),
+    title: String(event.title || "").trim(),
+    description: String(event.description || "").trim(),
+    venueName: String(event.venueName || "").trim(),
+    address: String(event.address || "").trim(),
+    city: String(event.city || "").trim(),
+    state: String(event.state || "").trim().toUpperCase(),
+    eventDate: String(event.eventDate || "").trim(),
+    startTime: String(event.startTime || "").trim(),
+    endTime: String(event.endTime || "").trim(),
+    category: String(event.category || "Other").trim(),
+    website: String(event.website || "").trim(),
+    phone: String(event.phone || "").trim(),
+    submittedByName: String(event.submittedByName || "").trim(),
+    submittedByEmail: String(event.submittedByEmail || "").trim(),
+    status: String(event.status || "pending").trim(),
+    featured: event.featured === true || String(event.featured) === "true",
+    createdAt: String(event.createdAt || now),
+    updatedAt: String(event.updatedAt || now),
+  };
+}
+
+function saveEventsEverywhere(events) {
+  saveJson(STORAGE_KEYS.events, events);
+  saveJson(STORAGE_KEYS.oldEvents, events);
+}
+
+function savePendingEventsEverywhere(events) {
+  saveJson(STORAGE_KEYS.pendingEvents, events);
+  saveJson(STORAGE_KEYS.oldPendingEvents, events);
+}
+
+function recordAnalytics(type, details = {}) {
+  const events = readJson(STORAGE_KEYS.analytics, []);
+  events.push({ type, details, at: new Date().toISOString() });
+  saveJson(STORAGE_KEYS.analytics, events.slice(-500));
+}
+
+function setEventStatus(message, isError = false) {
+  const status = document.querySelector("#event-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", Boolean(isError));
+}
+
+function formatEventDate(event) {
+  return [event.eventDate, event.startTime && `${event.startTime}${event.endTime ? `–${event.endTime}` : ""}`].filter(Boolean).join(" · ");
+}
+
+function collectAdminEvent() {
+  const form = document.querySelector("#admin-event-form");
+  const data = new FormData(form);
+  const existingId = String(data.get("id") || "");
+  const existing = [...state().events, ...state().pendingEvents].find((event) => event.id === existingId) || {};
+  return normalizeEvent({
+    ...existing,
+    id: existingId || `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: data.get("title"),
+    description: data.get("description"),
+    venueName: data.get("venueName"),
+    address: data.get("address"),
+    city: data.get("city"),
+    state: data.get("state"),
+    eventDate: data.get("eventDate"),
+    startTime: data.get("startTime"),
+    endTime: data.get("endTime"),
+    category: data.get("category"),
+    website: data.get("website"),
+    phone: data.get("phone"),
+    submittedByName: data.get("submittedByName"),
+    submittedByEmail: data.get("submittedByEmail"),
+    status: data.get("status"),
+    featured: data.get("featured"),
+    createdAt: existing.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function validateEvent(event) {
+  return ["title", "venueName", "city", "state", "eventDate", "submittedByEmail"].filter((key) => !String(event[key] || "").trim());
+}
+
+function fillEventForm(event = {}) {
+  const form = document.querySelector("#admin-event-form");
+  if (!form) return;
+  form.reset();
+  const normalized = normalizeEvent(event);
+  Object.entries(normalized).forEach(([key, value]) => {
+    if (form.elements[key]) form.elements[key].value = key === "featured" ? String(Boolean(value)) : value;
+  });
+}
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+}
+
+function eventCardHtml(event, source) {
+  const id = escapeHtml(event.id);
+  return `<div class="row"><strong>${escapeHtml(event.title)}${event.featured ? " ⭐" : ""}</strong><span>${escapeHtml(event.status)}</span></div><p>${escapeHtml(event.venueName)} · ${escapeHtml(formatEventDate(event))} · ${escapeHtml(event.city)}, ${escapeHtml(event.state)}</p><small>${escapeHtml(event.category)} · ${escapeHtml(event.submittedByEmail)}</small><div class="event-actions"><button type="button" data-edit-event="${id}" data-source="${source}">Edit</button>${source === "pending" ? `<button type="button" data-approve-event="${id}">Approve</button><button type="button" class="secondary" data-reject-event="${id}">Reject</button>` : ""}<button type="button" class="secondary" data-feature-event="${id}" data-source="${source}">${event.featured ? "Unfeature" : "Feature"}</button><button type="button" class="danger" data-delete-event="${id}" data-source="${source}">Delete</button></div>`;
+}
+
+function renderEvents() {
+  const pendingList = document.querySelector("#pending-event-list");
+  const approvedList = document.querySelector("#approved-event-list");
+  if (!pendingList || !approvedList) return;
+  const current = state();
+  const pending = current.pendingEvents.map(normalizeEvent).filter((event) => event.status !== "rejected");
+  const approved = current.events.map(normalizeEvent).filter((event) => event.status === "approved").sort((a, b) => `${a.eventDate} ${a.startTime}`.localeCompare(`${b.eventDate} ${b.startTime}`));
+  pendingList.innerHTML = pending.length ? "" : '<article class="list-card">No pending submissions.</article>';
+  approvedList.innerHTML = approved.length ? "" : '<article class="list-card">No approved events yet.</article>';
+  pending.forEach((event) => {
+    const card = document.createElement("article");
+    card.className = "list-card";
+    card.innerHTML = eventCardHtml(event, "pending");
+    pendingList.appendChild(card);
+  });
+  approved.forEach((event) => {
+    const card = document.createElement("article");
+    card.className = "list-card";
+    card.innerHTML = eventCardHtml(event, "approved");
+    approvedList.appendChild(card);
+  });
+}
+
+function upsertEvent(event) {
+  const normalized = normalizeEvent(event);
+  const events = state().events.filter((item) => item.id !== normalized.id);
+  const pending = state().pendingEvents.filter((item) => item.id !== normalized.id);
+  if (normalized.status === "approved") events.push(normalized);
+  else pending.push(normalized);
+  saveEventsEverywhere(events);
+  savePendingEventsEverywhere(pending);
+  renderEvents();
+  refreshExportBox();
 }
 
 function qrUrlForSlug(slug) {
@@ -267,7 +426,7 @@ function collectAd() {
 
 function exportPayload() {
   const current = state();
-  return { issue: current.issue, venues: current.venues, ads: current.ads, settings: current.settings, exportedAt: new Date().toISOString() };
+  return { issue: current.issue, venues: current.venues, ads: current.ads, events: current.events, pendingEvents: current.pendingEvents, pottyfavor_events: current.events, pottyfavor_pending_events: current.pendingEvents, settings: current.settings, exportedAt: new Date().toISOString() };
 }
 
 function refreshExportBox() {
@@ -278,6 +437,10 @@ function importPayload(payload) {
   if (payload.issue) saveJson(STORAGE_KEYS.issue, payload.issue);
   if (Array.isArray(payload.venues)) saveJson(STORAGE_KEYS.venues, payload.venues);
   if (Array.isArray(payload.ads)) saveAdsEverywhere(payload.ads);
+  const importedEvents = Array.isArray(payload.pottyfavor_events) ? payload.pottyfavor_events : payload.events;
+  const importedPendingEvents = Array.isArray(payload.pottyfavor_pending_events) ? payload.pottyfavor_pending_events : payload.pendingEvents;
+  if (Array.isArray(importedEvents)) saveEventsEverywhere(importedEvents.map(normalizeEvent));
+  if (Array.isArray(importedPendingEvents)) savePendingEventsEverywhere(importedPendingEvents.map(normalizeEvent));
   if (payload.settings) saveJson(STORAGE_KEYS.settings, payload.settings);
   loadAll();
   setStatus("Imported JSON into localStorage.");
@@ -588,6 +751,7 @@ function loadAll() {
   renderAds();
   loadSettings();
   renderAnalytics();
+  renderEvents();
   refreshExportBox();
   updateQrPreview(current.venues[0]?.slug || "demo-venue");
   const frame = document.querySelector("#preview-frame");
@@ -603,6 +767,7 @@ function bindTabs() {
       document.querySelector(`#tab-${button.dataset.tab}`).classList.add("active");
       if (button.dataset.tab === "preview") document.querySelector("#preview-frame").src = `../index.html?preview=local&cache=${Date.now()}`;
       if (button.dataset.tab === "import") refreshExportBox();
+      if (button.dataset.tab === "events") renderEvents();
     });
   });
 }
@@ -636,6 +801,8 @@ function bindActions() {
     saveJson(STORAGE_KEYS.venues, DEMO.venues);
     saveAdsEverywhere(DEMO.ads);
     saveJson(STORAGE_KEYS.settings, DEMO.settings);
+    saveEventsEverywhere(DEMO.events);
+    savePendingEventsEverywhere(DEMO.pendingEvents);
     setStatus("Demo restored.");
     loadAll();
   });
@@ -671,6 +838,67 @@ function bindActions() {
     }
   });
   document.querySelector("#copy-qr").addEventListener("click", () => navigator.clipboard?.writeText(document.querySelector("#qr-url").textContent));
+  document.querySelector("#admin-event-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const eventItem = collectAdminEvent();
+    const missing = validateEvent(eventItem);
+    if (missing.length) {
+      setEventStatus(`Please complete: ${missing.join(", ")}.`, true);
+      return;
+    }
+    upsertEvent(eventItem);
+    if (eventItem.status === "approved") recordAnalytics("event_approved", { id: eventItem.id, title: eventItem.title });
+    fillEventForm();
+    setEventStatus("Event saved locally.");
+  });
+  document.querySelector("#clear-event-form").addEventListener("click", () => {
+    fillEventForm();
+    setEventStatus("Event form cleared.");
+  });
+  document.querySelector("#publish-events").addEventListener("click", () => {
+    const approved = state().events.map(normalizeEvent).filter((event) => event.status === "approved");
+    saveEventsEverywhere(approved);
+    renderEvents();
+    refreshExportBox();
+    setEventStatus("Published approved event list to pottyfavor_events.");
+  });
+  document.querySelector("#tab-events").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const current = state();
+    const id = button.dataset.editEvent || button.dataset.approveEvent || button.dataset.rejectEvent || button.dataset.featureEvent || button.dataset.deleteEvent;
+    if (!id) return;
+    const source = button.dataset.source || "pending";
+    const pool = source === "approved" ? current.events : current.pendingEvents;
+    const eventItem = normalizeEvent(pool.find((item) => item.id === id) || {});
+    if (button.dataset.editEvent) fillEventForm(eventItem);
+    if (button.dataset.approveEvent) {
+      upsertEvent({ ...eventItem, status: "approved", updatedAt: new Date().toISOString() });
+      recordAnalytics("event_approved", { id: eventItem.id, title: eventItem.title });
+      setEventStatus("Event approved and published.");
+    }
+    if (button.dataset.rejectEvent) {
+      const pending = current.pendingEvents.map((item) => item.id === id ? { ...item, status: "rejected", updatedAt: new Date().toISOString() } : item);
+      savePendingEventsEverywhere(pending);
+      renderEvents();
+      refreshExportBox();
+      setEventStatus("Event rejected. It will not publish.");
+    }
+    if (button.dataset.featureEvent) {
+      const update = (items) => items.map((item) => item.id === id ? { ...item, featured: !item.featured, updatedAt: new Date().toISOString() } : item);
+      if (source === "approved") saveEventsEverywhere(update(current.events));
+      else savePendingEventsEverywhere(update(current.pendingEvents));
+      renderEvents();
+      refreshExportBox();
+    }
+    if (button.dataset.deleteEvent) {
+      if (source === "approved") saveEventsEverywhere(current.events.filter((item) => item.id !== id));
+      else savePendingEventsEverywhere(current.pendingEvents.filter((item) => item.id !== id));
+      renderEvents();
+      refreshExportBox();
+      setEventStatus("Event deleted.");
+    }
+  });
   document.querySelector("#slot-picker").addEventListener("click", (event) => {
     const button = event.target.closest("[data-slot]");
     if (!button) return;
@@ -777,6 +1005,8 @@ function init() {
   if (!localStorage.getItem(STORAGE_KEYS.venues)) saveJson(STORAGE_KEYS.venues, DEMO.venues);
   if (!localStorage.getItem(STORAGE_KEYS.ads)) saveAdsEverywhere(DEMO.ads);
   if (!localStorage.getItem(STORAGE_KEYS.settings)) saveJson(STORAGE_KEYS.settings, DEMO.settings);
+  if (!localStorage.getItem(STORAGE_KEYS.events)) saveEventsEverywhere(DEMO.events);
+  if (!localStorage.getItem(STORAGE_KEYS.pendingEvents)) savePendingEventsEverywhere(DEMO.pendingEvents);
   bindTabs();
   bindActions();
   loadAll();
