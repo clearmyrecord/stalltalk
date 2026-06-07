@@ -41,17 +41,22 @@ export function AdCard({ ad, slotNumber, issueId, publisherId, venueId, restroom
 }
 
 export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number; chip?: boolean }) {
+  const articleClasses = chip
+    ? "inline-ad is-empty min-w-[10rem] max-w-[11rem] rounded-xl border-2 border-dashed border-ink bg-paper p-2 text-ink shadow-brutal"
+    : "inline-ad is-empty rounded-[1.75rem] border-4 border-dashed border-ink bg-paper p-5 text-ink shadow-brutal";
+
   return (
-    <article className={chip ? "min-w-[10rem] max-w-[11rem] rounded-xl border-2 border-dashed border-ink bg-stallYellow p-2 text-ink shadow-brutal" : "rounded-[1.75rem] border-4 border-dashed border-ink bg-stallYellow p-5 text-ink shadow-brutal"}>
+    <article className={articleClasses}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
-        <span className="rounded-full bg-stallRed px-2 py-1 text-[10px] font-black uppercase text-white">Premium</span>
+        <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-stallPurple ring-2 ring-ink">Premium</span>
       </div>
-      <div className={`ad-gradient-${slotNumber} grid ${chip ? "h-16" : "min-h-40"} place-items-center rounded-xl border-2 border-ink p-4 text-center font-black uppercase text-white shadow-inner`}>
+      <div className={`grid ${chip ? "min-h-16" : "min-h-40"} place-items-center rounded-xl border-2 border-dashed border-ink bg-white/80 p-4 text-center font-black uppercase text-ink shadow-inner`}>
         Advertise Here
       </div>
-      <h3 className={`${chip ? "mt-2 text-lg" : "mt-4 text-4xl md:text-6xl"} font-display uppercase leading-none`}>Available Sponsor Slot</h3>
+      <h3 className={`${chip ? "mt-2 text-lg" : "mt-4 text-4xl md:text-6xl"} font-display uppercase leading-none text-ink`}>Available Sponsor Slot</h3>
       {!chip ? <p className="mt-2 text-lg font-black uppercase text-stallRed">Reach restroom readers in this venue.</p> : null}
+      <a className={`${chip ? "mt-2 px-3 py-2 text-xs" : "mt-4 px-4 py-3 text-sm"} inline-flex w-fit rounded-full bg-stallPurple font-black uppercase text-white shadow-brutal`} href="/admin/stripe">Book Slot</a>
     </article>
   );
 }
