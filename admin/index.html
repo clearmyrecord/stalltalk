@@ -10,7 +10,7 @@
     <main class="admin-shell">
       <header class="admin-hero">
         <h1>Potty Favor Admin</h1>
-        <p>Simple Phase 1 control room for one standard monthly issue, venue QR links, and eight targeted ad slots. Everything saves to localStorage and works on GitHub Pages.</p>
+        <p>Simple Phase 1 control room for one standard monthly issue, venue QR links, and eight inline publication ad slots. Everything saves to localStorage and works on GitHub Pages.</p>
         <p><a class="button-link" href="../index.html">Open Public Issue</a></p>
       </header>
 
@@ -96,7 +96,7 @@
 
       <section class="admin-panel" id="tab-creative">
         <h2>AI Creative Studio</h2>
-        <p>Enter a creative brief, generate a finished graphic ad through the configured Vercel API, then publish it to one of the 8 Potty Favor slots.</p>
+        <p>Enter a creative brief, generate a finished graphic ad through the configured Vercel API, then publish it to one of the 8 inline Potty Favor publication slots.</p>
         <div class="preset-row" id="creative-presets" aria-label="Creative brief presets">
           <button type="button" data-preset="vegasRestaurant">Vegas Restaurant / Bar</button>
           <button type="button" data-preset="casinoOffer">Casino Offer</button>
@@ -122,7 +122,7 @@
           <label>Brand colors<input name="brandColors" placeholder="black, gold, neon pink" /></label>
           <label>Visual style<input name="visualStyle" /></label>
           <label>Tone<input name="tone" /></label>
-          <label>Ad slot size<select name="adSize"><option>Square</option><option>Banner</option><option>Tall</option><option>Rail</option><option>Mobile card</option></select></label>
+          <label>Ad slot size<select name="adSize"><option>Square</option><option>Banner</option><option>Tall</option><option>Inline banner</option><option>Mobile card</option></select></label>
           <label class="full">Required text<textarea name="requiredText" placeholder="Exact legal/business text that must appear"></textarea></label>
           <label class="full">Optional disclaimer<textarea name="optionalDisclaimer"></textarea></label>
           <div class="full actions"><button type="submit" id="generate-creative">Generate Ad Image</button></div>
@@ -152,7 +152,7 @@
       </section>
 
       <section class="admin-panel" id="tab-preview">
-        <h2>Preview</h2>
+        <h2>Inline Publication Preview</h2>
         <p>The iframe uses the same static public page and localStorage data as GitHub Pages.</p>
         <div class="preview-frame"><iframe id="preview-frame" title="Public issue preview" src="../index.html"></iframe></div>
       </section>

@@ -205,8 +205,8 @@ function selectAdForSlot(slot, ads) {
 
 function renderAdElement(element, ad, slot) {
   if (!ad) {
-    element.className = `${element.className} is-empty`;
-    element.innerHTML = `<span class="slot">Ad Slot ${slot}</span><h3>Available</h3><p>Reserve this Potty Favor placement.</p><a href="admin/">Book Slot</a>`;
+    element.classList.add("is-empty");
+    element.innerHTML = `<span class="slot">Ad Slot ${slot} · Sponsor Opportunity</span><h3>Available Sponsor Slot</h3><div class="ad-copy"><p><strong>Advertise Here</strong></p><p>Reach restroom readers in this venue.</p></div><div class="ad-actions"><a href="admin/">Book Slot</a></div>`;
     return;
   }
   element.classList.remove("is-empty");
@@ -224,19 +224,24 @@ function renderAdElement(element, ad, slot) {
   }
   const headline = document.createElement("h3");
   headline.textContent = ad.headline;
+  const copy = document.createElement("div");
+  copy.className = "ad-copy";
   const advertiser = document.createElement("p");
   advertiser.innerHTML = "<strong></strong>";
   advertiser.querySelector("strong").textContent = ad.advertiserName;
   const offer = document.createElement("p");
   offer.textContent = ad.offer;
-  element.append(headline, advertiser, offer);
+  copy.append(advertiser, offer);
+  element.append(headline, copy);
+  const actions = document.createElement("div");
+  actions.className = "ad-actions";
   if (ad.couponCode) {
     const coupon = document.createElement("button");
     coupon.className = "coupon";
     coupon.type = "button";
     coupon.dataset.coupon = ad.couponCode;
     coupon.textContent = `Code: ${ad.couponCode}`;
-    element.appendChild(coupon);
+    actions.appendChild(coupon);
   }
   const link = document.createElement("a");
   link.href = ad.targetUrl;
@@ -244,7 +249,8 @@ function renderAdElement(element, ad, slot) {
   link.rel = "noopener";
   link.dataset.adClick = "";
   link.textContent = ad.cta;
-  element.appendChild(link);
+  actions.appendChild(link);
+  element.appendChild(actions);
   if (!pageContext.renderedSlots.has(slot)) {
     pageContext.renderedSlots.add(slot);
     recordAnalytics("ad_impression", { slot, advertiserName: ad.advertiserName, targetingType: ad.targetingType });

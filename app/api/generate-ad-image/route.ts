@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type AdSize = "Banner" | "Square" | "Tall" | "Rail" | "Mobile card" | "Footer";
+type AdSize = "Banner" | "Square" | "Tall" | "Inline banner" | "Mobile card" | "Footer";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -24,7 +24,7 @@ const sizeMap: Record<AdSize, { apiSize: string; composition: string; cssSafeAre
   Banner: { apiSize: "1536x1024", composition: "wide banner advertisement with large central headline and horizontal CTA safe area", cssSafeArea: "16:5 banner crop" },
   Square: { apiSize: "1024x1024", composition: "square social-style advertisement with balanced headline, product atmosphere, and CTA", cssSafeArea: "1:1 square" },
   Tall: { apiSize: "1024x1536", composition: "tall mobile advertisement with vertical hierarchy, clear offer, and bottom CTA", cssSafeArea: "4:5 tall crop" },
-  Rail: { apiSize: "1024x1536", composition: "vertical desktop sponsor rail with readable type from a side placement", cssSafeArea: "rail crop" },
+  "Inline banner": { apiSize: "1536x1024", composition: "premium inline publication ad with readable type inside the article flow", cssSafeArea: "publication-width safe area" },
   "Mobile card": { apiSize: "1024x1024", composition: "mobile-friendly sponsor card with simple hierarchy and bold CTA", cssSafeArea: "mobile card" },
   Footer: { apiSize: "1536x1024", composition: "slim footer-strip advertisement composed inside a centered horizontal band with no important text near edges", cssSafeArea: "5:1 footer crop" }
 };
@@ -42,7 +42,7 @@ function normalizeSize(value: unknown): AdSize {
   const normalized = safe(value, "Banner").toLowerCase();
   if (normalized.includes("square")) return "Square";
   if (normalized.includes("tall")) return "Tall";
-  if (normalized.includes("rail")) return "Rail";
+  if (normalized.includes("inline")) return "Inline banner";
   if (normalized.includes("mobile") || normalized.includes("card")) return "Mobile card";
   if (normalized.includes("footer")) return "Footer";
   return "Banner";

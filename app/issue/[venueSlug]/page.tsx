@@ -24,7 +24,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
 
   return (
-    <main className="issue-shell min-h-screen overflow-x-hidden pb-[18rem] text-ink md:pb-0">
+    <main className="issue-shell min-h-screen overflow-x-hidden text-ink">
       <ScanRecorder publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} issueId={issue.id} />
       <ImpressionRecorder events={actualAds.map((ad) => ({ publisherId: issue.publisherId, venueId: issue.venueId, restroomId: issue.restroomId, qrCodeId: issue.qrCodeId, issueId: issue.id, advertiserId: ad.advertiserId, adId: ad.id, slotNumber: ad.slotNumber }))} />
       <header className="sticky top-0 z-40 border-b-4 border-ink bg-stallYellow px-3 py-2 text-center shadow-lg md:relative md:top-auto md:z-auto md:px-8">
@@ -33,37 +33,10 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
         <p className="font-black uppercase">{issue.venue.city}, {issue.venue.state} • {issue.month} {issue.year} • Issue #{issue.issueNumber} • QR {issue.qrCode?.code || "venue"}</p>
       </header>
 
-      <div className="sticky top-[6.5rem] z-30 mx-auto max-w-xl p-2 md:hidden">
-        <AdPlacement ads={ads} slotNumber={1} issue={issue} compact />
-      </div>
-
-      <div className="mx-auto hidden max-w-[1600px] grid-cols-[230px_minmax(0,1fr)_230px] gap-4 p-4 md:grid xl:grid-cols-[280px_minmax(0,1fr)_280px]">
-        <SponsorRail ads={ads} issue={issue} slots={[1, 2, 3, 4]} />
-        <IssueContent issue={issue} />
-        <SponsorRail ads={ads} issue={issue} slots={[5, 6, 7, 8]} />
-      </div>
-
-      <div className="md:hidden">
-        <IssueContent issue={issue} mobile />
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t-4 border-ink bg-white/95 p-2 shadow-2xl backdrop-blur">
-          <p className="mb-2 text-center text-[10px] font-black uppercase tracking-[.25em] text-stallRed">Paid sponsor tray • Ads 2–8 stay visible</p>
-          <div className="mb-2 grid grid-cols-8 gap-1" aria-label="All paid sponsor slot labels">
-            {ads.map((_, index) => <span key={index} className={`ad-gradient-${index + 1} truncate rounded-md border-2 border-ink px-1 py-1 text-center text-[9px] font-black uppercase text-white`}>Ad {index + 1}</span>)}
-          </div>
-          <div className="mobile-ad-tray flex gap-2 overflow-x-auto pb-1" aria-label="Sticky sponsor ads 2 through 8">
-            {[2, 3, 4, 5, 6, 7, 8].map((slotNumber) => <AdPlacement key={slotNumber} ads={ads} slotNumber={slotNumber} issue={issue} compact chip />)}
-          </div>
-        </div>
+      <div className="mx-auto max-w-5xl p-3 md:p-5">
+        <IssueContent issue={issue} ads={ads} />
       </div>
     </main>
-  );
-}
-
-function SponsorRail({ ads, issue, slots }: { ads: ServedAds; issue: IssueWithContext; slots: number[] }) {
-  return (
-    <aside className="sticky top-4 flex max-h-[calc(100vh-2rem)] flex-col gap-3 overflow-y-auto pr-2" aria-label={`Sticky sponsor rail slots ${slots[0]} through ${slots[slots.length - 1]}`}>
-      {slots.map((slotNumber) => <AdPlacement key={slotNumber} ads={ads} slotNumber={slotNumber} issue={issue} compact />)}
-    </aside>
   );
 }
 
@@ -73,15 +46,24 @@ function AdPlacement({ ads, slotNumber, issue, compact = false, chip = false }: 
   return <AdCard ad={ad} slotNumber={slotNumber} issueId={issue.id} publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} compact={compact} chip={chip} />;
 }
 
-function IssueContent({ issue, mobile = false }: { issue: IssueWithContext; mobile?: boolean }) {
+function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds }) {
+  const placedSlots = new Set<number>();
+  const nextAdAfterBlock = (index: number) => {
+    const slotNumber = index + 2;
+    if (slotNumber > 8) return null;
+    placedSlots.add(slotNumber);
+    return <AdPlacement key={`ad-${slotNumber}`} ads={ads} slotNumber={slotNumber} issue={issue} />;
+  };
+
   return (
-    <section className={`grid min-w-0 gap-4 ${mobile ? "p-3 pb-8" : ""}`}>
+    <section className="grid min-w-0 gap-5">
       <div className="rounded-[2rem] border-4 border-ink bg-white p-5 shadow-brutal">
         <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">Publisher-grade restroom media</p>
         <h2 className="font-display text-6xl uppercase leading-none text-stallRed md:text-8xl">Potty Favor</h2>
-        <p className="mt-2 text-xl font-black uppercase">Ad serving priority: restroom &gt; venue &gt; city &gt; global. Paid sponsor inventory remains visible while readers scroll.</p>
+        <p className="mt-2 text-xl font-black uppercase">Ad serving priority: restroom &gt; venue &gt; city &gt; global. Paid sponsor inventory is placed inline with articles like a magazine.</p>
       </div>
-      {issue.contentBlocks.map((block, index) => (
+      <AdPlacement ads={ads} slotNumber={1} issue={issue} />
+      {issue.contentBlocks.flatMap((block, index) => [
         <details key={block.id} className="group rounded-[1.5rem] border-4 border-ink bg-paper p-4 shadow-brutal open:bg-white" open={index < 2}>
           <summary className="cursor-pointer list-none">
             <span className="rounded-full bg-ink px-3 py-1 text-xs font-black uppercase tracking-widest text-stallYellow">{contentLabels[block.type]}</span>
@@ -89,8 +71,15 @@ function IssueContent({ issue, mobile = false }: { issue: IssueWithContext; mobi
             <p className="mt-2 font-black uppercase text-stallPurple">Tap to {index < 2 ? "collapse" : "expand"}</p>
           </summary>
           <p className="mt-4 whitespace-pre-wrap text-lg font-bold leading-relaxed">{block.body}</p>
-        </details>
-      ))}
+        </details>,
+        nextAdAfterBlock(index)
+      ].filter(Boolean))}
+      {[2, 3, 4, 5, 6, 7, 8].filter((slotNumber) => !placedSlots.has(slotNumber)).map((slotNumber) => <AdPlacement key={`remaining-ad-${slotNumber}`} ads={ads} slotNumber={slotNumber} issue={issue} />)}
+      <section className="rounded-[1.5rem] border-4 border-ink bg-white p-5 text-center shadow-brutal">
+        <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">Sponsor Directory</p>
+        <h2 className="font-display text-5xl uppercase text-stallRed">Featured Sponsors</h2>
+        <p className="mt-2 font-black uppercase">Eight inline publication ad slots support restroom, venue, city, and global targeting.</p>
+      </section>
     </section>
   );
 }
