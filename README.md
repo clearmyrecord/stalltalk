@@ -66,6 +66,25 @@ A `docker-compose.yml` file is included for local development. `npm run db:up` s
 * `/admin/analytics` — scans, visitors, time on page, ad/coupon analytics, top venues, top advertisers
 * `/admin/stripe` — monthly subscription, per-location pricing, and coupon campaign readiness
 
+## GitHub Pages Shared Publishing
+
+The static public Potty Favor page supports shared publication JSON files so content updates can appear on phones and other devices without adding a database or authentication layer. On page load, `script.js` fetches these files with cache busting before using browser-local fallback data:
+
+1. `data/published-issue.json`
+2. `data/published-ads.json`
+3. localStorage issue/ad data
+4. bundled demo data
+
+Admin drafts and local previews still use localStorage. To publish shared content for GitHub Pages:
+
+1. Open `admin/index.html`.
+2. Edit the issue and ads.
+3. Use **Publish Locally** only when you want the current browser to see the update immediately.
+4. Use **Download Publish Bundle** to download `published-issue.json` and `published-ads.json`, then replace the matching files in `/data` on GitHub and commit them.
+5. Or use **Copy Codex Publish Command** and paste the generated command into Codex/GitHub so the `/data` files can be updated and committed.
+
+After GitHub Pages deploys the committed JSON files, all devices load the same shared issue and targeted ad slots.
+
 ## AI Creative Studio
 
 The AI Creative Studio lives at `/admin/ads/new` and turns advertiser details into campaign creative.

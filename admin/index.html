@@ -27,6 +27,13 @@
       <section class="admin-panel active" id="tab-content">
         <h2>One Standard Monthly Issue</h2>
         <p>Edit the single issue every venue sees. Venue QR URLs change ads only, not the publication content.</p>
+        <div class="publish-box">
+          <strong>Shared publishing notice:</strong> Local publish updates this browser only. To update phones and other devices, publish shared JSON to GitHub Pages.
+          <ol>
+            <li>Click <strong>Download Publish Bundle</strong> and upload the JSON files into <code>/data</code> on GitHub, or</li>
+            <li>Click <strong>Copy Codex Publish Command</strong> and paste it into Codex/GitHub to update the files.</li>
+          </ol>
+        </div>
         <form id="content-form" class="form-grid">
           <label>Issue month/year<input name="issueMonthYear" /></label>
           <label>Masthead brand<input name="mastheadBrand" /></label>
@@ -46,7 +53,10 @@
         </form>
         <div class="actions">
           <button type="button" id="save-draft">Save Draft</button>
-          <button type="button" id="publish-issue">Publish</button>
+          <button type="button" id="preview-local" class="secondary">Preview Locally</button>
+          <button type="button" id="publish-issue">Publish Locally</button>
+          <button type="button" id="download-publish-bundle">Download Publish Bundle</button>
+          <button type="button" id="copy-publish-command" class="secondary">Copy Codex Publish Command</button>
           <button type="button" id="reset-demo" class="secondary">Reset Demo</button>
           <button type="button" id="export-json" class="secondary">Export JSON</button>
           <label class="button-link secondary">Import JSON<input id="import-file" type="file" accept="application/json" hidden /></label>
@@ -153,7 +163,7 @@
 
       <section class="admin-panel" id="tab-preview">
         <h2>Inline Publication Preview</h2>
-        <p>The iframe uses the same static public page and localStorage data as GitHub Pages.</p>
+        <p>The iframe uses the same static public page. It loads shared JSON first, then localStorage/demo fallbacks.</p>
         <div class="preview-frame"><iframe id="preview-frame" title="Public issue preview" src="../index.html"></iframe></div>
       </section>
 
