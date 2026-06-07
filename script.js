@@ -15,6 +15,10 @@ const STORAGE_KEYS = {
   marketAds: "stalltalk_market_ads",
 };
 
+const API_BASE =
+  localStorage.getItem("pottyFavorApiBase") ||
+  "https://stalltalk.vercel.app";
+
 const DEFAULT_DEMO = {
   issue: {
     issueMonthYear: "June 2026",
@@ -540,13 +544,24 @@ function createAdShell(element, options = {}) {
 }
 
 async function generateAdImage(payload) {
-  const response = await fetch("/api/generate-ad-image", {
+  const response = await fetch(`${API_BASE}/api/generate-ad-image`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {}),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || "Unable to generate ad image.");
+  return result;
+}
+
+async function generateAdVideo(payload) {
+  const response = await fetch(`${API_BASE}/api/generate-ad-video`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {}),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Video ad generation is not enabled yet.");
   return result;
 }
 
@@ -683,6 +698,7 @@ async function init() {
 }
 
 window.generateAdImage = generateAdImage;
+window.generateAdVideo = generateAdVideo;
 window.renderGeneratedAd = renderGeneratedAd;
 window.showAdLoading = showAdLoading;
 window.showAdError = showAdError;
