@@ -1,5 +1,6 @@
 const STORAGE_KEYS = {
   issue: "pottyfavor_issue",
+  draft: "pottyfavor_issue_draft",
   venues: "pottyfavor_venues",
   ads: "pottyfavor_ads",
   settings: "pottyfavor_settings",
@@ -34,6 +35,7 @@ const DEFAULT_DEMO = {
 };
 
 const pageContext = {
+  urlParams: new URLSearchParams(window.location.search),
   venueSlug: new URLSearchParams(window.location.search).get("venue") || "",
   venue: null,
   market: null,
@@ -77,6 +79,45 @@ async function loadDemoData() {
     console.warn("Using embedded demo data because data/demo.json could not be loaded.", error);
   }
   return DEFAULT_DEMO;
+}
+
+
+async function fetchPublishedJson(path) {
+  try {
+    const response = await fetch(`${path}?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) {
+      console.info(`No shared publication loaded from ${path}: ${response.status}`);
+      return null;
+    }
+    const payload = await response.json();
+    console.info(`Loaded shared publication data from ${path}.`);
+    return payload;
+  } catch (error) {
+    console.info(`Falling back because shared publication data could not be loaded from ${path}.`, error);
+    return null;
+  }
+}
+
+function extractIssuePayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  return payload.issue && typeof payload.issue === "object" ? payload.issue : payload;
+}
+
+function extractAdsPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.ads)) return payload.ads;
+  return null;
+}
+
+async function loadSharedPublication() {
+  const [issuePayload, adsPayload] = await Promise.all([
+    fetchPublishedJson("data/published-issue.json"),
+    fetchPublishedJson("data/published-ads.json"),
+  ]);
+  return {
+    issue: extractIssuePayload(issuePayload),
+    ads: extractAdsPayload(adsPayload),
+  };
 }
 
 function migrateOldKeys() {
@@ -283,9 +324,15 @@ function bindClicks() {
 async function init() {
   migrateOldKeys();
   const demo = await loadDemoData();
-  const issue = { ...demo.issue, ...readJson(STORAGE_KEYS.issue, {}) };
+  const localPreview = pageContext.urlParams.get("preview") === "local";
+  const shared = localPreview ? { issue: null, ads: null } : await loadSharedPublication();
+  const localIssue = localPreview ? (readJson(STORAGE_KEYS.draft, null) || readJson(STORAGE_KEYS.issue, null)) : readJson(STORAGE_KEYS.issue, null);
+  const localAds = readJson(STORAGE_KEYS.ads, null);
+  const issue = shared.issue ? { ...demo.issue, ...shared.issue } : { ...demo.issue, ...(localIssue || {}) };
   const venues = readJson(STORAGE_KEYS.venues, demo.venues);
-  const ads = readJson(STORAGE_KEYS.ads, demo.ads);
+  const ads = Array.isArray(shared.ads) ? shared.ads : (Array.isArray(localAds) ? localAds : demo.ads);
+  console.info(localPreview ? "Rendering admin local preview issue fallback." : (shared.issue ? "Rendering shared published issue." : (localIssue ? "Rendering localStorage issue fallback." : "Rendering demo issue fallback.")));
+  console.info(Array.isArray(shared.ads) ? "Rendering shared published ads." : (Array.isArray(localAds) ? "Rendering localStorage ads fallback." : "Rendering demo ads fallback."));
   renderIssue(issue);
   resolveVenue(venues);
   await detectUserMarketByIp();
