@@ -98,14 +98,14 @@
         <h2>AI Creative Studio</h2>
         <p>Enter a creative brief, generate a finished graphic ad through the configured Vercel API, then publish it to one of the 8 Potty Favor slots.</p>
         <div class="preset-row" id="creative-presets" aria-label="Creative brief presets">
-          <button type="button" data-preset="restaurant">Restaurant / Bar</button>
-          <button type="button" data-preset="service">Local Service</button>
-          <button type="button" data-preset="event">Event / Concert</button>
-          <button type="button" data-preset="hotel">Hotel / Casino</button>
-          <button type="button" data-preset="retail">Retail</button>
-          <button type="button" data-preset="home">Home Services</button>
-          <button type="button" data-preset="transport">Transportation</button>
-          <button type="button" data-preset="entertainment">Entertainment</button>
+          <button type="button" data-preset="vegasRestaurant">Vegas Restaurant / Bar</button>
+          <button type="button" data-preset="casinoOffer">Casino Offer</button>
+          <button type="button" data-preset="homeServices">Home Services</button>
+          <button type="button" data-preset="eventConcert">Event / Concert</button>
+          <button type="button" data-preset="retailCoupon">Retail Coupon</button>
+          <button type="button" data-preset="transportation">Transportation</button>
+          <button type="button" data-preset="outdoorAdventure">Outdoor / Adventure</button>
+          <button type="button" data-preset="localService">Local Service</button>
         </div>
         <form id="creative-form" class="creative-grid">
           <label>Business name<input name="businessName" required /></label>
@@ -161,10 +161,11 @@
         <h2>Settings</h2>
         <form id="settings-form" class="settings-grid">
           <label class="full">QR base URL<input name="qrBaseUrl" /></label>
-          <label class="full">Vercel API Base URL<input name="vercelApiBaseUrl" placeholder="https://your-project.vercel.app" /></label>
+          <label class="full">Vercel API Base URL<input name="vercelApiBaseUrl" placeholder="https://stalltalk.vercel.app" /><small>Use your Vercel deployment URL, not GitHub Pages. Example: https://stalltalk.vercel.app</small></label>
           <label>OpenAI Image Model<input name="openAiImageModel" placeholder="gpt-image-2" /></label>
         </form>
-        <div class="actions"><button type="button" id="save-settings">Save Settings</button><button type="button" class="secondary" id="test-api-endpoint">Test API Endpoint</button><button type="button" class="secondary" id="test-openai-image">Test OpenAI Image Generation</button></div>
+        <p class="status-line">Endpoint called: <code id="settings-endpoint">/api/generate-ad-image</code></p>
+        <div class="actions"><button type="button" id="save-settings">Save Settings</button><button type="button" class="secondary" id="test-api-endpoint">Test Endpoint</button><button type="button" class="secondary" id="test-openai-image">Test OpenAI Image Generation</button></div>
         <p class="status-line" id="settings-status"></p>
         <h3>Analytics</h3>
         <div class="card-list" id="analytics-list"></div>

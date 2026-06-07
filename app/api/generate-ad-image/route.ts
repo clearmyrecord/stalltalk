@@ -48,8 +48,8 @@ function normalizeSize(value: unknown): AdSize {
   return "Banner";
 }
 
-function currentModel() {
-  return safe(process.env.OPENAI_IMAGE_MODEL, "gpt-image-2");
+function currentModel(body: Record<string, unknown> = {}) {
+  return safe(body.openAiImageModel || body.model || process.env.OPENAI_IMAGE_MODEL, "gpt-image-2");
 }
 
 function diagnostic(overrides: Partial<Diagnostic> = {}): Diagnostic {
@@ -118,18 +118,18 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
 
   return {
     ...copy,
-    promptUsed: [
-      `Create a finished, production-ready marketing graphic advertisement for the business name "${copy.businessName}".`,
-      `Keep the business name visually separate from the offer headline. Do not merge the business name into the headline.`,
-      `Business category: ${category}. Offer headline: "${copy.headline}". Audience: ${copy.audience}.`,
-      `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors: ${brandColors}. Venue/city vibe: ${venueVibe}.`,
-      `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; must stay readable when cropped into a ${size.cssSafeArea} ad slot.`,
-      `Use large readable typography only: business name "${copy.businessName}", headline "${copy.headline}", subheadline "${copy.subheadline}", CTA "${copy.ctaText}", coupon code "${copy.couponCode || "omit coupon"}".`,
+    promptUsed: safe(body.prompt, [
+      `Create a finished, high-quality commercial advertisement for the business name "${copy.businessName}" with premium visual composition, commercial lighting, strong hierarchy, clean spacing, and polished final artwork.`,
+      `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
+      `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
+      `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
+      `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; must stay readable when cropped into a ${size.cssSafeArea} Potty Favor sponsor slot.`,
+      `Use readable bold typography, high contrast, and an eye-catching mobile-friendly layout for restroom readers scanning quickly.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
       website ? `Include website ${website} only if it remains readable.` : "",
       phone ? `Include phone ${phone} only if it remains readable.` : "",
-      "No placeholder text. Avoid tiny text, overflow, clipped words, fake UI chrome, screenshots, web page mockups, HTML cards, lorem ipsum, and design-process annotations. Return commercial advertisement quality final ad artwork only."
-    ].filter(Boolean).join(" ")
+      "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layouts, fake UI chrome, web page mockups, clipped words, design-process annotations, and unreadable microcopy. Return publish-ready commercial advertisement artwork only."
+    ].filter(Boolean).join(" "))
   };
 }
 
@@ -225,22 +225,22 @@ export async function POST(request: Request) {
     return json({ error: message, diagnostic: diagnostic({ errorType: "json_parse_error" }) }, request, 400);
   }
 
-  const model = currentModel();
+  const model = currentModel(body);
   const validationError = validateBrief(body);
-  if (validationError) return json({ error: validationError, diagnostic: diagnostic({ errorType: "invalid_input" }) }, request, 400);
+  if (validationError) return json({ error: validationError, diagnostic: diagnostic({ errorType: "invalid_input", model }) }, request, 400);
   const adSize = normalizeSize(body.adSize || body.adSizeKey);
   const creative = buildPrompt(body, adSize);
 
   if (!process.env.OPENAI_API_KEY) {
     const message = "OPENAI_API_KEY is not configured on the server/Vercel environment.";
     console.error("[generate-ad-image] Missing OPENAI_API_KEY");
-    return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "missing_api_key", openAiStatus: "not_configured" }) }, request, 500);
+    return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "missing_api_key", openAiStatus: "not_configured", model }) }, request, 500);
   }
 
   if (!VALID_IMAGE_MODELS.has(model)) {
     const message = `Invalid OpenAI image model "${model}". Use one of: ${Array.from(VALID_IMAGE_MODELS).join(", ")}.`;
     console.error("[generate-ad-image] Invalid model", { model });
-    return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "invalid_model", openAiStatus: "failed" }) }, request, 500);
+    return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "invalid_model", openAiStatus: "failed", model }) }, request, 500);
   }
 
   const requestBody = imageRequestBody(model, creative.promptUsed, adSize);
@@ -266,7 +266,7 @@ export async function POST(request: Request) {
       return json({
         ...creative,
         error: message,
-        diagnostic: diagnostic({ errorType, error: message, openAiStatusCode: response.status, requestId, rateLimited: errorType === "rate_limit" })
+        diagnostic: diagnostic({ errorType, error: message, openAiStatusCode: response.status, requestId, rateLimited: errorType === "rate_limit", model })
       }, request, response.status);
     }
 
@@ -275,7 +275,7 @@ export async function POST(request: Request) {
     if (!imageUrl) {
       const message = "OpenAI returned a successful response without image data.";
       console.error("[generate-ad-image] Missing image data", { requestId, model, responseKeys: Object.keys(data || {}) });
-      return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "missing_image_data", error: message, requestId }) }, request, 502);
+      return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "missing_image_data", error: message, requestId, model }) }, request, 502);
     }
 
     const history = await saveGeneratedCreative(body, adSize, creative, imageUrl);
@@ -291,12 +291,12 @@ export async function POST(request: Request) {
       businessName: creative.businessName,
       adSize,
       model,
-      diagnostic: diagnostic({ apiStatus: "ok", openAiStatus: "connected", requestId }),
+      diagnostic: diagnostic({ apiStatus: "ok", openAiStatus: "connected", requestId, model }),
       ...history
     }, request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Fetch to OpenAI image generation failed.";
     console.error("[generate-ad-image] Vercel/fetch function error", { message, model });
-    return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "fetch_or_function_error", error: message }) }, request, 502);
+    return json({ ...creative, error: message, diagnostic: diagnostic({ errorType: "fetch_or_function_error", error: message, model }) }, request, 502);
   }
 }

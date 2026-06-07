@@ -305,17 +305,18 @@ function loadSettings() {
   form.elements.qrBaseUrl.value = settings.qrBaseUrl || DEMO.settings.qrBaseUrl;
   form.elements.vercelApiBaseUrl.value = settings.vercelApiBaseUrl || "";
   form.elements.openAiImageModel.value = settings.openAiImageModel || "gpt-image-2";
+  refreshEndpointDisplay();
 }
 
 const CREATIVE_PRESETS = {
-  restaurant: { businessCategory: "Restaurant / Bar", targetAudience: "nearby diners, nightlife guests, and venue patrons", visualStyle: "high-energy food and drink photography with bold local flavor", tone: "fun, social, and urgent", brandColors: "black, gold, neon accent" },
-  service: { businessCategory: "Local Service", targetAudience: "local residents and small businesses", visualStyle: "clean service-business ad with trustworthy people and crisp icons", tone: "helpful and reliable", brandColors: "navy, white, bright accent" },
-  event: { businessCategory: "Event / Concert", targetAudience: "fans looking for things to do tonight", visualStyle: "concert poster energy, dramatic lighting, premium ticket promotion", tone: "exciting and urgent", brandColors: "black, electric purple, warm gold" },
-  hotel: { businessCategory: "Hotel / Casino", targetAudience: "tourists, casino guests, and nightlife visitors", visualStyle: "luxury Vegas hospitality with polished neon atmosphere", tone: "premium and memorable", brandColors: "black, gold, deep red" },
-  retail: { businessCategory: "Retail", targetAudience: "nearby shoppers", visualStyle: "bright polished retail campaign with product-forward composition", tone: "friendly and promotional", brandColors: "white, bold brand color, contrast accent" },
-  home: { businessCategory: "Home Services", targetAudience: "homeowners and property managers", visualStyle: "clean professional home services ad with before-and-after confidence", tone: "trustworthy and clear", brandColors: "white, blue, green" },
-  transport: { businessCategory: "Transportation", targetAudience: "travelers who need a ride now", visualStyle: "sleek transportation ad with motion, city lights, and clear booking CTA", tone: "fast and dependable", brandColors: "black, yellow, silver" },
-  entertainment: { businessCategory: "Entertainment", targetAudience: "groups, date-night guests, and visitors", visualStyle: "bold entertainment poster with dynamic lighting and fun premium energy", tone: "playful and exciting", brandColors: "deep purple, hot pink, cyan" },
+  vegasRestaurant: { businessCategory: "Restaurant / Bar", targetAudience: "Las Vegas Strip diners, nightlife guests, and venue patrons scanning quickly", visualStyle: "Vegas-themed restaurant advertisement with craft drinks, craveable food, neon lights, premium black and gold accents, and polished nightlife energy", tone: "energetic, upscale, social, and urgent", brandColors: "black, gold, neon blue" },
+  casinoOffer: { businessCategory: "Casino Offer", targetAudience: "casino guests, tourists, and loyalty members", visualStyle: "luxury casino promotion with polished gaming-floor atmosphere, jewel tones, gold highlights, and premium hospitality composition", tone: "exclusive, exciting, and high-value", brandColors: "black, gold, deep red" },
+  homeServices: { businessCategory: "Home Services", targetAudience: "homeowners, property managers, and local families", visualStyle: "clean premium home-services ad with trustworthy crew, crisp before-and-after confidence, and bright professional finish", tone: "reliable, clear, and confidence-building", brandColors: "white, blue, green" },
+  eventConcert: { businessCategory: "Event / Concert", targetAudience: "fans looking for things to do tonight", visualStyle: "premium concert poster energy with dramatic stage lighting, bold ticket-offer typography, and dynamic motion", tone: "exciting, urgent, and memorable", brandColors: "black, electric purple, warm gold" },
+  retailCoupon: { businessCategory: "Retail Coupon", targetAudience: "nearby shoppers and mobile coupon users", visualStyle: "bright product-forward retail campaign with polished coupon callout, clean hierarchy, and high-contrast sale messaging", tone: "friendly, promotional, and easy to redeem", brandColors: "white, bold brand color, contrast accent" },
+  transportation: { businessCategory: "Transportation", targetAudience: "travelers who need a ride now", visualStyle: "sleek transportation ad with city lights, motion blur, premium vehicle detail, and clear booking CTA", tone: "fast, dependable, and polished", brandColors: "black, yellow, silver" },
+  outdoorAdventure: { businessCategory: "Outdoor / Adventure", targetAudience: "active locals, tourists, and weekend explorers", visualStyle: "premium outdoor adventure advertisement with golden-hour scenery, energetic action, rugged texture, and readable offer badge", tone: "inspiring, bold, and adventurous", brandColors: "forest green, sunset orange, cream" },
+  localService: { businessCategory: "Local Service", targetAudience: "local residents and small businesses", visualStyle: "clean premium local-service ad with trustworthy people, crisp icons, and strong offer-first layout", tone: "helpful, reliable, and direct", brandColors: "navy, white, bright accent" },
 };
 
 let generatedCreative = null;
@@ -343,13 +344,81 @@ function collectCreativeBrief() {
   };
 }
 
-function apiBaseUrl() {
-  return String(state().settings.vercelApiBaseUrl || "").replace(/\/$/, "");
+const GENERATE_AD_IMAGE_PATH = "/api/generate-ad-image";
+
+function stripTrailingSlash(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+function endpointFromInput(input = "") {
+  const raw = stripTrailingSlash(input);
+  if (!raw) return GENERATE_AD_IMAGE_PATH;
+
+  let url;
+  try {
+    url = new URL(raw);
+  } catch (_) {
+    if (raw === GENERATE_AD_IMAGE_PATH || raw.endsWith(GENERATE_AD_IMAGE_PATH)) return raw;
+    return `${raw.replace(/\/admin(?:\/.*)?$/i, "")}${GENERATE_AD_IMAGE_PATH}`;
+  }
+
+  if (url.hostname.endsWith("github.io")) {
+    throw new Error("Do not use GitHub Pages for the Vercel API Base URL. Use your Vercel deployment URL, for example https://stalltalk.vercel.app.");
+  }
+
+  if (url.pathname === GENERATE_AD_IMAGE_PATH) return url.toString().replace(/\/$/, "");
+  url.pathname = url.pathname.replace(/\/admin(?:\/.*)?$/i, "").replace(/\/+$/, "");
+  if (!url.pathname || url.pathname === "/") url.pathname = GENERATE_AD_IMAGE_PATH;
+  else url.pathname = `${url.pathname}${GENERATE_AD_IMAGE_PATH}`;
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
 }
 
 function creativeEndpoint() {
-  const base = apiBaseUrl();
-  return base ? `${base}/api/generate-ad-image` : "/api/generate-ad-image";
+  return endpointFromInput(state().settings.vercelApiBaseUrl || "");
+}
+
+function refreshEndpointDisplay() {
+  const output = document.querySelector("#settings-endpoint");
+  if (!output) return;
+  const formValue = document.querySelector('#settings-form [name="vercelApiBaseUrl"]')?.value;
+  try {
+    output.textContent = endpointFromInput(formValue || state().settings.vercelApiBaseUrl || "");
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+function creativeVenueAtmosphere(brief) {
+  return [brief.venueTargeting, brief.cityTargeting, brief.stateTargeting].map((item) => String(item || "").trim()).filter(Boolean).join(", ") || "the selected venue and city atmosphere";
+}
+
+function buildEnhancedCreativePrompt(brief) {
+  const businessName = String(brief.businessName || "the business").trim();
+  const category = String(brief.businessCategory || "local sponsor").trim();
+  const offer = String(brief.offer || "the featured offer").trim();
+  const cta = String(brief.ctaText || "Claim Offer").trim();
+  const coupon = String(brief.couponCode || "").trim();
+  const style = String(brief.visualStyle || "premium modern commercial advertising").trim();
+  const tone = String(brief.tone || "bold, polished, and persuasive").trim();
+  const colors = String(brief.brandColors || "premium brand colors with high contrast").trim();
+  const requiredText = String(brief.requiredText || "").trim();
+  const disclaimer = String(brief.optionalDisclaimer || "").trim();
+  return [
+    `Create a finished, high-quality commercial advertisement for ${businessName}, a ${category}.`,
+    `Feature the business name "${businessName}" prominently with readable bold typography.`,
+    `Include the offer text "${offer}" as the main promotional message.`,
+    `Include a clear CTA: "${cta}".`,
+    coupon ? `Include coupon code "${coupon}" in a polished coupon badge.` : "Do not invent a coupon code if none is provided.",
+    `Match the selected visual style: ${style}. Match the tone: ${tone}.`,
+    `Match the venue/city atmosphere: ${creativeVenueAtmosphere(brief)}.`,
+    `Use premium visual composition, commercial lighting, strong hierarchy, clean spacing, ${colors}, and an eye-catching layout for restroom readers scanning quickly.`,
+    `Design should be ready to publish in Potty Favor sponsor slots in ${brief.adSize || "Square"} format.`,
+    requiredText ? `Also include this required text exactly if it fits: ${requiredText}.` : "Only include intentional readable ad copy; no extra filler text.",
+    disclaimer ? `Add this disclaimer only if legible without clutter: ${disclaimer}.` : "Avoid tiny legal microcopy unless requested.",
+    "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layout, and broken image placeholders.",
+  ].join(" ");
 }
 
 function billingLimitMessage(payload) {
@@ -362,7 +431,7 @@ function showCreativeResult(payload, brief) {
   const publish = document.querySelector("#creative-publish");
   const preview = document.querySelector("#creative-preview");
   document.querySelector("#creative-prompt").textContent = payload.promptUsed || "No prompt returned.";
-  document.querySelector("#creative-diagnostics").textContent = JSON.stringify(payload.diagnostic || payload.diagnostics || { ok: Boolean(payload.imageUrl || payload.imageBase64) }, null, 2);
+  document.querySelector("#creative-diagnostics").textContent = JSON.stringify({ endpointCalled: payload.endpointCalled || creativeEndpoint(), ...(payload.diagnostic || payload.diagnostics || { ok: Boolean(payload.imageUrl || payload.imageBase64) }) }, null, 2);
   output.hidden = false;
   const imageUrl = payload.imageUrl || (payload.imageBase64 ? `data:image/png;base64,${payload.imageBase64}` : "");
   if (!imageUrl) {
@@ -379,17 +448,42 @@ function showCreativeResult(payload, brief) {
   setCreativeStatus("Generated image ready. Review it, then publish to a slot.");
 }
 
+function endpointErrorMessage(response, payload, rawText, endpoint) {
+  if (response.status === 405) return "405 Method Not Allowed. The AI Studio is not reaching the Vercel image API. Check that Vercel API Base URL is set to https://stalltalk.vercel.app or your current Vercel deployment URL.";
+  const contentType = response.headers?.get("Content-Type") || "";
+  if (contentType.toLowerCase().includes("text/html") || /^\s*<!doctype html|^\s*<html[\s>]/i.test(rawText || "")) return "Received HTML instead of JSON. The endpoint is probably pointed at the website, not /api/generate-ad-image.";
+  if (billingLimitMessage(payload)) return "OpenAI billing limit reached. Update billing in OpenAI Platform.";
+  return payload?.error || `API request to ${endpoint} failed with HTTP ${response.status}.`;
+}
+
+async function parseEndpointResponse(response, endpoint) {
+  const rawText = await response.text();
+  let payload = {};
+  if (rawText) {
+    try {
+      payload = JSON.parse(rawText);
+    } catch (_) {
+      payload = { diagnostic: { errorType: "non_json_response" } };
+    }
+  }
+  const message = endpointErrorMessage(response, payload, rawText, endpoint);
+  if (!response.ok || !rawText || payload.diagnostic?.errorType === "non_json_response") {
+    return { ...payload, error: message, endpointCalled: endpoint, diagnostic: { ...(payload.diagnostic || payload.diagnostics || {}), errorType: payload.diagnostic?.errorType || payload.diagnostics?.errorType || (response.ok ? "non_json_response" : "http_error"), httpStatus: response.status } };
+  }
+  return { ...payload, endpointCalled: endpoint };
+}
+
 async function generateCreativeAd(brief) {
   if (!brief.businessName || !brief.offer) throw new Error("Business name and offer are required.");
   const settings = state().settings;
-  const response = await fetch(creativeEndpoint(), {
+  const endpoint = creativeEndpoint();
+  const creativeBrief = { ...brief, prompt: buildEnhancedCreativePrompt(brief), openAiImageModel: settings.openAiImageModel || "gpt-image-2" };
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...brief, openAiImageModel: settings.openAiImageModel || "gpt-image-2" }),
+    body: JSON.stringify(creativeBrief),
   });
-  const payload = await response.json().catch(() => ({ error: `API returned non-JSON HTTP ${response.status}.`, diagnostic: { errorType: "non_json_response" } }));
-  if (!response.ok && billingLimitMessage(payload)) return { ...payload, error: "OpenAI billing limit reached. Update billing in OpenAI Platform." };
-  return payload;
+  return parseEndpointResponse(response, endpoint);
 }
 
 function generatedAdFromPublishForm() {
@@ -411,6 +505,7 @@ function generatedAdFromPublishForm() {
     targetUrl: brief.website || "#",
     image: generatedCreative.imageUrl,
     imageUrl: generatedCreative.imageUrl,
+    imageBase64: generatedCreative.imageBase64 || "",
     adMode: "image",
     adSize: brief.adSize || "Square",
     targetingType,
@@ -533,8 +628,8 @@ function bindActions() {
     event.preventDefault();
     const brief = collectCreativeBrief();
     document.querySelector("#creative-publish").hidden = true;
-    setCreativeStatus("Generating finished ad image…");
     try {
+      setCreativeStatus(`Generating finished ad image via ${creativeEndpoint()}…`);
       const payload = await generateCreativeAd(brief);
       showCreativeResult(payload, brief);
     } catch (error) {
@@ -561,20 +656,33 @@ function bindActions() {
       setCreativeStatus(error.message, true);
     }
   });
+  document.querySelector('#settings-form [name="vercelApiBaseUrl"]').addEventListener("input", refreshEndpointDisplay);
   document.querySelector("#save-settings").addEventListener("click", () => {
     const data = new FormData(document.querySelector("#settings-form"));
-    saveJson(STORAGE_KEYS.settings, {
-      qrBaseUrl: String(data.get("qrBaseUrl") || DEMO.settings.qrBaseUrl),
-      vercelApiBaseUrl: String(data.get("vercelApiBaseUrl") || "").replace(/\/$/, ""),
-      openAiImageModel: String(data.get("openAiImageModel") || "gpt-image-2"),
-    });
-    updateQrPreview();
-    setSettingsStatus("Settings saved locally.");
+    try {
+      const vercelApiBaseUrl = stripTrailingSlash(String(data.get("vercelApiBaseUrl") || ""));
+      endpointFromInput(vercelApiBaseUrl);
+      saveJson(STORAGE_KEYS.settings, {
+        qrBaseUrl: String(data.get("qrBaseUrl") || DEMO.settings.qrBaseUrl),
+        vercelApiBaseUrl,
+        openAiImageModel: String(data.get("openAiImageModel") || "gpt-image-2"),
+      });
+      updateQrPreview();
+      refreshEndpointDisplay();
+      setSettingsStatus("Settings saved locally.");
+    } catch (error) {
+      setSettingsStatus(error.message, true);
+      refreshEndpointDisplay();
+    }
   });
   document.querySelector("#test-api-endpoint").addEventListener("click", async () => {
+    const brief = { businessName: "Potty Favor Endpoint Test", businessCategory: "Local Service", offer: "Endpoint test", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "clean professional", tone: "clear", requiredText: "API TEST", adSize: "Square" };
     try {
-      const response = await fetch(creativeEndpoint(), { method: "OPTIONS" });
-      setSettingsStatus(`API endpoint responded to OPTIONS with HTTP ${response.status}.`, response.status >= 400);
+      const endpoint = endpointFromInput(document.querySelector('#settings-form [name="vercelApiBaseUrl"]')?.value || state().settings.vercelApiBaseUrl || "");
+      setSettingsStatus(`Testing endpoint with POST: ${endpoint}`);
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...brief, prompt: buildEnhancedCreativePrompt(brief), openAiImageModel: state().settings.openAiImageModel || "gpt-image-2" }) });
+      const payload = await parseEndpointResponse(response, endpoint);
+      setSettingsStatus(response.ok ? `Endpoint POST reached ${endpoint}. ${payload.imageUrl || payload.imageBase64 ? "Image returned." : (payload.error || "JSON response returned without image data.")}` : `${payload.error} Endpoint called: ${endpoint}`, !response.ok || !(payload.imageUrl || payload.imageBase64));
     } catch (error) {
       setSettingsStatus(`API endpoint test failed: ${error.message}`, true);
     }
