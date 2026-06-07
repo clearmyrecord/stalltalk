@@ -626,11 +626,25 @@ function renderGeneratedAd(slot, payload = {}) {
   return ad;
 }
 
+function adImageEndpointFromBase(base) {
+  const normalizedBase = normalizeText(base).replace(/\/+$/, "");
+  if (!normalizedBase) return "";
+  return normalizedBase.endsWith("/api/generate-ad-image") ? normalizedBase : `${normalizedBase}/api/generate-ad-image`;
+}
+
+function adImageEndpoint() {
+  const explicitEndpoint = normalizeText(window.STALLTALK_AD_IMAGE_ENDPOINT).replace(/\/+$/, "");
+  if (explicitEndpoint) return explicitEndpoint;
+  return adImageEndpointFromBase(typeof API_BASE !== "undefined" ? API_BASE : "")
+    || adImageEndpointFromBase(window.API_BASE)
+    || adImageEndpointFromBase(window.STALLTALK_API_BASE_URL)
+    || "https://stalltalk.vercel.app/api/generate-ad-image";
+}
+
 async function generateAdImage(slot, brief = {}) {
   const requestSlot = Number(brief.slot || slot);
   showAdLoading(requestSlot);
-  const configuredBase = normalizeText((typeof API_BASE !== "undefined" ? API_BASE : "") || window.API_BASE || window.STALLTALK_API_BASE_URL || "").replace(/\/+$/, "");
-  const endpoint = configuredBase.endsWith("/api/generate-ad-image") ? configuredBase : `${configuredBase}/api/generate-ad-image`;
+  const endpoint = adImageEndpoint();
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -645,5 +659,10 @@ async function generateAdImage(slot, brief = {}) {
     throw error;
   }
 }
+
+window.generateAdImage = generateAdImage;
+window.renderGeneratedAd = renderGeneratedAd;
+window.showAdLoading = showAdLoading;
+window.showAdError = showAdError;
 
 document.addEventListener("DOMContentLoaded", init);
