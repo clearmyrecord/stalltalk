@@ -1,22 +1,210 @@
+```html
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Potty Favor / Stall Talk is a one-page monthly restroom publication with venue QR routing and targeted ad placements." />
+    <meta
+      name="description"
+      content="Potty Favor / Stall Talk is a one-page monthly restroom publication with venue QR routing and targeted ad placements."
+    />
     <title>Potty Favor / Stall Talk</title>
     <link rel="stylesheet" href="style.css" />
+
+    <style>
+      .site-shell {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+
+      .publication {
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      .print-grid {
+        width: 100%;
+        max-width: 980px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .print-grid > section,
+      .print-grid > article {
+        width: 100%;
+        max-width: 900px;
+        box-sizing: border-box;
+      }
+
+      .panel,
+      .restaurant-review,
+      .calendar-card,
+      .submit-event-card,
+      .sponsor-directory {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .inline-ad {
+        width: 100%;
+        max-width: 900px;
+      }
+
+      .restaurant-review {
+        padding: 22px;
+        border-radius: 22px;
+        background: #fff7e6;
+        border: 2px solid #111;
+      }
+
+      .restaurant-review .card-label {
+        display: inline-block;
+        margin-bottom: 12px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: #ffd83d;
+        color: #111;
+        font-weight: 900;
+      }
+
+      .review-box {
+        display: flex;
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .review-photo {
+        width: 38%;
+        min-height: 190px;
+        object-fit: cover;
+        border-radius: 16px;
+        border: 2px solid #111;
+      }
+
+      .review-content {
+        flex: 1;
+      }
+
+      .review-content h2,
+      .review-content h3 {
+        margin-top: 0;
+      }
+
+      .review-rating {
+        font-weight: 900;
+        color: #111a83;
+      }
+
+      .review-button {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 10px 15px;
+        border-radius: 999px;
+        background: #111a83;
+        color: #fff;
+        font-weight: 900;
+        text-decoration: none;
+      }
+
+      .submit-event-card {
+        padding: 24px;
+        border-radius: 22px;
+      }
+
+      .event-form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .event-form label {
+        display: grid;
+        gap: 6px;
+        font-weight: 800;
+      }
+
+      .event-form .full,
+      .event-form .actions {
+        grid-column: 1 / -1;
+      }
+
+      .event-form input,
+      .event-form textarea,
+      .event-form select {
+        width: 100%;
+        padding: 12px 13px;
+        border: 2px solid #111;
+        border-radius: 12px;
+        font: inherit;
+        box-sizing: border-box;
+      }
+
+      .event-form button {
+        width: fit-content;
+        padding: 12px 18px;
+        border: 0;
+        border-radius: 999px;
+        background: #111a83;
+        color: white;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      @media (max-width: 760px) {
+        .publication {
+          max-width: 100%;
+        }
+
+        .print-grid {
+          max-width: 100%;
+          padding: 0 12px;
+        }
+
+        .review-box {
+          flex-direction: column;
+        }
+
+        .review-photo {
+          width: 100%;
+        }
+
+        .event-form {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
+
   <body class="public-page">
     <main class="site-shell">
       <article class="publication" aria-label="Potty Favor monthly issue">
         <header class="masthead">
-          <img class="masthead-banner" src="assets/potty-favor-original-banner_2.png" alt="Potty Favor publication masthead" width="2171" height="724" />
-          <h1 class="visually-hidden"><span data-field="mastheadBrand">Potty Favor</span><small>/ Stall Talk</small></h1>
+          <img
+            class="masthead-banner"
+            src="assets/potty-favor-original-banner_2.png"
+            alt="Potty Favor publication masthead"
+            width="2171"
+            height="724"
+          />
+
+          <h1 class="visually-hidden">
+            <span data-field="mastheadBrand">Potty Favor</span>
+            <small>/ Stall Talk</small>
+          </h1>
+
           <div class="masthead-meta" aria-label="Issue information">
             <p class="issue-kicker" data-field="issueMonthYear">June 2026</p>
-            <p class="issue-line">One standard monthly issue · Designed for every reader · <a href="#submit-event">Submit an event</a></p>
+            <p class="issue-line">
+              One standard monthly issue · Designed for every reader ·
+              <a href="#submit-event">Submit an event</a>
+            </p>
           </div>
+
           <a class="admin-link" href="admin/">Admin</a>
         </header>
 
@@ -24,7 +212,10 @@
           <section class="mission-card panel">
             <p class="mission-kicker">Potty Favor Purpose</p>
             <h2>Our Mission</h2>
-            <p data-field="missionText">Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall.</p>
+            <p data-field="missionText">
+              Our mission is to inspire, inform, educate, and entertain humanity —
+              all from the comfort of your very own stall.
+            </p>
           </section>
 
           <article class="ad-card inline-ad inline-ad-primary" data-ad-slot="1"></article>
@@ -32,7 +223,11 @@
           <section class="humor-card panel wide">
             <p class="laughs">HA HA HA</p>
             <h2 data-field="humorTitle">Hilariously Funny</h2>
-            <p data-field="humorBody">In 2002, after much research, British scientists identified what they called the funniest joke in the world. A little restroom reading can still make a long line feel shorter.</p>
+            <p data-field="humorBody">
+              In 2002, after much research, British scientists identified what
+              they called the funniest joke in the world. A little restroom
+              reading can still make a long line feel shorter.
+            </p>
           </section>
 
           <article class="ad-card inline-ad" data-ad-slot="2"></article>
@@ -49,9 +244,32 @@
             <ul data-list="quotes"></ul>
           </section>
 
-          <section class="secondary-card panel double">
-            <h2 data-field="secondaryFeatureTitle">The History of Box Chairs</h2>
-            <div class="article-copy" data-field="secondaryFeatureBody"></div>
+          <section class="restaurant-review panel">
+            <div class="card-label">Restaurant Review</div>
+
+            <div class="review-box">
+              <img
+                src="images/restaurant-review.jpg"
+                alt="Featured restaurant"
+                class="review-photo"
+              />
+
+              <div class="review-content">
+                <h2>Worth the Stop</h2>
+                <h3>Featured Local Restaurant</h3>
+
+                <p>
+                  This month’s pick is a local spot with strong atmosphere,
+                  good service, and food that makes it worth coming back for.
+                  Perfect for a casual lunch, date night, or a quick bite before
+                  heading back out.
+                </p>
+
+                <p class="review-rating">★★★★☆ 4/5</p>
+
+                <a href="#" class="review-button">Read Full Review</a>
+              </div>
+            </div>
           </section>
 
           <article class="ad-card inline-ad" data-ad-slot="4"></article>
@@ -66,118 +284,144 @@
           <section class="word-card panel">
             <h2>Word-of-the-Day</h2>
             <strong data-field="wordOfTheDay">transmute</strong>
-            <p data-field="wordDefinition">to change from one nature or form into another.</p>
+            <p data-field="wordDefinition">
+              to change from one nature or form into another.
+            </p>
           </section>
 
           <article class="ad-card inline-ad" data-ad-slot="6"></article>
 
-          <section class="issue-card restaurant-review">
-  <div class="card-label">Restaurant Review</div>
+          <section class="secondary-card panel double">
+            <h2 data-field="secondaryFeatureTitle">The History of Box Chairs</h2>
+            <div class="article-copy" data-field="secondaryFeatureBody"></div>
+          </section>
 
-  <div class="review-box">
-    <img 
-      src="images/restaurant-review.jpg" 
-      alt="Restaurant photo" 
-      class="review-photo"
-    >
+          <article class="ad-card inline-ad" data-ad-slot="7"></article>
 
-    <div class="review-content">
-      <h2>Worth the Stop</h2>
-      <h3>Featured Local Restaurant</h3>
-
-      <p>
-        This month’s pick is a local spot with strong atmosphere, good service,
-        and food that makes it worth coming back for. Perfect for a casual lunch,
-        date night, or a quick bite before heading back out.
-      </p>
-
-      <p class="review-rating">★★★★☆ 4/5</p>
-
-      <a href="#" class="review-button">Read Full Review</a>
-    </div>
-  </div>
-</section>
-
-<article class="ad-card inline-ad" data-ad-slot="7"></article>
-
-<section class="calendar-card panel double" id="calendar">
-  <h2>Calendar / Event Spotlight</h2>
-  <div class="calendar-layout">
-    <div>
-      <div class="calendar-grid" aria-label="Published event calendar"></div>
-      <p data-field="calendarText">Outdoor Events Association: register your event free and keep the month moving.</p>
-    </div>
-    <aside class="event-spotlight" id="event-spotlight" aria-live="polite"></aside>
-  </div>
-  <div class="event-details" id="event-details" aria-live="polite"></div>
-</section>
-
-<section class="submit-event-card panel double" id="submit-event">
-  <h2>Submit a Local Event</h2>
-  <p>Got something happening nearby? Send it to Potty Favor for admin review. Static MVP submissions stay pending in this browser until a future backend hook is connected.</p>
-  <form id="public-event-form" class="event-form">
-    <label>Event title<input name="title" required /></label>
-    <label>Description<textarea name="description"></textarea></label>
-    <label>Venue name<input name="venueName" required /></label>
-    <label>Address<input name="address" /></label>
-    <label>City<input name="city" required /></label>
-    <label>State<input name="state" maxlength="2" required /></label>
-    <label>Date<input name="eventDate" type="date" required /></label>
-    <label>Start time<input name="startTime" type="time" /></label>
-    <label>End time<input name="endTime" type="time" /></label>
-    <label>Category
-      <select name="category">
-        <option>Nightlife</option>
-        <option>Concert</option>
-        <option>Sports</option>
-        <option>Restaurant / Bar</option>
-        <option>Community</option>
-        <option>Convention</option>
-        <option>Local Deal</option>
-        <option>Other</option>
-      </select>
-    </label>
-    <label>Website<input name="website" type="url" /></label>
-    <label>Phone<input name="phone" /></label>
-    <label>Contact name<input name="submittedByName" /></label>
-    <label>Contact email<input name="submittedByEmail" type="email" required /></label>
-    <button type="submit">Submit Event</button>
-  </form>
-  <p id="public-event-status" class="status-line" aria-live="polite"></p>
-</section>
-
-<article class="ad-card inline-ad" data-ad-slot="8"></article>
+          <section class="calendar-card panel double" id="calendar">
             <h2>Calendar / Event Spotlight</h2>
+
             <div class="calendar-layout">
               <div>
-                <div class="calendar-grid" aria-label="Published event calendar"></div>
-                <p data-field="calendarText">Outdoor Events Association: register your event free and keep the month moving.</p>
+                <div
+                  class="calendar-grid"
+                  aria-label="Published event calendar"
+                ></div>
+
+                <p data-field="calendarText">
+                  Outdoor Events Association: register your event free and keep
+                  the month moving.
+                </p>
               </div>
-              <aside class="event-spotlight" id="event-spotlight" aria-live="polite"></aside>
+
+              <aside
+                class="event-spotlight"
+                id="event-spotlight"
+                aria-live="polite"
+              ></aside>
             </div>
-            <div class="event-details" id="event-details" aria-live="polite"></div>
+
+            <div
+              class="event-details"
+              id="event-details"
+              aria-live="polite"
+            ></div>
           </section>
 
           <section class="submit-event-card panel double" id="submit-event">
             <h2>Submit a Local Event</h2>
-            <p>Got something happening nearby? Send it to Potty Favor for admin review. Static MVP submissions stay pending in this browser until a future backend hook is connected.</p>
+
+            <p>
+              Got something happening nearby? Send it to Potty Favor for admin
+              review. Static MVP submissions stay pending in this browser until
+              a future backend hook is connected.
+            </p>
+
             <form id="public-event-form" class="event-form">
-              <label>Event title<input name="title" required /></label>
-              <label class="full">Event description<textarea name="description"></textarea></label>
-              <label>Venue name<input name="venueName" required /></label>
-              <label>Address<input name="address" /></label>
-              <label>City<input name="city" required /></label>
-              <label>State<input name="state" maxlength="2" required /></label>
-              <label>Date<input name="eventDate" type="date" required /></label>
-              <label>Start time<input name="startTime" type="time" /></label>
-              <label>End time<input name="endTime" type="time" /></label>
-              <label>Category<select name="category"><option>Nightlife</option><option>Concert</option><option>Sports</option><option>Restaurant / Bar</option><option>Community</option><option>Convention</option><option>Local Deal</option><option>Other</option></select></label>
-              <label>Website<input name="website" type="url" /></label>
-              <label>Phone<input name="phone" type="tel" /></label>
-              <label>Contact name<input name="submittedByName" /></label>
-              <label>Contact email<input name="submittedByEmail" type="email" required /></label>
-              <div class="full actions"><button type="submit">Submit Event</button></div>
+              <label>
+                Event title
+                <input name="title" required />
+              </label>
+
+              <label class="full">
+                Event description
+                <textarea name="description"></textarea>
+              </label>
+
+              <label>
+                Venue name
+                <input name="venueName" required />
+              </label>
+
+              <label>
+                Address
+                <input name="address" />
+              </label>
+
+              <label>
+                City
+                <input name="city" required />
+              </label>
+
+              <label>
+                State
+                <input name="state" maxlength="2" required />
+              </label>
+
+              <label>
+                Date
+                <input name="eventDate" type="date" required />
+              </label>
+
+              <label>
+                Start time
+                <input name="startTime" type="time" />
+              </label>
+
+              <label>
+                End time
+                <input name="endTime" type="time" />
+              </label>
+
+              <label>
+                Category
+                <select name="category">
+                  <option>Nightlife</option>
+                  <option>Concert</option>
+                  <option>Sports</option>
+                  <option>Restaurant / Bar</option>
+                  <option>Community</option>
+                  <option>Convention</option>
+                  <option>Local Deal</option>
+                  <option>Other</option>
+                </select>
+              </label>
+
+              <label>
+                Website
+                <input name="website" type="url" />
+              </label>
+
+              <label>
+                Phone
+                <input name="phone" type="tel" />
+              </label>
+
+              <label>
+                Contact name
+                <input name="submittedByName" />
+              </label>
+
+              <label>
+                Contact email
+                <input name="submittedByEmail" type="email" required />
+              </label>
+
+              <div class="full actions">
+                <button type="submit">Submit Event</button>
+              </div>
             </form>
+
             <p class="status-line" id="public-event-status" role="status"></p>
           </section>
 
@@ -186,25 +430,37 @@
           <section class="sponsor-directory panel">
             <p class="directory-kicker">Sponsor Directory</p>
             <h2>Featured Potty Favor Sponsors</h2>
-            <p>Every ad above is served by venue, city, state, or global targeting so local offers can travel with the publication without leaving the reading flow.</p>
-            <div class="directory-grid" aria-label="Inline sponsor slot directory">
+
+            <p>
+              Every ad above is served by venue, city, state, or global targeting
+              so local offers can travel with the publication without leaving the
+              reading flow.
+            </p>
+
+            <div
+              class="directory-grid"
+              aria-label="Inline sponsor slot directory"
+            >
               <span>Slot 1 · Premium banner</span>
               <span>Slot 2 · Humor break</span>
               <span>Slot 3 · Feature break</span>
-              <span>Slot 4 · Knowledge break</span>
+              <span>Slot 4 · Restaurant Review</span>
               <span>Slot 5 · Trivia break</span>
               <span>Slot 6 · Word break</span>
-              <span>Slot 7 · No Way break</span>
+              <span>Slot 7 · Feature break</span>
               <span>Slot 8 · Event break</span>
             </div>
           </section>
         </section>
 
-        <footer class="publication-footer">© <span data-year></span> Potty Favor / Stall Talk. Same monthly issue. Smarter venue ads.</footer>
+        <footer class="publication-footer">
+          © <span data-year></span> Potty Favor / Stall Talk. Same monthly issue.
+          Smarter venue ads.
+        </footer>
       </article>
-
     </main>
 
     <script src="script.js"></script>
   </body>
 </html>
+```
