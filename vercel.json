@@ -1,13 +1,9 @@
 {
-  "buildCommand": "npx prisma migrate deploy && npm run build",
   "functions": {
-    "app/api/generate-ad-image/route.ts": {
-      "maxDuration": 60
-    },
-    "app/api/system-health/route.ts": {
-      "maxDuration": 60
-    },
     "api/generate-ad-image.js": {
+      "maxDuration": 60
+    },
+    "api/generate-ad-video.js": {
       "maxDuration": 60
     }
   }
