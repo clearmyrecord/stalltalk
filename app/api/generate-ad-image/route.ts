@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type AdSize = "Banner" | "Square" | "Tall" | "Rail" | "Mobile card" | "Footer";
+type AdSize = "Potty Favor Slot" | "Banner" | "Square" | "Tall" | "Rail" | "Mobile card" | "Footer";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -20,13 +20,14 @@ export const maxDuration = 60;
 const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1", "dall-e-3"]);
 const ALLOWED_ORIGINS = ["https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
 
-const sizeMap: Record<AdSize, { apiSize: string; composition: string; cssSafeArea: string }> = {
-  Banner: { apiSize: "1536x1024", composition: "wide banner advertisement with large central headline and horizontal CTA safe area", cssSafeArea: "16:5 banner crop" },
-  Square: { apiSize: "1024x1024", composition: "square social-style advertisement with balanced headline, product atmosphere, and CTA", cssSafeArea: "1:1 square" },
-  Tall: { apiSize: "1024x1536", composition: "tall mobile advertisement with vertical hierarchy, clear offer, and bottom CTA", cssSafeArea: "4:5 tall crop" },
-  Rail: { apiSize: "1024x1536", composition: "vertical desktop sponsor rail with readable type from a side placement", cssSafeArea: "rail crop" },
-  "Mobile card": { apiSize: "1024x1024", composition: "mobile-friendly sponsor card with simple hierarchy and bold CTA", cssSafeArea: "mobile card" },
-  Footer: { apiSize: "1536x1024", composition: "slim footer-strip advertisement composed inside a centered horizontal band with no important text near edges", cssSafeArea: "5:1 footer crop" }
+const sizeMap: Record<AdSize, { apiSize: string; composition: string; cssSafeArea: string; slotDimensions: string }> = {
+  "Potty Favor Slot": { apiSize: "1024x1024", composition: "Potty Favor 4:3 restroom ad-slot creative with all text composed in a centered 1024x768 safe area and magazine-ad margins", cssSafeArea: "4:3 Potty Favor slot crop", slotDimensions: "1024x768 safe art inside a 1024x1024 generation canvas" },
+  Banner: { apiSize: "1536x1024", composition: "wide banner advertisement with large central headline and horizontal CTA safe area", cssSafeArea: "16:5 banner crop", slotDimensions: "1536x480 safe strip inside a 1536x1024 generation canvas" },
+  Square: { apiSize: "1024x1024", composition: "square magazine advertisement with balanced headline, offer, logo, coupon, contact, and CTA", cssSafeArea: "1:1 square", slotDimensions: "1024x1024" },
+  Tall: { apiSize: "1024x1536", composition: "tall magazine advertisement with vertical hierarchy, clear offer, logo area, coupon strip, contact line, and bottom CTA", cssSafeArea: "4:5 tall crop", slotDimensions: "1024x1280 safe crop inside a 1024x1536 generation canvas" },
+  Rail: { apiSize: "1024x1536", composition: "vertical desktop sponsor rail with readable type from a side placement", cssSafeArea: "rail crop", slotDimensions: "1024x1536" },
+  "Mobile card": { apiSize: "1024x1024", composition: "mobile-friendly sponsor card with simple hierarchy and bold CTA", cssSafeArea: "mobile card", slotDimensions: "1024x1024" },
+  Footer: { apiSize: "1536x1024", composition: "slim footer-strip advertisement composed inside a centered horizontal band with no important text near edges", cssSafeArea: "5:1 footer crop", slotDimensions: "1536x307 safe strip inside a 1536x1024 generation canvas" }
 };
 
 function safe(value: unknown, fallback: string) {
@@ -40,6 +41,7 @@ function limitText(value: string, max: number) {
 
 function normalizeSize(value: unknown): AdSize {
   const normalized = safe(value, "Banner").toLowerCase();
+  if (normalized.includes("potty") || normalized.includes("slot")) return "Potty Favor Slot";
   if (normalized.includes("square")) return "Square";
   if (normalized.includes("tall")) return "Tall";
   if (normalized.includes("rail")) return "Rail";
@@ -98,9 +100,15 @@ function buildCopy(body: Record<string, unknown>) {
   const audience = limitText(safe(body.audience || body.targetAudience, "nearby customers"), 42);
   const ctaText = limitText(safe(body.ctaText || body.cta, "Claim Offer"), 18);
   const couponCode = limitText(safe(body.couponCode, ""), 16);
+  const headlineHint = limitText(safe(body.headlineHint, "Make the offer impossible to miss"), 70);
+  const subheadline = limitText(`${offer} for ${audience}`, 58);
+  const contactInfo = limitText(safe(body.contactInfo, [body.phone, body.website].map((item) => safe(item, "")).filter(Boolean).join(" • ") || "Contact info in brief"), 54);
+  const logoInstruction = limitText(safe(body.logoInstruction, `Reserve a clean logo area for ${businessName}`), 70);
+  const conceptNumber = Number(body.conceptNumber || 1);
+  const conceptCount = Number(body.conceptCount || 1);
+  const conceptLabel = limitText(conceptCount > 1 ? `Concept ${conceptNumber}` : safe(body.requestMode, "Agency Concept"), 24);
   const headline = limitText(offer, 34);
-  const subheadline = limitText(`For ${audience}`, 46);
-  return { businessName, offer, audience, ctaText, couponCode, headline, subheadline };
+  return { businessName, offer, audience, ctaText, couponCode, headline, subheadline, headlineHint, contactInfo, logoInstruction, conceptLabel };
 }
 
 function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
@@ -112,23 +120,27 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
   const phone = safe(body.phone, "");
   const brandColors = safe(body.brandColors, "brand-appropriate high contrast colors");
   const venueVibe = [body.venueTargeting, body.cityTargeting || body.city, body.stateTargeting || body.state].map((item) => safe(item, "")).filter(Boolean).join(", ") || "local venue/city vibe";
-  const requiredText = safe(body.requiredText, "none beyond business name, offer, CTA, and coupon if provided");
+  const requiredText = safe(body.requiredText, "headline, offer, call to action, brand logo area, coupon code, and contact information");
   const disclaimer = safe(body.optionalDisclaimer || body.disclaimer, "none");
+  const scanGoal = safe(body.scanGoal || body.templateScanGoal, "reader should understand the offer, brand, and next action in 5 to 15 seconds");
+  const requestMode = safe(body.requestMode, "agency concept");
+  const variationOf = safe(body.variationOf, "");
   const size = sizeMap[adSize];
 
   return {
     ...copy,
     promptUsed: safe(body.prompt, [
-      `Create a finished, high-quality commercial advertisement for the business name "${copy.businessName}" with premium visual composition, commercial lighting, strong hierarchy, clean spacing, and polished final artwork.`,
-      `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
-      `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
-      `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
-      `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; must stay readable when cropped into a ${size.cssSafeArea} Potty Favor sponsor slot.`,
-      `Use readable bold typography, high contrast, and an eye-catching mobile-friendly layout for restroom readers scanning quickly.`,
+      `Act as a senior advertising agency art director, not a generic AI artist. Create a finished, publication-ready magazine advertisement for "${copy.businessName}".`,
+      `Ad structure is mandatory and must be visually obvious: 1) headline "${copy.headline}", 2) offer/subheadline "${copy.subheadline}", 3) call-to-action "${copy.ctaText}", 4) clean brand logo area, 5) coupon code "${copy.couponCode || "omit coupon if none supplied"}", 6) contact information "${copy.contactInfo}".`,
+      `Logo direction: ${copy.logoInstruction}. Headline strategy: ${copy.headlineHint}. Scan objective: ${scanGoal}. Optimize for readers who spend only 5-15 seconds looking at the ad.`,
+      `Business category/template: ${category}. Audience: ${copy.audience}. Concept label: ${copy.conceptLabel}. Request mode: ${requestMode}${variationOf ? `, make this a noticeably different variation of ${variationOf}` : ""}.`,
+      `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors: ${brandColors}. Venue/city atmosphere: ${venueVibe}.`,
+      `Canvas: ${adSize}; OpenAI generation size ${size.apiSize}; Potty Favor ad-slot dimensions/safe area: ${size.slotDimensions}; composition: ${size.composition}; keep all important typography inside the ${size.cssSafeArea}.`,
+      `Make it look like a real paid print/magazine advertisement with commercial photography or polished illustration, offer badge, coupon block, CTA button/pill, brand lockup area, and clean contact line.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
       website ? `Include website ${website} only if it remains readable.` : "",
       phone ? `Include phone ${phone} only if it remains readable.` : "",
-      "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layouts, fake UI chrome, web page mockups, clipped words, design-process annotations, and unreadable microcopy. Return publish-ready commercial advertisement artwork only."
+      "Avoid generic AI artwork, decorative posters with no offer, mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layouts, fake UI chrome, web page mockups, clipped words, design-process annotations, and unreadable microcopy. Return the final ad artwork only."
     ].filter(Boolean).join(" "))
   };
 }
@@ -172,7 +184,7 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
   const publisherId = safe(body.publisherId, "");
   const advertiserId = safe(body.advertiserId, "");
   const campaignBaseId = safe(body.campaignId, crypto.randomUUID());
-  const campaignId = `${campaignBaseId}-${adSize.toLowerCase()}`;
+  const campaignId = `${campaignBaseId}-${adSize.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${safe(body.conceptNumber, "1")}`;
   try {
     await prisma.stalltalkCampaignHistory.create({
       data: {
@@ -289,6 +301,9 @@ export async function POST(request: Request) {
       cta: creative.ctaText,
       couponCode: creative.couponCode,
       businessName: creative.businessName,
+      conceptLabel: creative.conceptLabel,
+      contactInfo: creative.contactInfo,
+      logoInstruction: creative.logoInstruction,
       adSize,
       model,
       diagnostic: diagnostic({ apiStatus: "ok", openAiStatus: "connected", requestId, model }),
