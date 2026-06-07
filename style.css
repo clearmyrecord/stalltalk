@@ -648,14 +648,43 @@ main,
 
 /* FIX EMPTY AD SLOT VISIBILITY */
 
+.ad-card.is-empty,
+.inline-ad.is-empty,
 .ad-card[data-ad-slot].is-empty,
 .inline-ad[data-ad-slot].is-empty {
-  background: #fffdf5 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  justify-content: stretch;
+  aspect-ratio: auto;
+  min-height: clamp(240px, 32vw, 340px);
+  padding: clamp(18px, 3vw, 30px);
+  overflow: visible;
+  background:
+    repeating-linear-gradient(-45deg, rgba(16, 16, 107, .055), rgba(16, 16, 107, .055) 12px, rgba(255,255,255,.74) 12px, rgba(255,255,255,.74) 24px),
+    #fffdf5 !important;
   color: #111 !important;
   border: 3px dashed #111 !important;
   box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+  text-align: left;
 }
 
+.ad-card.is-empty::before,
+.inline-ad.is-empty::before,
+.ad-card[data-ad-slot].is-empty::before,
+.inline-ad[data-ad-slot].is-empty::before {
+  display: none !important;
+}
+
+.ad-card.is-empty h3,
+.ad-card.is-empty p,
+.ad-card.is-empty .slot,
+.ad-card.is-empty a,
+.inline-ad.is-empty h3,
+.inline-ad.is-empty p,
+.inline-ad.is-empty .slot,
+.inline-ad.is-empty a,
 .ad-card[data-ad-slot].is-empty h3,
 .ad-card[data-ad-slot].is-empty p,
 .ad-card[data-ad-slot].is-empty .slot,
@@ -668,13 +697,29 @@ main,
   opacity: 1 !important;
 }
 
-.ad-card[data-ad-slot].is-empty::before,
-.inline-ad[data-ad-slot].is-empty::before {
-  display: none !important;
+.ad-card.is-empty .slot,
+.inline-ad.is-empty .slot,
+.ad-card[data-ad-slot].is-empty .slot,
+.inline-ad[data-ad-slot].is-empty .slot {
+  width: fit-content;
+  border: 1px solid rgba(17,24,39,.55);
+  background: rgba(255,255,255,.82);
 }
 
+.ad-card.is-empty .ad-copy,
+.inline-ad.is-empty .ad-copy,
+.ad-card[data-ad-slot].is-empty .ad-copy,
+.inline-ad[data-ad-slot].is-empty .ad-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.ad-card.is-empty .ad-actions a,
+.inline-ad.is-empty .ad-actions a,
 .ad-card[data-ad-slot].is-empty .ad-actions a,
 .inline-ad[data-ad-slot].is-empty .ad-actions a {
+  display: inline-block;
+  width: fit-content;
   background: #151189;
   color: white !important;
   padding: 10px 14px;

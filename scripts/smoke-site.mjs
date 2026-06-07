@@ -17,6 +17,8 @@ assert(admin.includes("Content") && admin.includes("Venues / QR Codes") && admin
 assert(publicScript.includes("detectUserMarketByIp") && publicScript.includes("ad_impression") && publicScript.includes("qr_scan"), "Public script must include IP hook placeholder and analytics events.");
 assert(adminScript.includes("pottyfavor_issue") && adminScript.includes("qrUrlForSlug") && adminScript.includes("Publish"), "Admin script must save Phase 1 localStorage data and generate QR URLs.");
 assert(styles.includes("inline-ad") && styles.includes("sponsor-directory") && styles.includes("print-grid"), "Styles must support inline premium ads and magazine layout.");
+assert(styles.includes(".ad-card.is-empty") && styles.includes(".inline-ad.is-empty") && styles.includes("#fffdf5 !important"), "Empty ad slots must render as light readable placeholders, not black boxes.");
+assert(publicScript.includes("Available Sponsor Slot") && publicScript.includes("Book Slot"), "Empty ad slots must include readable placeholder copy and a Book Slot action.");
 assert(JSON.parse(demo).ads.length >= 8, "Demo data must seed all eight ad slots and may include targeted overrides.");
 
 console.log("Static Potty Favor smoke tests passed.");
