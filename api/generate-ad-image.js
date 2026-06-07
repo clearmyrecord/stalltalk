@@ -23,13 +23,13 @@ const AD_SIZES = {
     dalleSize: "1792x1024",
     gptImageSize: "1536x1024",
   },
-  rail: {
-    label: "Rail",
-    description: "1024x1536 vertical sponsor rail ad",
-    width: 1024,
-    height: 1536,
-    dalleSize: "1024x1792",
-    gptImageSize: "1024x1536",
+  inline: {
+    label: "Inline banner",
+    description: "1536x1024 premium inline publication ad",
+    width: 1536,
+    height: 1024,
+    dalleSize: "1792x1024",
+    gptImageSize: "1536x1024",
   },
   mobile: {
     label: "Mobile card",
@@ -75,7 +75,7 @@ function adSizeKey(value) {
   const normalized = safeText(value, "banner").toLowerCase().replace(/[^a-z0-9]+/g, "-");
   if (normalized.includes("square")) return "square";
   if (normalized.includes("tall") || normalized.includes("portrait")) return "tall";
-  if (normalized.includes("rail")) return "rail";
+  if (normalized.includes("inline")) return "inline";
   if (normalized.includes("mobile") || normalized.includes("card")) return "mobile";
   if (normalized.includes("footer")) return "footer";
   return "banner";

@@ -1,5 +1,6 @@
 const STORAGE_KEYS = {
   issue: "pottyfavor_issue",
+  draft: "pottyfavor_issue_draft",
   venues: "pottyfavor_venues",
   ads: "pottyfavor_ads",
   settings: "pottyfavor_settings",
@@ -44,6 +45,7 @@ const DEFAULT_DEMO = {
 };
 
 const pageContext = {
+  urlParams: new URLSearchParams(window.location.search),
   venueSlug: new URLSearchParams(window.location.search).get("venue") || "",
   venue: null,
   market: null,
@@ -87,6 +89,45 @@ async function loadDemoData() {
     console.warn("Using embedded demo data because data/demo.json could not be loaded.", error);
   }
   return DEFAULT_DEMO;
+}
+
+
+async function fetchPublishedJson(path) {
+  try {
+    const response = await fetch(`${path}?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) {
+      console.info(`No shared publication loaded from ${path}: ${response.status}`);
+      return null;
+    }
+    const payload = await response.json();
+    console.info(`Loaded shared publication data from ${path}.`);
+    return payload;
+  } catch (error) {
+    console.info(`Falling back because shared publication data could not be loaded from ${path}.`, error);
+    return null;
+  }
+}
+
+function extractIssuePayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  return payload.issue && typeof payload.issue === "object" ? payload.issue : payload;
+}
+
+function extractAdsPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.ads)) return payload.ads;
+  return null;
+}
+
+async function loadSharedPublication() {
+  const [issuePayload, adsPayload] = await Promise.all([
+    fetchPublishedJson("data/published-issue.json"),
+    fetchPublishedJson("data/published-ads.json"),
+  ]);
+  return {
+    issue: extractIssuePayload(issuePayload),
+    ads: extractAdsPayload(adsPayload),
+  };
 }
 
 function migrateOldKeys() {
@@ -408,8 +449,8 @@ function selectAdForSlot(slot, ads) {
 
 function renderAdElement(element, ad, slot) {
   if (!ad) {
-    element.className = `${element.className} is-empty`;
-    element.innerHTML = `<span class="slot">Ad Slot ${slot}</span><h3>Available</h3><p>Reserve this Potty Favor placement.</p><a href="admin/">Book Slot</a>`;
+    element.classList.add("is-empty");
+    element.innerHTML = `<span class="slot">Ad Slot ${slot} · Sponsor Opportunity</span><h3>Available Sponsor Slot</h3><div class="ad-copy"><p><strong>Advertise Here</strong></p><p>Reach restroom readers in this venue.</p></div><div class="ad-actions"><a href="admin/">Book Slot</a></div>`;
     return;
   }
   element.classList.remove("is-empty");
@@ -427,19 +468,24 @@ function renderAdElement(element, ad, slot) {
   }
   const headline = document.createElement("h3");
   headline.textContent = ad.headline;
+  const copy = document.createElement("div");
+  copy.className = "ad-copy";
   const advertiser = document.createElement("p");
   advertiser.innerHTML = "<strong></strong>";
   advertiser.querySelector("strong").textContent = ad.advertiserName;
   const offer = document.createElement("p");
   offer.textContent = ad.offer;
-  element.append(headline, advertiser, offer);
+  copy.append(advertiser, offer);
+  element.append(headline, copy);
+  const actions = document.createElement("div");
+  actions.className = "ad-actions";
   if (ad.couponCode) {
     const coupon = document.createElement("button");
     coupon.className = "coupon";
     coupon.type = "button";
     coupon.dataset.coupon = ad.couponCode;
     coupon.textContent = `Code: ${ad.couponCode}`;
-    element.appendChild(coupon);
+    actions.appendChild(coupon);
   }
   const link = document.createElement("a");
   link.href = ad.targetUrl;
@@ -447,7 +493,8 @@ function renderAdElement(element, ad, slot) {
   link.rel = "noopener";
   link.dataset.adClick = "";
   link.textContent = ad.cta;
-  element.appendChild(link);
+  actions.appendChild(link);
+  element.appendChild(actions);
   if (!pageContext.renderedSlots.has(slot)) {
     pageContext.renderedSlots.add(slot);
     recordAnalytics("ad_impression", { slot, advertiserName: ad.advertiserName, targetingType: ad.targetingType });
@@ -482,10 +529,19 @@ function bindClicks() {
 async function init() {
   migrateOldKeys();
   const demo = await loadDemoData();
-  const issue = { ...demo.issue, ...readJson(STORAGE_KEYS.issue, {}) };
+  const localPreview = pageContext.urlParams.get("preview") === "local";
+  const shared = localPreview ? { issue: null, ads: null } : await loadSharedPublication();
+  const localIssue = localPreview ? (readJson(STORAGE_KEYS.draft, null) || readJson(STORAGE_KEYS.issue, null)) : readJson(STORAGE_KEYS.issue, null);
+  const localAds = readJson(STORAGE_KEYS.ads, null);
+  const issue = shared.issue ? { ...demo.issue, ...shared.issue } : { ...demo.issue, ...(localIssue || {}) };
   const venues = readJson(STORAGE_KEYS.venues, demo.venues);
-  const ads = readJson(STORAGE_KEYS.ads, demo.ads);
-  const events = localStorage.getItem(STORAGE_KEYS.events) === null ? (demo.events || []) : readJson(STORAGE_KEYS.events, []);
+    const ads = Array.isArray(shared.ads)
+      ? shared.ads
+      : (Array.isArray(localAds) ? localAds : demo.ads);
+
+    const events = localStorage.getItem(STORAGE_KEYS.events) === null
+      ? (demo.events || [])
+      : readJson(STORAGE_KEYS.events, []);
   renderIssue(issue);
   renderCalendarEvents(issue, events);
   resolveVenue(venues);

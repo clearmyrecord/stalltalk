@@ -17,45 +17,47 @@ type Props = {
 export function AdCard({ ad, slotNumber, issueId, publisherId, venueId, restroomId, qrCodeId, compact = false, chip = false }: Props) {
   const articleClasses = chip
     ? "flex min-w-[10rem] max-w-[11rem] flex-col rounded-xl border-2 border-ink bg-white p-2 shadow-brutal"
-    : "rounded-2xl border-4 border-ink bg-white p-2 shadow-brutal";
+    : "rounded-[1.75rem] border-4 border-ink bg-white p-4 shadow-brutal md:grid md:min-h-[22rem] md:grid-cols-[1fr_1.1fr] md:gap-5 md:p-5";
 
   return (
     <article className={articleClasses}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2 flex items-center justify-between gap-2 md:col-span-2">
         <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
         <span className="rounded-full bg-stallPurple px-2 py-1 text-[10px] font-black uppercase text-white">{ad.source || ad.scope}</span>
       </div>
       <CreativeFrame ad={ad} slotNumber={slotNumber} compact={compact || chip} chip={chip} />
-      <h3 className={`${chip ? "mt-2 line-clamp-1 text-lg" : "mt-2 text-2xl"} font-display uppercase leading-none tracking-tight`}>{ad.businessName}</h3>
-      <p className={`${chip ? "line-clamp-1 text-[11px]" : "text-sm"} font-black uppercase text-stallRed`}>{ad.generatedHeadline || ad.title}</p>
-      {!chip ? <p className={`${compact ? "line-clamp-2" : ""} text-sm font-bold`}>{ad.generatedSubheadline || ad.offer}</p> : null}
-      <div className={`mt-2 grid ${chip ? "grid-cols-1 gap-1 text-[10px]" : "grid-cols-2 gap-2 text-[11px]"} text-center font-black uppercase`}>
+      <div className={chip ? "" : "mt-3 md:mt-0"}>
+        <h3 className={`${chip ? "mt-2 line-clamp-1 text-lg" : "text-4xl md:text-6xl"} font-display uppercase leading-none tracking-tight`}>{ad.businessName}</h3>
+        <p className={`${chip ? "line-clamp-1 text-[11px]" : "mt-2 text-lg md:text-xl"} font-black uppercase text-stallRed`}>{ad.generatedHeadline || ad.title}</p>
+        {!chip ? <p className={`${compact ? "line-clamp-2" : ""} mt-2 text-base font-bold md:text-lg`}>{ad.generatedSubheadline || ad.offer}</p> : null}
+      </div>
+      <div className={`mt-2 grid ${chip ? "grid-cols-1 gap-1 text-[10px]" : "grid-cols-2 gap-2 text-[12px] md:col-start-2"} text-center font-black uppercase`}>
         <TrackingButton label={chip ? "Open" : ad.ctaText} type="AD_CLICK" ad={ad} issueId={issueId} publisherId={publisherId} venueId={venueId} restroomId={restroomId} qrCodeId={qrCodeId} slotNumber={slotNumber} dark />
         <TrackingButton label={chip ? "Coupon" : ad.couponCode || "Coupon"} type="COUPON_REDEMPTION" ad={ad} issueId={issueId} publisherId={publisherId} venueId={venueId} restroomId={restroomId} qrCodeId={qrCodeId} slotNumber={slotNumber} />
       </div>
-      {!chip ? <p className="mt-2 truncate text-xs font-bold">{ad.phone || ad.targetUrl}</p> : null}
+      {!chip ? <p className="mt-2 truncate text-xs font-bold md:col-start-2">{ad.phone || ad.targetUrl}</p> : null}
     </article>
   );
 }
 
 export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number; chip?: boolean }) {
   return (
-    <article className={chip ? "min-w-[10rem] max-w-[11rem] rounded-xl border-2 border-dashed border-ink bg-stallYellow p-2 text-ink shadow-brutal" : "rounded-2xl border-4 border-dashed border-ink bg-stallYellow p-3 text-ink shadow-brutal"}>
+    <article className={chip ? "min-w-[10rem] max-w-[11rem] rounded-xl border-2 border-dashed border-ink bg-stallYellow p-2 text-ink shadow-brutal" : "rounded-[1.75rem] border-4 border-dashed border-ink bg-stallYellow p-5 text-ink shadow-brutal"}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
         <span className="rounded-full bg-stallRed px-2 py-1 text-[10px] font-black uppercase text-white">Premium</span>
       </div>
-      <div className={`ad-gradient-${slotNumber} grid ${chip ? "h-16" : "h-20"} place-items-center rounded-xl border-2 border-ink p-2 text-center font-black uppercase text-white shadow-inner`}>
-        Sponsor This Spot
+      <div className={`ad-gradient-${slotNumber} grid ${chip ? "h-16" : "min-h-40"} place-items-center rounded-xl border-2 border-ink p-4 text-center font-black uppercase text-white shadow-inner`}>
+        Advertise Here
       </div>
-      <h3 className={`${chip ? "mt-2 text-lg" : "mt-3 text-2xl"} font-display uppercase leading-none`}>Available</h3>
-      {!chip ? <p className="text-sm font-black uppercase text-stallRed">Premium sticky sponsor inventory</p> : null}
+      <h3 className={`${chip ? "mt-2 text-lg" : "mt-4 text-4xl md:text-6xl"} font-display uppercase leading-none`}>Available Sponsor Slot</h3>
+      {!chip ? <p className="mt-2 text-lg font-black uppercase text-stallRed">Reach restroom readers in this venue.</p> : null}
     </article>
   );
 }
 
 function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: number; compact: boolean; chip: boolean }) {
-  const height = chip ? "h-16" : compact ? "h-20" : "h-36";
+  const height = chip ? "h-16" : compact ? "h-36" : "h-64";
   const frame = `ad-creative-frame relative overflow-hidden rounded-xl border-2 border-ink bg-ink ${height} shadow-inner`;
 
   if (ad.creativeType === "VIDEO" && ad.videoUrl) {

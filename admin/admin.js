@@ -446,6 +446,71 @@ function importPayload(payload) {
   setStatus("Imported JSON into localStorage.");
 }
 
+
+function publicationFiles() {
+  const current = state();
+  const files = [
+    { path: "data/published-issue.json", name: "published-issue.json", content: current.issue },
+    { path: "data/published-ads.json", name: "published-ads.json", content: current.ads },
+  ];
+  if (Array.isArray(current.events) && current.events.length) {
+    files.push({ path: "data/published-events.json", name: "published-events.json", content: current.events });
+  }
+  return files;
+}
+
+function downloadJsonFile(file) {
+  const blob = new Blob([`${JSON.stringify(file.content, null, 2)}\n`], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadPublishBundle() {
+  const files = publicationFiles();
+  files.forEach((file, index) => {
+    setTimeout(() => downloadJsonFile(file), index * 250);
+  });
+  setStatus(`Downloaded ${files.map((file) => file.name).join(", ")}. Replace these files in /data on GitHub, commit, and wait for GitHub Pages to deploy.`);
+}
+
+function codexPublishCommand() {
+  const files = publicationFiles();
+  const sections = files.map((file) => [
+    `File: ${file.path}`,
+    "```json",
+    JSON.stringify(file.content, null, 2),
+    "```",
+  ].join("\n"));
+  return [
+    "Update data/published-issue.json and data/published-ads.json with the following JSON content so GitHub Pages shows the latest publication on all devices.",
+    "If published-events.json is included, update that file too. Commit the changes on the current branch and create a PR.",
+    "",
+    ...sections,
+  ].join("\n");
+}
+
+async function copyCodexPublishCommand() {
+  const command = codexPublishCommand();
+  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(command);
+  const box = document.querySelector("#json-box");
+  if (box) box.value = command;
+  setStatus("Codex publish command copied when clipboard is available. It is also shown in Import / Export.");
+}
+
+function previewLocally() {
+  saveJson(STORAGE_KEYS.draft, collectIssue());
+  const frame = document.querySelector("#preview-frame");
+  if (frame) frame.src = `../index.html?preview=local&cache=${Date.now()}`;
+  document.querySelector('[data-tab="preview"]')?.click();
+  setStatus("Preview refreshed locally from the saved draft.");
+}
+
 function renderAnalytics() {
   const list = document.querySelector("#analytics-list");
   list.innerHTML = "";
@@ -700,7 +765,7 @@ function bindTabs() {
       document.querySelectorAll(".admin-panel").forEach((panel) => panel.classList.remove("active"));
       button.classList.add("active");
       document.querySelector(`#tab-${button.dataset.tab}`).classList.add("active");
-      if (button.dataset.tab === "preview") document.querySelector("#preview-frame").src = `../index.html?cache=${Date.now()}`;
+      if (button.dataset.tab === "preview") document.querySelector("#preview-frame").src = `../index.html?preview=local&cache=${Date.now()}`;
       if (button.dataset.tab === "import") refreshExportBox();
       if (button.dataset.tab === "events") renderEvents();
     });
@@ -721,10 +786,15 @@ function bindActions() {
     saveJson(STORAGE_KEYS.draft, collectIssue());
     setStatus("Draft saved locally.");
   });
+  document.querySelector("#preview-local")?.addEventListener("click", previewLocally);
   document.querySelector("#publish-issue").addEventListener("click", () => {
     saveJson(STORAGE_KEYS.issue, collectIssue());
-    setStatus("Published. Public page will use this issue in the same browser.");
+    setStatus("Published locally. This browser will use the issue, but phones and other devices need the shared JSON files on GitHub Pages.");
     loadAll();
+  });
+  document.querySelector("#download-publish-bundle")?.addEventListener("click", downloadPublishBundle);
+  document.querySelector("#copy-publish-command")?.addEventListener("click", () => {
+    copyCodexPublishCommand().catch((error) => setStatus(`Could not copy command automatically: ${error.message}`));
   });
   document.querySelector("#reset-demo").addEventListener("click", () => {
     saveJson(STORAGE_KEYS.issue, DEMO.issue);
