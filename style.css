@@ -518,3 +518,61 @@ textarea { min-height: 92px; resize: vertical; }
     width: 100%;
   }
 }
+
+/* Center main content boxes */
+main,
+.issue-content,
+.content-grid,
+.section-grid {
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Keep ads full/layout unchanged */
+.ad-grid,
+.ads,
+.inline-ads {
+  max-width: none;
+}
+
+/* Clean local event form */
+.submit-event-box {
+  max-width: 760px;
+  margin: 28px auto;
+  padding: 22px;
+  border-radius: 22px;
+  background: #fff7e6;
+  border: 2px solid #111;
+  box-shadow: 0 8px 0 rgba(0,0,0,0.18);
+}
+
+.submit-event-box h2 {
+  margin-top: 0;
+  font-size: 1.7rem;
+}
+
+.submit-event-box form {
+  display: grid;
+  gap: 12px;
+}
+
+.submit-event-box input,
+.submit-event-box textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 2px solid #111;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.submit-event-box button {
+  width: fit-content;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #151189;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
