@@ -81,8 +81,8 @@ function adSizeKey(value) {
   return "banner";
 }
 
-function currentModel() {
-  return safeText(process.env.OPENAI_IMAGE_MODEL, "gpt-image-2");
+function currentModel(body = {}) {
+  return safeText(body.openAiImageModel || body.model || process.env.OPENAI_IMAGE_MODEL, "gpt-image-2");
 }
 
 function diagnostic(model, overrides = {}) {
@@ -162,9 +162,10 @@ function buildPrompt(body, sizeKey, copy) {
     `Include contact details only if they fit cleanly: website ${website}; phone ${phone}.`,
     `Logo reference URL if available: ${optionalLogoUrl}. Do not invent a real logo for a trademarked brand if no logo is supplied; use tasteful type treatment instead.`,
     footerInstruction,
-    "Create a finished professional graphic ad, not a mockup, website card, wireframe, screenshot, or template preview.",
-    "Use high contrast, readable typography, strong hierarchy, clean spacing, mobile-friendly layout, and commercial advertisement quality.",
-    "No placeholder text, no lorem ipsum, no fake QR codes, no unreadable microcopy.",
+    "Create a finished, high-quality commercial advertisement with premium visual composition, commercial lighting, strong hierarchy, clean spacing, and a polished layout ready to publish in Potty Favor sponsor slots.",
+    "Use readable bold typography and include the business name, the offer, a clear CTA, and the coupon code if provided.",
+    "Make the ad eye-catching for restroom readers scanning quickly while matching the selected visual style, tone, and venue/city atmosphere.",
+    "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layouts, fake QR codes, and unreadable microcopy.",
   ].filter(Boolean).join(" "));
 }
 
@@ -217,7 +218,7 @@ module.exports = async function handler(req, res) {
       return;
     }
     const validationError = validateBrief(body);
-    const model = currentModel();
+    const model = currentModel(body);
     if (validationError) {
       res.status(400).json({ error: validationError, diagnostic: diagnostic(model, { errorType: "invalid_input" }) });
       return;
@@ -308,7 +309,7 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error("generate-ad-image Vercel function/fetch failed", error);
-    res.status(500).json({ error: error.message || "Unable to generate image ad.", diagnostic: { apiStatus: "failed", openAiStatus: "failed", model: currentModel(), errorType: "vercel_function_or_fetch_error" } });
+    res.status(500).json({ error: error.message || "Unable to generate image ad.", diagnostic: { apiStatus: "failed", openAiStatus: "failed", model: currentModel(req.body || {}), errorType: "vercel_function_or_fetch_error" } });
   }
 };
 
