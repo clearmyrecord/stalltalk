@@ -475,3 +475,46 @@ textarea { min-height: 92px; resize: vertical; }
   .calendar-layout, .event-form, .event-admin-layout { grid-template-columns: 1fr; }
   .calendar-grid span, .calendar-grid button { min-height: 36px; padding: 4px; font-size: .78rem; }
 }
+
+.restaurant-review .review-box {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.review-photo {
+  width: 38%;
+  min-height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+.review-content {
+  flex: 1;
+}
+
+.review-rating {
+  font-weight: 900;
+  color: #0b3d91;
+}
+
+.review-button {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #121a7a;
+  color: white;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+@media (max-width: 700px) {
+  .restaurant-review .review-box {
+    flex-direction: column;
+  }
+
+  .review-photo {
+    width: 100%;
+  }
+}
