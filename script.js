@@ -1050,10 +1050,15 @@ async function init() {
 
   const venues = readJson(STORAGE_KEYS.venues, demo.venues);
 
-  const ads = Array.isArray(shared.ads)
-    ? shared.ads
-    : Array.isArray(localAds)
-      ? localAds
+  const sharedAds = Array.isArray(shared.ads) ? shared.ads : [];
+  const browserAds = Array.isArray(localAds) ? localAds : [];
+  const ads = browserAds.length
+    ? [
+        ...browserAds,
+        ...sharedAds.filter((sharedAd) => !browserAds.some((browserAd) => Number(browserAd.slot) === Number(sharedAd.slot))),
+      ]
+    : sharedAds.length
+      ? sharedAds
       : demo.ads;
 
   const events =

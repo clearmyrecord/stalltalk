@@ -56,7 +56,7 @@ const DEMO = {
     { id: "demo-local-comedy-showcase", title: "Local Comedy Showcase", description: "Fast sets from Vegas comedians built for a fun weekend warmup.", venueName: "Arts District Comedy Cellar", address: "1020 S Main St", city: "Las Vegas", state: "NV", eventDate: "2026-06-25", startTime: "19:30", endTime: "21:30", category: "Community", website: "https://example.com/comedy", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: false, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
   ],
   pendingEvents: [],
-  settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html", vercelApiBaseUrl: "", openAiImageModel: "gpt-image-2" },
+  settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html", vercelApiBaseUrl: "https://stalltalk.vercel.app", openAiImageModel: "gpt-image-1" },
 };
 
 let activeSlot = 1;
@@ -531,8 +531,8 @@ function loadSettings() {
   const form = document.querySelector("#settings-form");
   const settings = state().settings;
   form.elements.qrBaseUrl.value = settings.qrBaseUrl || DEMO.settings.qrBaseUrl;
-  form.elements.vercelApiBaseUrl.value = settings.vercelApiBaseUrl || "";
-  form.elements.openAiImageModel.value = settings.openAiImageModel || "gpt-image-2";
+  form.elements.vercelApiBaseUrl.value = settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl;
+  form.elements.openAiImageModel.value = settings.openAiImageModel || "gpt-image-1";
   refreshEndpointDisplay();
 }
 
@@ -549,11 +549,23 @@ const CREATIVE_PRESETS = {
 
 let generatedCreative = null;
 
-function collectCreativeBrief() {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(new Error("Unable to read uploaded logo.")));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function collectCreativeBrief() {
   const data = new FormData(document.querySelector("#creative-form"));
+  const logoFile = data.get("logoFile");
+  const logoBase64 = logoFile instanceof File && logoFile.size ? await readFileAsDataUrl(logoFile) : "";
   return {
     businessName: String(data.get("businessName") || ""),
     businessCategory: String(data.get("businessCategory") || ""),
+    creativeBrief: String(data.get("creativeBrief") || ""),
     offer: String(data.get("offer") || ""),
     couponCode: String(data.get("couponCode") || ""),
     ctaText: String(data.get("ctaText") || ""),
@@ -568,7 +580,9 @@ function collectCreativeBrief() {
     tone: String(data.get("tone") || ""),
     requiredText: String(data.get("requiredText") || ""),
     optionalDisclaimer: String(data.get("optionalDisclaimer") || ""),
-    adSize: String(data.get("adSize") || "Square"),
+    logoBase64,
+    slot: Number(data.get("slot") || 1),
+    adSize: String(data.get("adSize") || "Inline banner"),
   };
 }
 
@@ -604,7 +618,7 @@ function endpointFromInput(input = "") {
 }
 
 function creativeEndpoint() {
-  return endpointFromInput(state().settings.vercelApiBaseUrl || "");
+  return endpointFromInput(state().settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl);
 }
 
 function refreshEndpointDisplay() {
@@ -612,7 +626,7 @@ function refreshEndpointDisplay() {
   if (!output) return;
   const formValue = document.querySelector('#settings-form [name="vercelApiBaseUrl"]')?.value;
   try {
-    output.textContent = endpointFromInput(formValue || state().settings.vercelApiBaseUrl || "");
+    output.textContent = endpointFromInput(formValue || state().settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl);
   } catch (error) {
     output.textContent = error.message;
   }
@@ -636,12 +650,14 @@ function buildEnhancedCreativePrompt(brief) {
   return [
     `Create a finished, high-quality commercial advertisement for ${businessName}, a ${category}.`,
     `Feature the business name "${businessName}" prominently with readable bold typography.`,
+    `Creative brief: ${String(brief.creativeBrief || "Create a persuasive local offer advertisement.").trim()}`,
     `Include the offer text "${offer}" as the main promotional message.`,
     `Include a clear CTA: "${cta}".`,
     coupon ? `Include coupon code "${coupon}" in a polished coupon badge.` : "Do not invent a coupon code if none is provided.",
     `Match the selected visual style: ${style}. Match the tone: ${tone}.`,
     `Match the venue/city atmosphere: ${creativeVenueAtmosphere(brief)}.`,
     `Use premium visual composition, commercial lighting, strong hierarchy, clean spacing, ${colors}, and an eye-catching layout for restroom readers scanning quickly.`,
+    brief.logoBase64 ? "A private uploaded logo is included in the request; use it as visual inspiration, preserve the brand feel, and do not publish or expose a logo URL." : "No logo was provided; do not invent a fake logo.",
     `Design should be ready to publish in Potty Favor sponsor slots in ${brief.adSize || "Square"} format.`,
     requiredText ? `Also include this required text exactly if it fits: ${requiredText}.` : "Only include intentional readable ad copy; no extra filler text.",
     disclaimer ? `Add this disclaimer only if legible without clutter: ${disclaimer}.` : "Avoid tiny legal microcopy unless requested.",
@@ -658,7 +674,7 @@ function showCreativeResult(payload, brief) {
   const output = document.querySelector("#creative-output");
   const publish = document.querySelector("#creative-publish");
   const preview = document.querySelector("#creative-preview");
-  document.querySelector("#creative-prompt").textContent = payload.promptUsed || "No prompt returned.";
+  document.querySelector("#creative-prompt").textContent = payload.prompt || payload.promptUsed || "No prompt returned.";
   document.querySelector("#creative-diagnostics").textContent = JSON.stringify({ endpointCalled: payload.endpointCalled || creativeEndpoint(), ...(payload.diagnostic || payload.diagnostics || { ok: Boolean(payload.imageUrl || payload.imageBase64) }) }, null, 2);
   output.hidden = false;
   const imageUrl = payload.imageUrl || (payload.imageBase64 ? `data:image/png;base64,${payload.imageBase64}` : "");
@@ -672,6 +688,8 @@ function showCreativeResult(payload, brief) {
   }
   preview.src = imageUrl;
   generatedCreative = { ...payload, imageUrl, brief };
+  const slotSelect = document.querySelector('#creative-publish-form [name="slot"]');
+  if (slotSelect) slotSelect.value = String(brief.slot || 1);
   publish.hidden = false;
   setCreativeStatus("Generated image ready. Review it, then publish to a slot.");
 }
@@ -705,7 +723,7 @@ async function generateCreativeAd(brief) {
   if (!brief.businessName || !brief.offer) throw new Error("Business name and offer are required.");
   const settings = state().settings;
   const endpoint = creativeEndpoint();
-  const creativeBrief = { ...brief, prompt: buildEnhancedCreativePrompt(brief), openAiImageModel: settings.openAiImageModel || "gpt-image-2" };
+  const creativeBrief = { ...brief, prompt: buildEnhancedCreativePrompt(brief), openAiImageModel: settings.openAiImageModel || "gpt-image-1" };
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -718,28 +736,30 @@ function generatedAdFromPublishForm() {
   if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
-  const slot = Number(publishData.get("slot") || 1);
-  const targetingType = String(publishData.get("targetingType") || "global");
-  const market = targetingType === "global" ? "" : String(publishData.get("market") || brief.venueTargeting || brief.cityTargeting || brief.stateTargeting || "");
+  const slot = Number(publishData.get("slot") || brief.slot || 1);
+  const generatedImageBase64 = generatedCreative.imageBase64 || "";
   return {
     slot,
+    active: true,
+    targetingType: "global",
     advertiserName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
-    businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
-    headline: generatedCreative.headline || brief.offer || "Sponsor Message",
-    subheadline: generatedCreative.subheadline || "",
+    headline: brief.offer || generatedCreative.headline || "Sponsor Message",
     offer: brief.offer || generatedCreative.headline || "Reader-only offer",
-    couponCode: generatedCreative.couponCode || brief.couponCode || "",
     cta: generatedCreative.cta || generatedCreative.ctaText || brief.ctaText || "Learn More",
     targetUrl: brief.website || "#",
-    image: generatedCreative.imageUrl,
+    imageBase64: generatedImageBase64,
+    image: generatedImageBase64 ? `data:image/png;base64,${generatedImageBase64}` : generatedCreative.imageUrl,
+    category: brief.businessCategory || generatedCreative.category || "Local Business",
+    city: brief.cityTargeting || "",
+    state: brief.stateTargeting || "",
+    createdAt: new Date().toISOString(),
+    couponCode: generatedCreative.couponCode || brief.couponCode || "",
+    businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
     imageUrl: generatedCreative.imageUrl,
-    imageBase64: generatedCreative.imageBase64 || "",
+    market: "",
     adMode: "image",
-    adSize: brief.adSize || "Square",
-    targetingType,
-    market,
-    active: true,
-    promptUsed: generatedCreative.promptUsed || "",
+    adSize: brief.adSize || "Inline banner",
+    promptUsed: generatedCreative.prompt || generatedCreative.promptUsed || "",
     diagnostics: generatedCreative.diagnostic || generatedCreative.diagnostics || {},
   };
 }
@@ -924,9 +944,12 @@ function bindActions() {
   });
   document.querySelector("#creative-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const brief = collectCreativeBrief();
+    const button = document.querySelector("#generate-creative");
+    button.disabled = true;
+    button.textContent = "Generating…";
     document.querySelector("#creative-publish").hidden = true;
     try {
+      const brief = await collectCreativeBrief();
       setCreativeStatus(`Generating finished ad image via ${creativeEndpoint()}…`);
       const payload = await generateCreativeAd(brief);
       showCreativeResult(payload, brief);
@@ -937,6 +960,9 @@ function bindActions() {
       document.querySelector("#creative-prompt").textContent = "";
       document.querySelector("#creative-diagnostics").textContent = JSON.stringify({ error: error.message }, null, 2);
       setCreativeStatus(error.message, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = "Generate Ad Image";
     }
   });
   document.querySelector("#creative-publish-form").addEventListener("submit", (event) => {
@@ -963,7 +989,7 @@ function bindActions() {
       saveJson(STORAGE_KEYS.settings, {
         qrBaseUrl: String(data.get("qrBaseUrl") || DEMO.settings.qrBaseUrl),
         vercelApiBaseUrl,
-        openAiImageModel: String(data.get("openAiImageModel") || "gpt-image-2"),
+        openAiImageModel: String(data.get("openAiImageModel") || "gpt-image-1"),
       });
       updateQrPreview();
       refreshEndpointDisplay();
@@ -976,9 +1002,9 @@ function bindActions() {
   document.querySelector("#test-api-endpoint").addEventListener("click", async () => {
     const brief = { businessName: "Potty Favor Endpoint Test", businessCategory: "Local Service", offer: "Endpoint test", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "clean professional", tone: "clear", requiredText: "API TEST", adSize: "Square" };
     try {
-      const endpoint = endpointFromInput(document.querySelector('#settings-form [name="vercelApiBaseUrl"]')?.value || state().settings.vercelApiBaseUrl || "");
+      const endpoint = endpointFromInput(document.querySelector('#settings-form [name="vercelApiBaseUrl"]')?.value || state().settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl);
       setSettingsStatus(`Testing endpoint with POST: ${endpoint}`);
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...brief, prompt: buildEnhancedCreativePrompt(brief), openAiImageModel: state().settings.openAiImageModel || "gpt-image-2" }) });
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...brief, prompt: buildEnhancedCreativePrompt(brief), openAiImageModel: state().settings.openAiImageModel || "gpt-image-1" }) });
       const payload = await parseEndpointResponse(response, endpoint);
       setSettingsStatus(response.ok ? `Endpoint POST reached ${endpoint}. ${payload.imageUrl || payload.imageBase64 ? "Image returned." : (payload.error || "JSON response returned without image data.")}` : `${payload.error} Endpoint called: ${endpoint}`, !response.ok || !(payload.imageUrl || payload.imageBase64));
     } catch (error) {
