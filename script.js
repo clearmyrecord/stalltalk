@@ -1,4 +1,3 @@
-```js
 const STORAGE_KEYS = {
   issue: "pottyfavor_issue",
   draft: "pottyfavor_issue_draft",
@@ -1088,4 +1087,3 @@ window.PottyFavorAds = {
   showAdLoading,
   showAdError,
 };
-```
