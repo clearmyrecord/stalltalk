@@ -1,7 +1,10 @@
 {
   "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node"
+    "api/generate-ad-image.js": {
+      "maxDuration": 60
+    },
+    "api/generate-ad-video.js": {
+      "maxDuration": 60
     }
   }
 }
