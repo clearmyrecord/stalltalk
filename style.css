@@ -592,15 +592,24 @@ main,
   border-radius: 22px;
   overflow: hidden;
   box-sizing: border-box;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, .85fr);
+  grid-template-areas:
+    "label image"
+    "headline image"
+    "copy image"
+    "actions image";
+  gap: 12px 22px;
   align-items: center;
-  justify-content: center;
-  background: #111;
-  color: #fff;
+  justify-content: stretch;
+  background: #fffdf5;
+  color: #111;
+  border: 3px dashed rgba(17, 24, 39, .55);
   position: relative;
 }
 
 .generated-ad {
+  grid-column: 1 / -1;
   width: 100%;
   height: 100%;
   background-size: cover;
@@ -641,7 +650,13 @@ main,
 @media (max-width: 760px) {
   .ad-card,
   .inline-ad {
-    aspect-ratio: 4 / 3;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "label"
+      "headline"
+      "copy"
+      "actions";
+    aspect-ratio: auto;
     min-height: 220px;
   }
 }
@@ -728,14 +743,14 @@ main,
   text-decoration: none;
 }
 
-.ad-card[data-ad-slot],
-.inline-ad[data-ad-slot] {
-  background: #fffdf5 !important;
-  color: #111 !important;
-  border: 3px dashed #111 !important;
-  border-radius: 22px !important;
-  min-height: 180px !important;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
+.ad-card[data-ad-slot]:not(.is-empty),
+.inline-ad[data-ad-slot]:not(.is-empty) {
+  color: #fff;
+  border: 4px solid #111827;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 216, 76, .24), transparent 16rem),
+    linear-gradient(135deg, #151338, #0f5a78 58%, #181128);
+  box-shadow: 0 16px 34px rgba(18, 9, 30, .24);
 }
 
 .ad-card[data-ad-slot].is-empty,
@@ -744,33 +759,14 @@ main,
   color: #111 !important;
 }
 
-.ad-card[data-ad-slot] h3,
-.ad-card[data-ad-slot] p,
-.ad-card[data-ad-slot] .slot,
-.ad-card[data-ad-slot] a,
-.inline-ad[data-ad-slot] h3,
-.inline-ad[data-ad-slot] p,
-.inline-ad[data-ad-slot] .slot,
-.inline-ad[data-ad-slot] a {
-  color: #111 !important;
-  opacity: 1 !important;
-}
-
-.ad-card[data-ad-slot]::before,
-.ad-card[data-ad-slot]::after,
-.inline-ad[data-ad-slot]::before,
-.inline-ad[data-ad-slot]::after {
-  display: none !important;
-}
-
-.ad-card[data-ad-slot] .ad-actions a,
-.inline-ad[data-ad-slot] .ad-actions a {
-  background: #151189 !important;
-  color: #fff !important;
-  padding: 10px 14px !important;
-  border-radius: 999px !important;
-  font-weight: 900 !important;
-  text-decoration: none !important;
+.ad-card[data-ad-slot]:not(.is-empty) .ad-actions a,
+.inline-ad[data-ad-slot]:not(.is-empty) .ad-actions a {
+  background: #ffd84c;
+  color: #12091e;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .generated-ad,
