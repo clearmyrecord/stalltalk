@@ -143,12 +143,22 @@ async function main() {
     }))
   });
 
+
+  const sampleInventory = await prisma.adSlotInventory.findFirstOrThrow({ where: { venueId: venue.id, slotNumber: 1, month: "2026-07" } });
+  const samplePaidCampaign = await prisma.adCampaign.create({ data: { advertiserId: advertiserRecords[0].id, inventoryId: sampleInventory.id, adId: ads[0].id, name: "July Hooters restroom placement", businessName: "Hooters", headline: "Wings After the Win", body: "Free fried pickles with any 10-wing order.", creativeUrl: "https://placehold.co/600x600/fdca40/111111?text=Hooters", targetUrl: "https://example.com", ctaText: "Claim Deal", months: 1, locationCount: 1, priceCents: 5000, status: "ACTIVE", approvalStatus: "APPROVED", paidAt: new Date("2026-06-15T12:00:00.000Z"), startsAt: new Date("2026-07-01T00:00:00.000Z"), endsAt: new Date("2026-07-31T23:59:59.000Z"), submittedAt: new Date("2026-06-10T12:00:00.000Z"), approvedAt: new Date("2026-06-11T12:00:00.000Z"), publishedAt: new Date("2026-06-15T12:00:00.000Z") } });
+  await prisma.payment.create({ data: { campaignId: samplePaidCampaign.id, advertiserId: advertiserRecords[0].id, amountCents: 5000, status: "SUCCEEDED", stripeSessionId: "cs_seed_phase2b_paid" } });
+  await prisma.adCampaign.create({ data: { advertiserId: advertiserRecords[1].id, inventoryId: sampleInventory.id, name: "Zoo August draft", businessName: "Columbus Zoo", headline: "Wild Weekend", body: "Save $5 on admission and meet somebody hairier than your group chat.", creativeUrl: "https://placehold.co/600x600/7d4cff/ffffff?text=Zoo", targetUrl: "https://example.com", ctaText: "Save $5", months: 1, locationCount: 1, priceCents: 5000, status: "DRAFT", approvalStatus: "SUBMITTED", submittedAt: new Date("2026-06-12T12:00:00.000Z") } });
+  await prisma.venueContentDraft.createMany({ data: [
+    { venueId: venue.id, title: "MGM late-night bites", body: "Ask the host stand about late-night restaurant specials before the next show.", approvalStatus: "APPROVED", submittedAt: new Date("2026-06-08T12:00:00.000Z"), approvedAt: new Date("2026-06-09T12:00:00.000Z") },
+    { venueId: venue.id, title: "Pool entrance reminder", body: "Draft reminder for guests scanning from the casino floor restroom.", approvalStatus: "SUBMITTED", submittedAt: new Date("2026-06-10T12:00:00.000Z") }
+  ] });
+
   await prisma.stripeSubscription.create({ data: { advertiserId: advertiserRecords[0].id, adId: ads[0].id, stripeCustomerId: "cus_seed_hooters", stripeSubscriptionId: "sub_seed_monthly", status: "ACTIVE", locations: 1, monthlyAmountCents: 49900, currentPeriodEndsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });
   await prisma.user.createMany({ data: [
-    { email: process.env.ADMIN_EMAIL || "admin@pottyfavor.local", name: "Potty Favor Admin", role: "ADMIN", passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me") },
-    { email: process.env.ADVERTISER_EMAIL || "advertiser@pottyfavor.local", name: "Seed Advertiser", role: "ADVERTISER", advertiserId: advertiserRecords[0].id, passwordHash: hashPassword(process.env.ADVERTISER_PASSWORD || "advertiser-password-change-me") },
-    { email: process.env.VENUE_EMAIL || "venue@pottyfavor.local", name: "Seed Venue", role: "VENUE", venueId: venue.id, passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me") }
+    { email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com", name: "Potty Favor Admin", role: "ADMIN", passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me") },
+    { email: process.env.ADVERTISER_EMAIL || "advertiser@pottyfavor.com", name: "Seed Advertiser", role: "ADVERTISER", advertiserId: advertiserRecords[0].id, passwordHash: hashPassword(process.env.ADVERTISER_PASSWORD || "advertiser-password-change-me") },
+    { email: process.env.VENUE_EMAIL || "venue@pottyfavor.com", name: "Seed Venue", role: "VENUE", venueId: venue.id, passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me") }
   ] });
 
   await prisma.couponCampaign.create({ data: { advertiserId: advertiserRecords[5].id, name: "Graeter’s July Scoops", couponCode: "POTTYPOP", budgetCents: 25000, redemptionLimit: 500, startsAt: new Date("2024-07-01T00:00:00.000Z"), endsAt: new Date("2024-07-31T23:59:59.000Z") } });

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     metadata: { campaignId: campaign.id, advertiserId: campaign.advertiserId }
   });
   await prisma.payment.create({ data: { campaignId: campaign.id, advertiserId: campaign.advertiserId, amountCents: amount, status: "PENDING", stripeSessionId: session.id } });
-  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { status: "PENDING_PAYMENT", priceCents: amount, stripeSessionId: session.id } });
+  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { status: "PAYMENT_PENDING", priceCents: amount, stripeSessionId: session.id } });
   if (request.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ url: session.url });
   return NextResponse.redirect(session.url || `${process.env.NEXT_PUBLIC_SITE_URL}/portal/advertiser?stripe=checkout-unavailable`, 303);
 }

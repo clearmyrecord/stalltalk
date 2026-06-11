@@ -20,6 +20,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
     include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
   });
   if (!issue) notFound();
+  const approvedVenueDrafts = await prisma.venueContentDraft.findMany({ where: { venueId: issue.venueId, approvalStatus: "APPROVED" }, orderBy: { approvedAt: "desc" }, take: 3 });
   const ads = await getServedAds(issue);
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
 
@@ -34,7 +35,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
       </header>
 
       <div className="mx-auto max-w-5xl p-3 md:p-5">
-        <IssueContent issue={issue} ads={ads} />
+        <IssueContent issue={issue} ads={ads} venueDrafts={approvedVenueDrafts} />
       </div>
     </main>
   );
@@ -46,7 +47,7 @@ function AdPlacement({ ads, slotNumber, issue, compact = false, chip = false }: 
   return <AdCard ad={ad} slotNumber={slotNumber} issueId={issue.id} publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} compact={compact} chip={chip} />;
 }
 
-function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds }) {
+function IssueContent({ issue, ads, venueDrafts }: { issue: IssueWithContext; ads: ServedAds; venueDrafts: Array<{ id: string; title: string; body: string; imageUrl: string | null }> }) {
   const placedSlots = new Set<number>();
   const nextAdAfterBlock = (index: number) => {
     const slotNumber = index + 2;
@@ -62,6 +63,7 @@ function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds 
         <h2 className="font-display text-6xl uppercase leading-none text-stallRed md:text-8xl">Potty Favor</h2>
         <p className="mt-2 text-xl font-black uppercase">Ad serving priority: restroom &gt; venue &gt; city &gt; global. Paid sponsor inventory is placed inline with articles like a magazine.</p>
       </div>
+      {venueDrafts.map((draft) => <section key={draft.id} className="rounded-[1.5rem] border-4 border-ink bg-stallYellow p-4 shadow-brutal"><p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">Venue-approved update</p><h3 className="mt-2 font-display text-5xl uppercase leading-none md:text-6xl">{draft.title}</h3>{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="mt-3 max-h-64 w-full rounded-xl object-cover" /> : null}<p className="mt-3 whitespace-pre-wrap text-lg font-bold leading-relaxed">{draft.body}</p></section>)}
       <AdPlacement ads={ads} slotNumber={1} issue={issue} />
       {issue.contentBlocks.flatMap((block, index) => [
         <details key={block.id} className="group rounded-[1.5rem] border-4 border-ink bg-paper p-4 shadow-brutal open:bg-white" open={index < 2}>

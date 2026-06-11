@@ -231,7 +231,7 @@ export async function signIn(formData: FormData) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !verifyPassword(password, user.passwordHash) || user.status !== "ACTIVE") redirect("/signin?error=credentials");
   await createSession(user.id);
-  if (user.role === "ADMIN") redirect("/admin");
+  if (user.role === "ADMIN") redirect("/admin/dashboard");
   if (user.role === "VENUE") redirect("/portal/venue");
   redirect("/portal/advertiser");
 }
@@ -249,27 +249,88 @@ export async function createAdSlotInventory(formData: FormData) {
 }
 
 export async function createAdvertiserCampaign(formData: FormData) {
-  const inventoryId = text(formData, "inventoryId");
-  const inventory = await prisma.adSlotInventory.findUnique({ where: { id: inventoryId } });
+  const inventoryIds = formData.getAll("inventoryIds").map(String).filter(Boolean);
+  const singleInventoryId = text(formData, "inventoryId");
+  const placements = inventoryIds.length ? inventoryIds : singleInventoryId ? [singleInventoryId] : [];
+  const firstInventoryId = placements[0] || null;
   const months = Math.max(1, intValue(formData, "months", 1));
-  const locationCount = Math.max(1, intValue(formData, "locationCount", 1));
+  const locationCount = Math.max(1, placements.length || intValue(formData, "locationCount", 1));
   const priceCents = 5000 * months * locationCount;
-  await prisma.adCampaign.create({ data: { advertiserId: text(formData, "advertiserId"), inventoryId, name: text(formData, "name", "Draft campaign"), businessName: text(formData, "businessName"), headline: text(formData, "headline"), body: text(formData, "body"), creativeUrl: nullableText(formData, "creativeUrl"), targetUrl: text(formData, "targetUrl", "#"), ctaText: text(formData, "ctaText", "Learn More"), months, locationCount, priceCents, status: "DRAFT", approvalStatus: "PENDING" } });
-  if (inventory?.status === "OPEN") await prisma.adSlotInventory.update({ where: { id: inventoryId }, data: { status: "RESERVED" } });
+  const startsAt = nullableText(formData, "startsAt") ? new Date(text(formData, "startsAt")) : null;
+  const endsAt = startsAt ? new Date(startsAt) : null;
+  if (endsAt) endsAt.setMonth(endsAt.getMonth() + months);
+
+  const campaign = await prisma.adCampaign.create({
+    data: {
+      advertiserId: text(formData, "advertiserId"),
+      inventoryId: firstInventoryId,
+      name: text(formData, "name", "Draft campaign"),
+      businessName: text(formData, "businessName"),
+      headline: text(formData, "headline"),
+      body: text(formData, "body"),
+      creativeUrl: nullableText(formData, "creativeUrl"),
+      targetUrl: text(formData, "targetUrl", "#"),
+      ctaText: text(formData, "ctaText", "Learn More"),
+      months,
+      locationCount,
+      priceCents,
+      status: "DRAFT",
+      approvalStatus: "SUBMITTED",
+      submittedAt: new Date(),
+      startsAt,
+      endsAt
+    }
+  });
+
+  if (placements.length) await prisma.adSlotInventory.updateMany({ where: { id: { in: placements }, status: "OPEN" }, data: { status: "RESERVED" } });
+  revalidatePath("/portal/advertiser");
+  revalidatePath("/admin/dashboard");
+}
+
+export async function approveAdCampaign(id: string, formData?: FormData) {
+  const { currentUser } = await import("./auth");
+  const user = await currentUser();
+  const campaign = await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "APPROVED", approvedAt: new Date(), approvedBy: user?.id || null, adminApprovalNote: formData ? nullableText(formData, "adminApprovalNote") : null }, include: { inventory: true } });
+  if (campaign.status === "PAID") await publishPaidCampaign(id);
+  revalidatePath("/admin/ads");
+  revalidatePath("/admin/dashboard");
   revalidatePath("/portal/advertiser");
 }
 
-export async function approveAdCampaign(id: string) {
-  await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "APPROVED" } });
+export async function rejectAdCampaign(id: string, formData?: FormData) {
+  const { currentUser } = await import("./auth");
+  const user = await currentUser();
+  await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "REJECTED", status: "REJECTED", rejectedAt: new Date(), rejectedBy: user?.id || null, rejectionReason: formData ? nullableText(formData, "rejectionReason") : null } });
   revalidatePath("/admin/ads");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/portal/advertiser");
 }
 
-export async function rejectAdCampaign(id: string) {
-  await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "REJECTED", status: "REJECTED" } });
-  revalidatePath("/admin/ads");
+async function publishPaidCampaign(campaignId: string) {
+  const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { inventory: true, advertiser: true } });
+  if (!campaign || campaign.status !== "PAID" || campaign.approvalStatus !== "APPROVED" || !campaign.inventory) return;
+  const ad = await prisma.ad.create({ data: { publisherId: campaign.advertiser.publisherId, advertiserId: campaign.advertiserId, businessName: campaign.businessName, title: campaign.headline, offer: campaign.body, artworkUrl: campaign.creativeUrl, ctaText: campaign.ctaText, targetUrl: campaign.targetUrl, status: "ACTIVE", scope: campaign.inventory.restroomId ? "RESTROOM" : "VENUE", venueId: campaign.inventory.venueId, restroomId: campaign.inventory.restroomId, monthlyPriceCents: 5000, campaignStartsAt: campaign.startsAt, campaignEndsAt: campaign.endsAt } });
+  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ad.id, status: "ACTIVE", publishedAt: new Date() } });
 }
 
 export async function createVenueContentDraft(formData: FormData) {
-  await prisma.venueContentDraft.create({ data: { venueId: text(formData, "venueId"), title: text(formData, "title"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), approvalStatus: "PENDING" } });
+  await prisma.venueContentDraft.create({ data: { venueId: text(formData, "venueId"), title: text(formData, "title"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), approvalStatus: "SUBMITTED", submittedAt: new Date() } });
+  revalidatePath("/portal/venue");
+  revalidatePath("/admin/dashboard");
+}
+
+export async function approveVenueContentDraft(id: string, formData?: FormData) {
+  const { currentUser } = await import("./auth");
+  const user = await currentUser();
+  await prisma.venueContentDraft.update({ where: { id }, data: { approvalStatus: "APPROVED", approvedAt: new Date(), approvedBy: user?.id || null, adminNote: formData ? nullableText(formData, "adminNote") : null } });
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/portal/venue");
+}
+
+export async function rejectVenueContentDraft(id: string, formData?: FormData) {
+  const { currentUser } = await import("./auth");
+  const user = await currentUser();
+  await prisma.venueContentDraft.update({ where: { id }, data: { approvalStatus: "REJECTED", rejectedAt: new Date(), rejectedBy: user?.id || null, rejectionReason: formData ? nullableText(formData, "rejectionReason") : null } });
+  revalidatePath("/admin/dashboard");
   revalidatePath("/portal/venue");
 }
