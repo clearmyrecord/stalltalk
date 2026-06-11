@@ -51,6 +51,23 @@ function logoInstruction(body) {
   return "No logo was provided; do not invent a fake logo or use copyrighted logos.";
 }
 
+function adFormatForSize(adSize) {
+  const normalized = text(adSize, "Inline banner").toLowerCase();
+  if (normalized.includes("mobile")) {
+    return { adSize: "Mobile card", imageSize: "1024x1536", layout: "vertical mobile card ad, phone-first portrait layout" };
+  }
+  if (normalized.includes("tall")) {
+    return { adSize: "Tall", imageSize: "1024x1536", layout: "vertical tall ad, portrait layout" };
+  }
+  if (normalized.includes("square")) {
+    return { adSize: "Square", imageSize: "1024x1024", layout: "square ad layout" };
+  }
+  if (normalized.includes("banner")) {
+    return { adSize: normalized.includes("inline") ? "Inline banner" : "Banner", imageSize: "1536x1024", layout: "horizontal mobile inline banner ad, wide layout, readable on phone, no square poster composition" };
+  }
+  return { adSize: "Inline banner", imageSize: "1536x1024", layout: "horizontal mobile inline banner ad, wide layout, readable on phone, no square poster composition" };
+}
+
 function buildPrompt(body) {
   const businessName = clamp(body.businessName || body.sponsorName, 80) || "Local Sponsor";
   const businessCategory = clamp(body.businessCategory || body.category, 80) || "Local Business";
@@ -70,10 +87,12 @@ function buildPrompt(body) {
   const requiredText = clamp(body.requiredText, 240);
   const optionalDisclaimer = clamp(body.optionalDisclaimer || body.disclaimer, 240);
   const slot = normalizeSlot(body.slot);
+  const adFormat = adFormatForSize(body.adSize);
 
   const prompt = [
     "Create a finished agency-quality advertisement image for Potty Favor / Stall Talk restroom publication ad inventory.",
-    "Format: premium inline sponsor graphic, mobile-first, readable at small sizes, suitable for one of 8 publication ad slots, no homepage layout mockups.",
+    `Format: ${adFormat.layout}. Premium sponsor graphic, mobile-first, readable at small sizes, suitable for one of 8 publication ad slots, no homepage layout mockups.`,
+    "Make the headline, offer, CTA, phone number, and coupon code large enough to read on a phone; use bold typography, high contrast, and uncluttered spacing.",
     `Ad slot selected: ${slot}. Business name: ${businessName}. Business category: ${businessCategory}.`,
     `Creative brief: ${creativeBrief}`,
     `Primary offer/promotion headline: ${offer}.`,
@@ -90,14 +109,7 @@ function buildPrompt(body) {
     "Safety/quality: no fake QR codes, no watermarks, no lorem ipsum, no broken text, no misspellings, no copyrighted logos unless provided, no UI screenshots, no mockup frames, no clutter. Return publish-ready ad artwork only.",
   ].join("\n");
 
-  return { prompt, metadata: { businessName, businessCategory, offer, couponCode, ctaText, website, phone, targetAudience, city, state, venue, brandColors, tone, visualStyle, slot, logoProvided: Boolean(text(body.logoBase64) || text(body.logoUrl)) } };
-}
-
-function imageSize(adSize) {
-  const normalized = text(adSize, "inline banner").toLowerCase();
-  if (normalized.includes("tall")) return "1024x1536";
-  if (normalized.includes("square") || normalized.includes("mobile")) return "1024x1024";
-  return "1536x1024";
+  return { prompt, metadata: { businessName, businessCategory, offer, couponCode, ctaText, website, phone, targetAudience, city, state, venue, brandColors, tone, visualStyle, slot, adSize: adFormat.adSize, imageSize: adFormat.imageSize, layout: adFormat.layout, logoProvided: Boolean(text(body.logoBase64) || text(body.logoUrl)) } };
 }
 
 async function readOpenAiJson(response) {
@@ -150,7 +162,7 @@ export default async function handler(req, res) {
         model,
         prompt,
         n: 1,
-        size: imageSize(body.adSize),
+        size: metadata.imageSize,
         quality: text(process.env.OPENAI_IMAGE_QUALITY, "medium"),
         output_format: text(process.env.OPENAI_IMAGE_OUTPUT_FORMAT, "png"),
       }),
