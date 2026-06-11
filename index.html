@@ -250,25 +250,25 @@
 
             <div class="review-box">
               <img
-                src="images/restaurant-review.jpg"
+                src="images/restaurant-review.jpg" data-field-src="restaurantPhotoUrl"
                 alt="Featured restaurant"
                 class="review-photo"
               />
 
               <div class="review-content">
-                <h2>Worth the Stop</h2>
-                <h3>Featured Local Restaurant</h3>
+                <h2 data-field="restaurantReviewTitle">Worth the Stop</h2>
+                <h3 data-field="restaurantName">Featured Local Restaurant</h3>
 
-                <p>
+                <p data-field="restaurantReviewBody">
                   This month’s pick is a local spot with strong atmosphere,
                   good service, and food that makes it worth coming back for.
                   Perfect for a casual lunch, date night, or a quick bite before
                   heading back out.
                 </p>
 
-                <p class="review-rating">★★★★☆ 4/5</p>
+                <p class="review-rating" data-field="restaurantOffer">★★★★☆ 4/5</p>
 
-                <a href="#" class="review-button">Read Full Review</a>
+                <a href="#" class="review-button" data-field-href="restaurantWebsite">Read Full Review</a>
               </div>
             </div>
           </section>

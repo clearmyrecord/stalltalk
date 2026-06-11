@@ -693,6 +693,11 @@ function renderIssue(issue) {
     }
   });
 
+  const reviewPhoto = document.querySelector('[data-field-src="restaurantPhotoUrl"]');
+  if (reviewPhoto && issue.restaurantPhotoUrl) reviewPhoto.setAttribute("src", issue.restaurantPhotoUrl);
+  const reviewLink = document.querySelector('[data-field-href="restaurantWebsite"]');
+  if (reviewLink && issue.restaurantWebsite) reviewLink.setAttribute("href", issue.restaurantWebsite);
+
   setList('[data-list="quotes"]', issue.quotes);
   setList('[data-list="didYouKnow"]', issue.didYouKnow, true);
   setText("[data-year]", new Date().getFullYear());

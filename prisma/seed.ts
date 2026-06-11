@@ -1,6 +1,12 @@
+import { scryptSync, randomBytes } from "node:crypto";
 import { AdScope, ContentBlockType, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
 
 const sponsorAds = [
   ["Hooters", "Wings After the Win", "Free fried pickles with any 10-wing order.", "VENUE", "STALLWINGS", 49900],
@@ -25,6 +31,13 @@ const blocks = [
 ] as const;
 
 async function main() {
+  await prisma.authSession.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.adCampaign.deleteMany();
+  await prisma.adSlotInventory.deleteMany();
+  await prisma.toiletLocation.deleteMany();
+  await prisma.venueContentDraft.deleteMany();
   await prisma.analyticsEvent.deleteMany();
   await prisma.stalltalkCampaignHistory.deleteMany();
   await prisma.stalltalkAdSlot.deleteMany();
@@ -49,6 +62,8 @@ async function main() {
   const venue = await prisma.venue.create({ data: { publisherId: publisher.id, distributorId: distributor.id, name: "MGM Grand Las Vegas", slug: "mgm-grand-las-vegas", city: "Las Vegas", state: "NV", address: "3799 S Las Vegas Blvd" } });
   const restroom = await prisma.restroom.create({ data: { venueId: venue.id, name: "Casino Floor Men’s Restroom", floor: "Casino", placement: "Sink wall QR sticker" } });
   const qrCode = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, code: "ST-MGM-CASINO-M-001", label: "MGM Casino Men’s #001", destination: "/issue/mgm-grand-las-vegas?qr=ST-MGM-CASINO-M-001", status: "ASSIGNED" } });
+  const toiletLocation = await prisma.toiletLocation.create({ data: { venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, name: "Casino Floor Men’s QR", label: "MGM Casino QR #001", placement: "Sink wall QR sticker" } });
+  await prisma.adSlotInventory.createMany({ data: Array.from({ length: 4 }, (_, index) => ({ venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, toiletLocationId: toiletLocation.id, slotNumber: index + 1, month: "2026-07", priceCents: 5000, status: "OPEN" })) });
 
   const categories = await Promise.all(["Funny", "Facts", "Entertainment", "Deals"].map((name) => prisma.category.create({ data: { publisherId: publisher.id, name, slug: name.toLowerCase(), color: name === "Deals" ? "#ff2d2d" : "#ffd400" } })));
   const articles = await Promise.all(
@@ -130,6 +145,12 @@ async function main() {
 
   await prisma.stripeSubscription.create({ data: { advertiserId: advertiserRecords[0].id, adId: ads[0].id, stripeCustomerId: "cus_seed_hooters", stripeSubscriptionId: "sub_seed_monthly", status: "ACTIVE", locations: 1, monthlyAmountCents: 49900, currentPeriodEndsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });
+  await prisma.user.createMany({ data: [
+    { email: process.env.ADMIN_EMAIL || "admin@pottyfavor.local", name: "Potty Favor Admin", role: "ADMIN", passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me") },
+    { email: process.env.ADVERTISER_EMAIL || "advertiser@pottyfavor.local", name: "Seed Advertiser", role: "ADVERTISER", advertiserId: advertiserRecords[0].id, passwordHash: hashPassword(process.env.ADVERTISER_PASSWORD || "advertiser-password-change-me") },
+    { email: process.env.VENUE_EMAIL || "venue@pottyfavor.local", name: "Seed Venue", role: "VENUE", venueId: venue.id, passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me") }
+  ] });
+
   await prisma.couponCampaign.create({ data: { advertiserId: advertiserRecords[5].id, name: "Graeter’s July Scoops", couponCode: "POTTYPOP", budgetCents: 25000, redemptionLimit: 500, startsAt: new Date("2024-07-01T00:00:00.000Z"), endsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.analyticsEvent.createMany({ data: [
     { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "SCAN", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.destination },
