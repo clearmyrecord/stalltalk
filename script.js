@@ -239,15 +239,57 @@ function extractAdsPayload(payload) {
   return null;
 }
 
+async function fetchLivePublishedContent() {
+  const endpoint = `${API_BASE}/api/published-content`;
+
+  try {
+    const response = await fetch(`${endpoint}?v=${Date.now()}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.info(`No live publication loaded from ${endpoint}: ${response.status}`);
+      return null;
+    }
+
+    const payload = await response.json();
+    if (!payload || typeof payload !== "object" || !payload.publishedAt) return null;
+    console.info(`Loaded live publication data from ${endpoint}.`);
+    return payload;
+  } catch (error) {
+    console.info(`Falling back because live publication data could not be loaded from ${endpoint}.`, error);
+    return null;
+  }
+}
+
 async function loadSharedPublication() {
-  const [issuePayload, adsPayload] = await Promise.all([
+  const livePayload = await fetchLivePublishedContent();
+  if (livePayload) {
+    return {
+      source: "live",
+      issue: extractIssuePayload(livePayload),
+      ads: extractAdsPayload(livePayload),
+      events: Array.isArray(livePayload.events) ? livePayload.events : null,
+      venues: Array.isArray(livePayload.venues) ? livePayload.venues : null,
+      settings: livePayload.settings && typeof livePayload.settings === "object" ? livePayload.settings : null,
+      publishedAt: livePayload.publishedAt || null,
+    };
+  }
+
+  const [issuePayload, adsPayload, eventsPayload] = await Promise.all([
     fetchPublishedJson("data/published-issue.json"),
     fetchPublishedJson("data/published-ads.json"),
+    fetchPublishedJson("data/published-events.json"),
   ]);
 
   return {
+    source: "data",
     issue: extractIssuePayload(issuePayload),
     ads: extractAdsPayload(adsPayload),
+    events: Array.isArray(eventsPayload) ? eventsPayload : (eventsPayload && Array.isArray(eventsPayload.events) ? eventsPayload.events : null),
+    venues: issuePayload && Array.isArray(issuePayload.venues) ? issuePayload.venues : null,
+    settings: null,
+    publishedAt: null,
   };
 }
 
@@ -698,6 +740,13 @@ function imageSource(ad) {
     : "";
 }
 
+function adSizeClass(adSize) {
+  const normalized = normalizeText(adSize || "inline banner").toLowerCase();
+  if (normalized.includes("tall")) return "generated-ad-tall";
+  if (normalized.includes("square") || normalized.includes("mobile")) return "generated-ad-square";
+  return "generated-ad-inline";
+}
+
 function normalizeAd(ad) {
   const image = imageSource(ad);
 
@@ -723,6 +772,7 @@ function normalizeAd(ad) {
     tone: ad.tone || "bold, premium, clean, high-converting",
     active: ad.active !== false,
     adMode: ad.adMode || (image ? "image" : "copy"),
+    adSize: ad.adSize || ad.size || "Inline banner",
   };
 }
 
@@ -824,8 +874,10 @@ function renderGeneratedAd(slot, result) {
 
   element.classList.remove("is-empty");
 
+  const sizeClass = adSizeClass(result.adSize || metadata.adSize);
+
   element.innerHTML = `
-    <div class="generated-ad" style="${imageUrl ? `background-image: url('${imageUrl}')` : ""}">
+    <div class="generated-ad ${sizeClass}" style="${imageUrl ? `background-image: url('${imageUrl}')` : ""}">
       <div class="generated-ad-content">
         <div class="generated-ad-sponsor">${sponsorName}</div>
         <h3>${offer}</h3>
@@ -930,8 +982,9 @@ function renderAdElement(element, ad, slot) {
   const safeTargetUrl = ad.targetUrl || "#";
 
   if (image) {
+    const sizeClass = adSizeClass(ad.adSize);
     element.innerHTML = `
-      <div class="generated-ad" style="background-image: url('${image}')">
+      <div class="generated-ad ${sizeClass}" style="background-image: url('${image}')">
         <div class="generated-ad-content">
           <div class="generated-ad-sponsor">${ad.advertiserName}</div>
           <h3>${ad.headline}</h3>
@@ -1027,8 +1080,13 @@ async function init() {
   const localPreview = pageContext.urlParams.get("preview") === "local";
   const shared = localPreview
     ? {
+        source: "local-preview",
         issue: null,
         ads: null,
+        events: null,
+        venues: null,
+        settings: null,
+        publishedAt: null,
       }
     : await loadSharedPublication();
 
@@ -1048,21 +1106,25 @@ async function init() {
         ...(localIssue || {}),
       };
 
-  const venues = readJson(STORAGE_KEYS.venues, demo.venues);
+  const localVenues = readJson(STORAGE_KEYS.venues, null);
+  const usePublishedArrays = shared.source === "live";
+  const venues = Array.isArray(shared.venues) && (usePublishedArrays || shared.venues.length)
+    ? shared.venues
+    : Array.isArray(localVenues) && localVenues.length
+      ? localVenues
+      : demo.venues;
 
   const sharedAds = Array.isArray(shared.ads) ? shared.ads : [];
   const browserAds = Array.isArray(localAds) ? localAds : [];
-  const ads = browserAds.length
-    ? [
-        ...browserAds,
-        ...sharedAds.filter((sharedAd) => !browserAds.some((browserAd) => Number(browserAd.slot) === Number(sharedAd.slot))),
-      ]
-    : sharedAds.length
-      ? sharedAds
+  const ads = Array.isArray(shared.ads) && (usePublishedArrays || sharedAds.length)
+    ? sharedAds
+    : browserAds.length
+      ? browserAds
       : demo.ads;
 
-  const events =
-    localStorage.getItem(STORAGE_KEYS.events) === null
+  const events = Array.isArray(shared.events) && (usePublishedArrays || shared.events.length)
+    ? shared.events
+    : localStorage.getItem(STORAGE_KEYS.events) === null
       ? demo.events || []
       : readJson(STORAGE_KEYS.events, []);
 

@@ -424,9 +424,27 @@ function collectAd() {
   };
 }
 
+function publicSettings(settings = {}) {
+  const { adminPublishToken, publishToken, ADMIN_PUBLISH_TOKEN, ...safeSettings } = settings || {};
+  return safeSettings;
+}
+
 function exportPayload() {
   const current = state();
-  return { issue: current.issue, venues: current.venues, ads: current.ads, events: current.events, pendingEvents: current.pendingEvents, pottyfavor_events: current.events, pottyfavor_pending_events: current.pendingEvents, settings: current.settings, exportedAt: new Date().toISOString() };
+  return { issue: current.issue, venues: current.venues, ads: current.ads, events: current.events, pendingEvents: current.pendingEvents, pottyfavor_events: current.events, pottyfavor_pending_events: current.pendingEvents, settings: publicSettings(current.settings), exportedAt: new Date().toISOString() };
+}
+
+function livePublishPayload() {
+  const current = state();
+  return {
+    issue: current.issue,
+    venues: current.venues,
+    ads: current.ads,
+    events: current.events.map(normalizeEvent).filter((event) => event.status === "approved"),
+    settings: publicSettings(current.settings),
+    publishedAt: new Date().toISOString(),
+    publishedBy: { source: "pottyfavor-admin", userAgent: navigator.userAgent },
+  };
 }
 
 function refreshExportBox() {
@@ -446,6 +464,46 @@ function importPayload(payload) {
   setStatus("Imported JSON into localStorage.");
 }
 
+
+function publishEndpointFromSettings(settings = state().settings) {
+  const base = stripTrailingSlash(settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl);
+  if (!base) return "/api/publish-content";
+  if (base.endsWith("/api/publish-content")) return base;
+  return `${base.replace(/\/api\/generate-ad-image$/i, "").replace(/\/admin(?:\/.*)?$/i, "")}/api/publish-content`;
+}
+
+async function publishLive() {
+  const settings = state().settings;
+  const token = String(settings.adminPublishToken || "").trim();
+  if (!token) {
+    setStatus("Enter and save your Admin Publish Token in Settings before publishing live.");
+    document.querySelector('[data-tab="settings"]')?.click();
+    return;
+  }
+
+  saveJson(STORAGE_KEYS.issue, collectIssue());
+  const endpoint = publishEndpointFromSettings(settings);
+  const payload = livePublishPayload();
+  setStatus(`Publishing live to ${endpoint}…`);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Publish-Token": token,
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `${response.status} ${response.statusText}`);
+    setStatus(`Published live successfully at ${result.publishedAt || payload.publishedAt}. The public Potty Favor page will load this content automatically.`);
+    refreshExportBox();
+    loadAll();
+  } catch (error) {
+    setStatus(`Publish Live failed: ${error.message}`);
+  }
+}
 
 function publicationFiles() {
   const current = state();
@@ -533,6 +591,7 @@ function loadSettings() {
   form.elements.qrBaseUrl.value = settings.qrBaseUrl || DEMO.settings.qrBaseUrl;
   form.elements.vercelApiBaseUrl.value = settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl;
   form.elements.openAiImageModel.value = settings.openAiImageModel || "gpt-image-1";
+  form.elements.adminPublishToken.value = settings.adminPublishToken || "";
   refreshEndpointDisplay();
 }
 
@@ -822,8 +881,11 @@ async function generatedAdFromPublishForm() {
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
   const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");
-  return {
+  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");  if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
+  const publishData = new FormData(document.querySelector("#creative-publish-form"));
+  const brief = generatedCreative.brief || {};
+  const slot = Number(publishData.get("slot") || brief.slot || 1);
+  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");  return {
     slot,
     active: true,
     targetingType: "global",
@@ -836,8 +898,7 @@ async function generatedAdFromPublishForm() {
     imageBytes: optimized.imageBytes,
     imageWidth: optimized.imageWidth,
     imageHeight: optimized.imageHeight,
-    imageMimeType: optimized.imageMimeType,
-    category: brief.businessCategory || generatedCreative.category || "Local Business",
+    imageMimeType: optimized.imageMimeType,    category: brief.businessCategory || generatedCreative.category || "Local Business",
     city: brief.cityTargeting || "",
     state: brief.stateTargeting || "",
     createdAt: new Date().toISOString(),
@@ -846,8 +907,7 @@ async function generatedAdFromPublishForm() {
     market: "",
     adMode: "image",
     adSize: brief.adSize || "Inline banner",
-    promptUsed: generatedCreative.prompt || generatedCreative.promptUsed || "",
-    diagnostics: generatedCreative.diagnostic || generatedCreative.diagnostics || {},
+    imageStorage: image.startsWith("data:") ? "single-data-url" : "url",
   };
 }
 
@@ -896,9 +956,10 @@ function bindActions() {
   document.querySelector("#preview-local")?.addEventListener("click", previewLocally);
   document.querySelector("#publish-issue").addEventListener("click", () => {
     saveJson(STORAGE_KEYS.issue, collectIssue());
-    setStatus("Published locally. This browser will use the issue, but phones and other devices need the shared JSON files on GitHub Pages.");
+    setStatus("Saved locally. Use Publish Live to update the public Potty Favor page immediately.");
     loadAll();
   });
+  document.querySelector("#publish-live")?.addEventListener("click", () => publishLive());
   document.querySelector("#download-publish-bundle")?.addEventListener("click", downloadPublishBundle);
   document.querySelector("#copy-publish-command")?.addEventListener("click", () => {
     copyCodexPublishCommand().catch((error) => setStatus(`Could not copy command automatically: ${error.message}`));
@@ -1063,8 +1124,7 @@ function bindActions() {
       saveAdsEverywhere(ads);
       renderAds();
       refreshExportBox();
-      setCreativeStatus(`Published generated ad to slot ${ad.slot}. Optimized image: ${Math.round((ad.imageBytes || 0) / 1024)} KB.`);
-    } catch (error) {
+      setCreativeStatus(`Published generated ad to slot ${ad.slot}. Optimized image: ${Math.round((ad.imageBytes || 0) / 1024)} KB. It will be included the next time you click Publish Live.`);    } catch (error) {
       const message = isStorageQuotaError(error)
         ? "Local storage is still full after optimization. Export/publish this ad using the JSON tools, remove older saved images, or reduce image size before trying again. Your generated preview is still available above."
         : error.message;
@@ -1081,10 +1141,11 @@ function bindActions() {
         qrBaseUrl: String(data.get("qrBaseUrl") || DEMO.settings.qrBaseUrl),
         vercelApiBaseUrl,
         openAiImageModel: String(data.get("openAiImageModel") || "gpt-image-1"),
+        adminPublishToken: String(data.get("adminPublishToken") || ""),
       });
       updateQrPreview();
       refreshEndpointDisplay();
-      setSettingsStatus("Settings saved locally.");
+      setSettingsStatus("Settings saved locally. Publish token stays only in this browser and is never included in public content.");
     } catch (error) {
       setSettingsStatus(error.message, true);
       refreshEndpointDisplay();

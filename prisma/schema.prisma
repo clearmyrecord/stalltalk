@@ -422,3 +422,17 @@ model CommissionReport {
   createdAt         DateTime    @default(now())
   distributor       Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
 }
+
+model PublishedContent {
+  id          String   @id @default(cuid())
+  issue       Json
+  ads         Json
+  events      Json
+  venues      Json
+  settings    Json
+  publishedAt DateTime @default(now())
+  publishedBy Json?
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt])
+}

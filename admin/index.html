@@ -10,7 +10,7 @@
     <main class="admin-shell">
       <header class="admin-hero">
         <h1>Potty Favor Admin</h1>
-        <p>Simple Phase 1 control room for one standard monthly issue, venue QR links, and eight inline publication ad slots. Everything saves to localStorage and works on GitHub Pages.</p>
+        <p>Control room for one standard monthly issue, venue QR links, events, and eight inline publication ad slots. Drafts save locally; Publish Live sends the approved content to the Vercel backend for the public page.</p>
         <p><a class="button-link" href="../index.html">Open Public Issue</a></p>
       </header>
 
@@ -29,11 +29,8 @@
         <h2>One Standard Monthly Issue</h2>
         <p>Edit the single issue every venue sees. Venue QR URLs change ads only, not the publication content.</p>
         <div class="publish-box">
-          <strong>Shared publishing notice:</strong> Local publish updates this browser only. To update phones and other devices, publish shared JSON to GitHub Pages.
-          <ol>
-            <li>Click <strong>Download Publish Bundle</strong> and upload the JSON files into <code>/data</code> on GitHub, or</li>
-            <li>Click <strong>Copy Codex Publish Command</strong> and paste it into Codex/GitHub to update the files.</li>
-          </ol>
+          <strong>Live publishing:</strong> Click <strong>Publish Live</strong> to update the public Potty Favor page immediately. The server saves the latest issue, ads, approved events, venues, and safe settings; visitors automatically load that live content first.
+          <p>Export JSON remains available as a backup only. No GitHub upload is required for normal publishing.</p>
         </div>
         <form id="content-form" class="form-grid">
           <label>Issue month/year<input name="issueMonthYear" /></label>
@@ -55,9 +52,10 @@
         <div class="actions">
           <button type="button" id="save-draft">Save Draft</button>
           <button type="button" id="preview-local" class="secondary">Preview Locally</button>
-          <button type="button" id="publish-issue">Publish Locally</button>
-          <button type="button" id="download-publish-bundle">Download Publish Bundle</button>
-          <button type="button" id="copy-publish-command" class="secondary">Copy Codex Publish Command</button>
+          <button type="button" id="publish-live">Publish Live</button>
+          <button type="button" id="publish-issue" class="secondary">Save Locally</button>
+          <button type="button" id="download-publish-bundle" class="secondary">Export JSON Backup</button>
+          <button type="button" id="copy-publish-command" class="secondary">Copy Backup Publish Command</button>
           <button type="button" id="reset-demo" class="secondary">Reset Demo</button>
           <button type="button" id="export-json" class="secondary">Export JSON</button>
           <label class="button-link secondary">Import JSON<input id="import-file" type="file" accept="application/json" hidden /></label>
@@ -201,7 +199,7 @@
           <h3>Publish generated ad</h3>
           <form id="creative-publish-form" class="creative-grid">
             <label>Slot<select name="slot"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
-            <p class="full status-line">Publishing optimizes this generated image before saving one compact local ad image in <code>pottyfavor_ads</code>; city/state metadata remains attached for reporting.</p>
+<p class="full status-line">Publishing optimizes this generated image before saving one compact local ad image in <code>pottyfavor_ads</code>; it is included in the next <strong>Publish Live</strong> payload, and city/state metadata remains attached for reporting.</p>
             <div class="full actions"><button type="submit">Publish to Slot</button></div>
           </form>
         </div>
@@ -209,7 +207,7 @@
 
       <section class="admin-panel" id="tab-preview">
         <h2>Inline Publication Preview</h2>
-        <p>The iframe uses the same static public page. It loads shared JSON first, then localStorage/demo fallbacks.</p>
+        <p>The iframe uses the same public page. It loads live Vercel published content first, then shared /data JSON, then localStorage/demo fallbacks.</p>
         <div class="preview-frame"><iframe id="preview-frame" title="Public issue preview" src="../index.html"></iframe></div>
       </section>
 
@@ -219,6 +217,7 @@
           <label class="full">QR base URL<input name="qrBaseUrl" /></label>
           <label class="full">Vercel API Base URL<input name="vercelApiBaseUrl" placeholder="https://stalltalk.vercel.app" /><small>Use your Vercel deployment URL, not GitHub Pages. Example: https://stalltalk.vercel.app</small></label>
           <label>OpenAI Image Model<input name="openAiImageModel" placeholder="gpt-image-1" /></label>
+          <label class="full">Admin Publish Token<input name="adminPublishToken" type="password" autocomplete="off" placeholder="Paste ADMIN_PUBLISH_TOKEN" /><small>Stored only in this browser localStorage and sent as a private header when you click Publish Live. It is never included in public published content.</small></label>
         </form>
         <p class="status-line">Endpoint called: <code id="settings-endpoint">/api/generate-ad-image</code></p>
         <div class="actions"><button type="button" id="save-settings">Save Settings</button><button type="button" class="secondary" id="test-api-endpoint">Test Endpoint</button><button type="button" class="secondary" id="test-openai-image">Test OpenAI Image Generation</button></div>
@@ -229,7 +228,7 @@
 
       <section class="admin-panel import-box" id="tab-import">
         <h2>Import / Export</h2>
-        <p>Copy this JSON for backup, or paste JSON here and import it into localStorage.</p>
+        <p>Backup/export only: copy this JSON for safekeeping, or paste JSON here and import it into localStorage. Normal publishing should use Publish Live.</p>
         <textarea id="json-box"></textarea>
         <div class="actions">
           <button type="button" id="refresh-export">Refresh Export</button>
