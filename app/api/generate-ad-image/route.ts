@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1", "dall-e-3"]);
-const ALLOWED_ORIGINS = ["https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
+const ALLOWED_ORIGINS = ["https://stalltalk.vercel.app", "https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
 
 const sizeMap: Record<AdSize, { apiSize: string; composition: string; cssSafeArea: string }> = {
   Banner: { apiSize: "1536x1024", composition: "wide banner advertisement with large central headline and horizontal CTA safe area", cssSafeArea: "16:5 banner crop" },
@@ -49,7 +49,7 @@ function normalizeSize(value: unknown): AdSize {
 }
 
 function currentModel(body: Record<string, unknown> = {}) {
-  return safe(body.openAiImageModel || body.model || process.env.OPENAI_IMAGE_MODEL, "gpt-image-2");
+  return safe(body.openAiImageModel || body.model || process.env.OPENAI_IMAGE_MODEL, "gpt-image-1");
 }
 
 function diagnostic(overrides: Partial<Diagnostic> = {}): Diagnostic {
@@ -66,7 +66,7 @@ function corsHeaders(request?: Request) {
   const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     Vary: "Origin"
   };
@@ -112,20 +112,28 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
   const phone = safe(body.phone, "");
   const brandColors = safe(body.brandColors, "brand-appropriate high contrast colors");
   const venueVibe = [body.venueTargeting, body.cityTargeting || body.city, body.stateTargeting || body.state].map((item) => safe(item, "")).filter(Boolean).join(", ") || "local venue/city vibe";
+  const creativeBrief = safe(body.creativeBrief || body.brief, "Create a high-converting local sponsor advertisement.");
   const requiredText = safe(body.requiredText, "none beyond business name, offer, CTA, and coupon if provided");
   const disclaimer = safe(body.optionalDisclaimer || body.disclaimer, "none");
+  const logoInstruction = safe(body.logoBase64, "")
+    ? "A private uploaded logo is included in the request; use it as visual inspiration, preserve the brand feel, and do not expose a logo URL."
+    : safe(body.logoUrl, "")
+      ? `Use the provided logo URL as visual brand inspiration only if accessible: ${safe(body.logoUrl, "")}.`
+      : "No logo was provided; do not invent a fake logo.";
   const size = sizeMap[adSize];
 
   return {
     ...copy,
     promptUsed: safe(body.prompt, [
       `Create a finished, high-quality commercial advertisement for the business name "${copy.businessName}" with premium visual composition, commercial lighting, strong hierarchy, clean spacing, and polished final artwork.`,
+      `Creative brief: ${creativeBrief}.`,
       `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
       `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
       `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
       `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; must stay readable when cropped into a ${size.cssSafeArea} Potty Favor sponsor slot.`,
       `Use readable bold typography, high contrast, and an eye-catching mobile-friendly layout for restroom readers scanning quickly.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
+      logoInstruction,
       website ? `Include website ${website} only if it remains readable.` : "",
       phone ? `Include phone ${phone} only if it remains readable.` : "",
       "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layouts, fake UI chrome, web page mockups, clipped words, design-process annotations, and unreadable microcopy. Return publish-ready commercial advertisement artwork only."
@@ -201,20 +209,6 @@ export async function OPTIONS(request: Request) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
 }
 
-export async function GET(request: Request) {
-  const model = currentModel();
-  const apiKeyDetected = Boolean(process.env.OPENAI_API_KEY);
-  return json({
-    apiStatus: "ok",
-    openAiStatus: apiKeyDetected ? "configured" : "not_configured",
-    apiKeyDetected,
-    model,
-    modelValid: VALID_IMAGE_MODELS.has(model),
-    vercel: Boolean(process.env.VERCEL),
-    nodeEnv: process.env.NODE_ENV || "unknown"
-  }, request);
-}
-
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {
@@ -271,7 +265,8 @@ export async function POST(request: Request) {
     }
 
     const image = data?.data?.[0];
-    const imageUrl = image?.b64_json ? `data:image/${safe(process.env.OPENAI_IMAGE_OUTPUT_FORMAT, "png")};base64,${image.b64_json}` : image?.url;
+    const imageBase64 = safe(image?.b64_json || image?.image_base64 || image?.imageBase64, "");
+    const imageUrl = imageBase64 ? `data:image/${safe(process.env.OPENAI_IMAGE_OUTPUT_FORMAT, "png")};base64,${imageBase64}` : image?.url;
     if (!imageUrl) {
       const message = "OpenAI returned a successful response without image data.";
       console.error("[generate-ad-image] Missing image data", { requestId, model, responseKeys: Object.keys(data || {}) });
@@ -281,7 +276,10 @@ export async function POST(request: Request) {
     const history = await saveGeneratedCreative(body, adSize, creative, imageUrl);
 
     return json({
+      ok: true,
+      imageBase64,
       imageUrl,
+      prompt: image?.revised_prompt || creative.promptUsed,
       promptUsed: image?.revised_prompt || creative.promptUsed,
       headline: creative.headline,
       subheadline: creative.subheadline,
@@ -291,6 +289,18 @@ export async function POST(request: Request) {
       businessName: creative.businessName,
       adSize,
       model,
+      metadata: {
+        businessName: creative.businessName,
+        businessCategory: safe(body.businessCategory || body.category, "local business"),
+        offer: creative.offer,
+        ctaText: creative.ctaText,
+        city: safe(body.cityTargeting || body.city, ""),
+        state: safe(body.stateTargeting || body.state, ""),
+        slot: Number(body.slot || 1),
+        model,
+        requestId,
+        logoProvided: Boolean(safe(body.logoBase64, "") || safe(body.logoUrl, ""))
+      },
       diagnostic: diagnostic({ apiStatus: "ok", openAiStatus: "connected", requestId, model }),
       ...history
     }, request);

@@ -164,6 +164,8 @@
         <form id="creative-form" class="creative-grid">
           <label>Business name<input name="businessName" required /></label>
           <label>Business category<input name="businessCategory" /></label>
+          <label>Ad slot selection<select name="slot"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+          <label class="full">Creative brief<textarea name="creativeBrief" required placeholder="Describe the campaign concept, product/service, key message, do/do-not-use notes, and any must-have imagery."></textarea></label>
           <label>Offer / promotion<input name="offer" required /></label>
           <label>Coupon code<input name="couponCode" /></label>
           <label>CTA text<input name="ctaText" placeholder="Claim Offer" /></label>
@@ -176,7 +178,8 @@
           <label>Brand colors<input name="brandColors" placeholder="black, gold, neon pink" /></label>
           <label>Visual style<input name="visualStyle" /></label>
           <label>Tone<input name="tone" /></label>
-          <label>Ad slot size<select name="adSize"><option>Square</option><option>Banner</option><option>Tall</option><option>Inline banner</option><option>Mobile card</option></select></label>
+          <label>Ad slot size<select name="adSize"><option>Inline banner</option><option>Banner</option><option>Square</option><option>Tall</option><option>Mobile card</option></select></label>
+          <label>Logo upload<input name="logoFile" type="file" accept="image/*" /></label>
           <label class="full">Required text<textarea name="requiredText" placeholder="Exact legal/business text that must appear"></textarea></label>
           <label class="full">Optional disclaimer<textarea name="optionalDisclaimer"></textarea></label>
           <div class="full actions"><button type="submit" id="generate-creative">Generate Ad Image</button></div>
@@ -198,9 +201,8 @@
           <h3>Publish generated ad</h3>
           <form id="creative-publish-form" class="creative-grid">
             <label>Slot<select name="slot"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
-            <label>Targeting type<select name="targetingType"><option>venue</option><option>city</option><option>state</option><option>global</option></select></label>
-            <label class="full">Venue / city / state value<input name="market" placeholder="venue-slug, city, state, or blank for global" /></label>
-            <div class="full actions"><button type="submit">Save Generated Ad to Slot</button></div>
+            <p class="full status-line">Publishing saves this generated creative as a global image ad in <code>pottyfavor_ads</code>; city/state metadata remains attached for reporting.</p>
+            <div class="full actions"><button type="submit">Publish to Slot</button></div>
           </form>
         </div>
       </section>
@@ -216,7 +218,7 @@
         <form id="settings-form" class="settings-grid">
           <label class="full">QR base URL<input name="qrBaseUrl" /></label>
           <label class="full">Vercel API Base URL<input name="vercelApiBaseUrl" placeholder="https://stalltalk.vercel.app" /><small>Use your Vercel deployment URL, not GitHub Pages. Example: https://stalltalk.vercel.app</small></label>
-          <label>OpenAI Image Model<input name="openAiImageModel" placeholder="gpt-image-2" /></label>
+          <label>OpenAI Image Model<input name="openAiImageModel" placeholder="gpt-image-1" /></label>
         </form>
         <p class="status-line">Endpoint called: <code id="settings-endpoint">/api/generate-ad-image</code></p>
         <div class="actions"><button type="button" id="save-settings">Save Settings</button><button type="button" class="secondary" id="test-api-endpoint">Test Endpoint</button><button type="button" class="secondary" id="test-openai-image">Test OpenAI Image Generation</button></div>
