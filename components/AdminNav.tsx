@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { AuthUser } from "@/lib/auth";
+import { signOut } from "@/lib/auth";
 
 const links = [
   ["/admin", "Dashboard"],
@@ -18,9 +20,17 @@ const links = [
   ["/admin/analytics", "Analytics"],
   ["/admin/stripe", "Stripe"],
   ["/portal/advertiser", "Advertiser Portal"],
-  ["/portal/distributor", "Distributor Portal"]
+  ["/portal/venue", "Venue Portal"]
 ];
 
-export function AdminNav() {
-  return <nav className="flex flex-wrap gap-2 border-b-4 border-ink bg-stallYellow p-3">{links.map(([href, label]) => <Link key={href} className="rounded-lg border-2 border-ink bg-white px-3 py-2 text-sm font-black uppercase" href={href}>{label}</Link>)}</nav>;
+export function AdminNav({ user }: { user: AuthUser }) {
+  return (
+    <nav className="flex flex-wrap items-center gap-2 border-b-4 border-ink bg-stallYellow p-3">
+      {links.map(([href, label]) => <Link key={href} className="rounded-lg border-2 border-ink bg-white px-3 py-2 text-sm font-black uppercase" href={href}>{label}</Link>)}
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <span className="rounded-lg border-2 border-ink bg-paper px-3 py-2 text-xs font-black uppercase">{user.name} • {user.role}</span>
+        <form action={signOut}><button className="rounded-lg border-2 border-ink bg-stallRed px-3 py-2 text-sm font-black uppercase text-white">Logout</button></form>
+      </div>
+    </nav>
+  );
 }
