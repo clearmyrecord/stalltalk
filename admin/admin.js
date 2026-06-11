@@ -878,14 +878,13 @@ async function generateCreativeAd(brief) {
 
 async function generatedAdFromPublishForm() {
   if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
+
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
   const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");  if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
-  const publishData = new FormData(document.querySelector("#creative-publish-form"));
-  const brief = generatedCreative.brief || {};
-  const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");  return {
+  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");
+
+  return {
     slot,
     active: true,
     targetingType: "global",
@@ -898,7 +897,8 @@ async function generatedAdFromPublishForm() {
     imageBytes: optimized.imageBytes,
     imageWidth: optimized.imageWidth,
     imageHeight: optimized.imageHeight,
-    imageMimeType: optimized.imageMimeType,    category: brief.businessCategory || generatedCreative.category || "Local Business",
+    imageMimeType: optimized.imageMimeType,
+    category: brief.businessCategory || generatedCreative.category || "Local Business",
     city: brief.cityTargeting || "",
     state: brief.stateTargeting || "",
     createdAt: new Date().toISOString(),
@@ -907,7 +907,7 @@ async function generatedAdFromPublishForm() {
     market: "",
     adMode: "image",
     adSize: brief.adSize || "Inline banner",
-    imageStorage: image.startsWith("data:") ? "single-data-url" : "url",
+    imageStorage: optimized.image.startsWith("data:") ? "single-data-url" : "url",
   };
 }
 
