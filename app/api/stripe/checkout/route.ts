@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
-import { stripe, stripePrices } from "@/lib/stripe";
+import { prisma } from "@/lib/prisma";
+import { stripe, stripeEnvStatus } from "@/lib/stripe";
+
+async function parseCampaignId(request: Request) {
+  const type = request.headers.get("content-type") || "";
+  if (type.includes("application/json")) return String((await request.json()).campaignId || "");
+  const form = await request.formData();
+  return String(form.get("campaignId") || "");
+}
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const scope = String(body.scope || "GLOBAL") as keyof typeof stripePrices;
-  const price = stripePrices[scope];
-  if (!price) return NextResponse.json({ error: `Missing Stripe price for ${scope}` }, { status: 400 });
+  const campaignId = await parseCampaignId(request);
+  const stripeStatus = stripeEnvStatus();
+  if (!stripeStatus.isConfigured) return NextResponse.json({ error: "Stripe is not configured. Set STRIPE_SECRET_KEY and NEXT_PUBLIC_SITE_URL to enable checkout." }, { status: 503 });
+  const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { advertiser: true } });
+  if (!campaign) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
+  const amount = 5000 * Math.max(1, campaign.locationCount) * Math.max(1, campaign.months);
   const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price, quantity: Number(body.locations || 1) }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/advertiser?stripe=success`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/advertiser?stripe=cancel`,
-    metadata: { advertiserId: body.advertiserId || "", adId: body.adId || "", scope }
+    mode: "payment",
+    line_items: [{ price_data: { currency: "usd", unit_amount: amount, product_data: { name: `Potty Favor ad slot: ${campaign.name}` } }, quantity: 1 }],
+    customer_email: campaign.advertiser.contactEmail,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/portal/advertiser?stripe=success`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/portal/advertiser?stripe=cancel`,
+    metadata: { campaignId: campaign.id, advertiserId: campaign.advertiserId }
   });
-  return NextResponse.json({ url: session.url });
+  await prisma.payment.create({ data: { campaignId: campaign.id, advertiserId: campaign.advertiserId, amountCents: amount, status: "PENDING", stripeSessionId: session.id } });
+  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { status: "PENDING_PAYMENT", priceCents: amount, stripeSessionId: session.id } });
+  if (request.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ url: session.url });
+  return NextResponse.redirect(session.url || `${process.env.NEXT_PUBLIC_SITE_URL}/portal/advertiser?stripe=checkout-unavailable`, 303);
 }

@@ -222,3 +222,54 @@ export async function recordAnalytics(formData: FormData) {
 export async function deleteAd(id: string) { await prisma.ad.delete({ where: { id } }); revalidatePath("/admin/ads"); }
 export async function deleteVenue(id: string) { await prisma.venue.delete({ where: { id } }); revalidatePath("/admin/venues"); }
 export async function deleteIssue(id: string) { await prisma.issue.delete({ where: { id } }); revalidatePath("/admin/issues"); }
+
+export async function signIn(formData: FormData) {
+  const { authEnvStatus, createSession, verifyPassword } = await import("./auth");
+  if (!authEnvStatus().isConfigured) redirect("/signin?setup=auth");
+  const email = text(formData, "email").toLowerCase();
+  const password = text(formData, "password");
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !verifyPassword(password, user.passwordHash) || user.status !== "ACTIVE") redirect("/signin?error=credentials");
+  await createSession(user.id);
+  if (user.role === "ADMIN") redirect("/admin");
+  if (user.role === "VENUE") redirect("/portal/venue");
+  redirect("/portal/advertiser");
+}
+
+export async function signOutAction() {
+  const { signOut } = await import("./auth");
+  await signOut();
+  redirect("/signin");
+}
+
+export async function createAdSlotInventory(formData: FormData) {
+  await prisma.adSlotInventory.create({ data: { venueId: text(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), slotNumber: intValue(formData, "slotNumber", 1), month: text(formData, "month"), priceCents: intValue(formData, "priceDollars", 50) * 100, status: text(formData, "status", "OPEN") as any } });
+  revalidatePath("/admin/venues");
+  revalidatePath("/portal/advertiser");
+}
+
+export async function createAdvertiserCampaign(formData: FormData) {
+  const inventoryId = text(formData, "inventoryId");
+  const inventory = await prisma.adSlotInventory.findUnique({ where: { id: inventoryId } });
+  const months = Math.max(1, intValue(formData, "months", 1));
+  const locationCount = Math.max(1, intValue(formData, "locationCount", 1));
+  const priceCents = 5000 * months * locationCount;
+  await prisma.adCampaign.create({ data: { advertiserId: text(formData, "advertiserId"), inventoryId, name: text(formData, "name", "Draft campaign"), businessName: text(formData, "businessName"), headline: text(formData, "headline"), body: text(formData, "body"), creativeUrl: nullableText(formData, "creativeUrl"), targetUrl: text(formData, "targetUrl", "#"), ctaText: text(formData, "ctaText", "Learn More"), months, locationCount, priceCents, status: "DRAFT", approvalStatus: "PENDING" } });
+  if (inventory?.status === "OPEN") await prisma.adSlotInventory.update({ where: { id: inventoryId }, data: { status: "RESERVED" } });
+  revalidatePath("/portal/advertiser");
+}
+
+export async function approveAdCampaign(id: string) {
+  await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "APPROVED" } });
+  revalidatePath("/admin/ads");
+}
+
+export async function rejectAdCampaign(id: string) {
+  await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "REJECTED", status: "REJECTED" } });
+  revalidatePath("/admin/ads");
+}
+
+export async function createVenueContentDraft(formData: FormData) {
+  await prisma.venueContentDraft.create({ data: { venueId: text(formData, "venueId"), title: text(formData, "title"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), approvalStatus: "PENDING" } });
+  revalidatePath("/portal/venue");
+}

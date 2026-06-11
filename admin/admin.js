@@ -31,6 +31,12 @@ const DEMO = {
     quotes: ["Great minds discuss ideas; average minds discuss events; small minds discuss people. — Eleanor Roosevelt", "Success is not final, failure is not fatal: it is the courage to continue that counts. — Winston Churchill", "If you can imagine it, you can create it. If you dream it, you can become it. — William Ward"],
     didYouKnow: ["Rice paper contains no rice grain or rice.", "French fries originated in Belgium.", "Mountain goats are small antelopes.", "The funny bone is a nerve, not a bone."],
     noWay: ["The most impossible item to flush is a ping pong ball.", "Separate cubicles for toilets are a relatively modern invention.", "Before toilet paper, people used shells, stones, herbs, or sponge attached to a stick."],
+    restaurantReviewTitle: "Worth the Stop",
+    restaurantName: "Featured Local Restaurant",
+    restaurantPhotoUrl: "images/restaurant-review.jpg",
+    restaurantReviewBody: "This month’s pick is a local spot with strong atmosphere, good service, and food that makes it worth coming back for.",
+    restaurantOffer: "Mention Potty Favor for a reader perk.",
+    restaurantWebsite: "#",
     calendarText: "Outdoor Events Association: register your event free and discover local happenings all month.",
   },
   venues: [
@@ -165,6 +171,12 @@ function collectIssue() {
     quotes: linesToArray(data.get("quotes")),
     didYouKnow: linesToArray(data.get("didYouKnow")),
     noWay: linesToArray(data.get("noWay")),
+    restaurantReviewTitle: String(data.get("restaurantReviewTitle") || ""),
+    restaurantName: String(data.get("restaurantName") || ""),
+    restaurantPhotoUrl: String(data.get("restaurantPhotoUrl") || ""),
+    restaurantReviewBody: String(data.get("restaurantReviewBody") || ""),
+    restaurantOffer: String(data.get("restaurantOffer") || ""),
+    restaurantWebsite: String(data.get("restaurantWebsite") || ""),
     calendarText: String(data.get("calendarText") || ""),
   };
 }

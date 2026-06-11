@@ -444,3 +444,26 @@ stalltalk_campaign_history
 - Analytics records one ad impression per slot per page load, plus QR scans, issue views, ad clicks, and coupon clicks.
 - Data import rejects invalid JSON with a friendly error.
 - `npm run build`, `npx prisma validate`, `npm run check:phase2`, JS syntax checks, and `npm run smoke:site` pass before release.
+
+## Phase 2A paid advertiser inventory environment
+
+Set these variables in Vercel or your local `.env` before enabling paid advertiser inventory:
+
+- `DATABASE_URL` — PostgreSQL connection string used by Prisma.
+- `ADMIN_PUBLISH_TOKEN` — server-side token required by `/api/publish-content`; do not embed it in frontend code.
+- `STRIPE_SECRET_KEY` — Stripe secret key for Checkout session creation.
+- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret for marking campaigns paid.
+- `NEXT_PUBLIC_SITE_URL` — canonical site URL used for Stripe success/cancel redirects.
+- `AUTH_SECRET` — random secret used to hash role-session tokens.
+
+Optional seeded account variables:
+
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+- `ADVERTISER_EMAIL`, `ADVERTISER_PASSWORD`
+- `VENUE_EMAIL`, `VENUE_PASSWORD`
+
+If auth or Stripe variables are missing, the app shows setup messages and keeps the existing admin/public publishing surfaces available instead of crashing.
+
+## Phase 2A workflow
+
+Advertisers reserve inventory at `$50 × number of QR/toilet locations × number of months`, save draft creative, and use Stripe Checkout. Webhook-confirmed payments mark campaigns paid; only paid and approved campaigns are eligible for live ad-slot publishing. Venue users can draft property-specific content for admin approval without editing global admin content.
