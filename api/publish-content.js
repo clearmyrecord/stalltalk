@@ -47,6 +47,6 @@ export default async function handler(req, res) {
     const published = await savePublishedContent(payload);
     return sendJson(req, res, 200, { ok: true, ...published });
   } catch (error) {
-    return sendJson(req, res, 500, { ok: false, error: error?.message || "Publish failed." });
+    return sendJson(req, res, error?.statusCode || 500, { ok: false, error: error?.message || "Publish failed.", code: error?.code || "PUBLISH_FAILED" });
   }
 }

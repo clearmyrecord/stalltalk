@@ -620,6 +620,11 @@ main,
   padding: 22px;
 }
 
+.generated-ad-inline { height: auto; min-height: 220px; aspect-ratio: 3 / 2; }
+.generated-ad-square { height: auto; min-height: 260px; aspect-ratio: 1 / 1; }
+.generated-ad-tall { height: auto; min-height: 360px; aspect-ratio: 2 / 3; }
+.inline-ad .generated-ad-inline { aspect-ratio: 16 / 9; }
+
 .generated-ad::before {
   content: "";
   position: absolute;

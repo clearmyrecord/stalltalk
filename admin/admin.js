@@ -791,12 +791,19 @@ async function generateCreativeAd(brief) {
   return parseEndpointResponse(response, endpoint);
 }
 
+function generatedImageForStorage() {
+  const imageUrl = String(generatedCreative?.imageUrl || "");
+  const imageBase64 = String(generatedCreative?.imageBase64 || "");
+  if (imageUrl) return imageUrl;
+  return imageBase64 ? `data:image/png;base64,${imageBase64}` : "";
+}
+
 function generatedAdFromPublishForm() {
   if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
   const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const generatedImageBase64 = generatedCreative.imageBase64 || "";
+  const image = generatedImageForStorage();
   return {
     slot,
     active: true,
@@ -806,20 +813,17 @@ function generatedAdFromPublishForm() {
     offer: brief.offer || generatedCreative.headline || "Reader-only offer",
     cta: generatedCreative.cta || generatedCreative.ctaText || brief.ctaText || "Learn More",
     targetUrl: brief.website || "#",
-    imageBase64: generatedImageBase64,
-    image: generatedImageBase64 ? `data:image/png;base64,${generatedImageBase64}` : generatedCreative.imageUrl,
+    image,
     category: brief.businessCategory || generatedCreative.category || "Local Business",
     city: brief.cityTargeting || "",
     state: brief.stateTargeting || "",
     createdAt: new Date().toISOString(),
     couponCode: generatedCreative.couponCode || brief.couponCode || "",
     businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
-    imageUrl: generatedCreative.imageUrl,
     market: "",
     adMode: "image",
     adSize: brief.adSize || "Inline banner",
-    promptUsed: generatedCreative.prompt || generatedCreative.promptUsed || "",
-    diagnostics: generatedCreative.diagnostic || generatedCreative.diagnostics || {},
+    imageStorage: image.startsWith("data:") ? "single-data-url" : "url",
   };
 }
 

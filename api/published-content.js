@@ -31,6 +31,6 @@ export default async function handler(req, res) {
     if (!latest) return sendJson(req, res, 404, { ok: false, error: "No published content found." });
     return sendJson(req, res, 200, latest);
   } catch (error) {
-    return sendJson(req, res, 500, { ok: false, error: error?.message || "Could not load published content." });
+    return sendJson(req, res, error?.statusCode || 500, { ok: false, error: error?.message || "Could not load published content.", code: error?.code || "PUBLISHED_CONTENT_LOAD_FAILED" });
   }
 }

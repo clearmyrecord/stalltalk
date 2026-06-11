@@ -740,6 +740,13 @@ function imageSource(ad) {
     : "";
 }
 
+function adSizeClass(adSize) {
+  const normalized = normalizeText(adSize || "inline banner").toLowerCase();
+  if (normalized.includes("tall")) return "generated-ad-tall";
+  if (normalized.includes("square") || normalized.includes("mobile")) return "generated-ad-square";
+  return "generated-ad-inline";
+}
+
 function normalizeAd(ad) {
   const image = imageSource(ad);
 
@@ -765,6 +772,7 @@ function normalizeAd(ad) {
     tone: ad.tone || "bold, premium, clean, high-converting",
     active: ad.active !== false,
     adMode: ad.adMode || (image ? "image" : "copy"),
+    adSize: ad.adSize || ad.size || "Inline banner",
   };
 }
 
@@ -866,8 +874,10 @@ function renderGeneratedAd(slot, result) {
 
   element.classList.remove("is-empty");
 
+  const sizeClass = adSizeClass(result.adSize || metadata.adSize);
+
   element.innerHTML = `
-    <div class="generated-ad" style="${imageUrl ? `background-image: url('${imageUrl}')` : ""}">
+    <div class="generated-ad ${sizeClass}" style="${imageUrl ? `background-image: url('${imageUrl}')` : ""}">
       <div class="generated-ad-content">
         <div class="generated-ad-sponsor">${sponsorName}</div>
         <h3>${offer}</h3>
@@ -972,8 +982,9 @@ function renderAdElement(element, ad, slot) {
   const safeTargetUrl = ad.targetUrl || "#";
 
   if (image) {
+    const sizeClass = adSizeClass(ad.adSize);
     element.innerHTML = `
-      <div class="generated-ad" style="background-image: url('${image}')">
+      <div class="generated-ad ${sizeClass}" style="background-image: url('${image}')">
         <div class="generated-ad-content">
           <div class="generated-ad-sponsor">${ad.advertiserName}</div>
           <h3>${ad.headline}</h3>
