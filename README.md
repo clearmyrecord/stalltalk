@@ -22,6 +22,7 @@ Publisher
 * PostgreSQL for production and local development
 * Vercel-ready environment configuration
 * Stripe-ready subscription and campaign models
+* Multi-month advertiser campaign flights with Stripe Checkout metadata
 * Server actions for MVP admin/portal workflows
 
 ## Setup
@@ -512,8 +513,19 @@ Override these with `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADVERTISER_EMAIL`, `ADVERT
 ### Role descriptions
 
 * `ADMIN` users manage all venues, QR/toilet locations, ad inventory, advertiser campaigns, payments, venue content drafts, content editing, and Publish Live status.
-* `ADVERTISER` users view and filter available inventory, select one or multiple placements, save creative drafts, preview campaigns, and pay with Stripe Checkout.
+* `ADVERTISER` users view and filter available inventory, select one or multiple placements, choose a start month and 1/2/3/6/12-month flight duration, see live pricing, save creative drafts, preview campaigns, and pay with Stripe Checkout.
 * `VENUE` users view only assigned venues/properties, QR/toilet locations, active campaigns in their properties, and property-specific content drafts. Venue users cannot edit global Potty Favor content or approve their own drafts.
+
+
+### Multi-month advertiser campaign flights
+
+Advertiser campaigns support campaign flights that run for 1, 2, 3, 6, or 12 months. The advertiser portal collects a start month and duration, calculates the end month, and previews the total using the business rule:
+
+```text
+$50 × selected QR/toilet placements × selected months
+```
+
+Each campaign stores `flightStartMonth`, `flightEndMonth`, `flightMonths`, `pricePerPlacementMonthCents`, `placementCount`, and `totalAmountCents`. Paid or active campaigns block any later booking that overlaps the same QR/toilet slot for the same month range. Public ad serving respects the stored flight start/end dates, and the admin dashboard displays the flight range, duration, total amount, and active/upcoming/expired flight status.
 
 ### Stripe webhook setup
 
@@ -526,14 +538,14 @@ Override these with `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADVERTISER_EMAIL`, `ADVERT
 
 3. Subscribe the endpoint to `checkout.session.completed`.
 4. Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
-5. Create or seed an advertiser campaign, click **Pay with Stripe Checkout**, complete the Checkout flow, and confirm the webhook changes the campaign to paid.
+5. Create or seed an advertiser campaign, click **Pay with Stripe Checkout**, complete the Checkout flow, and confirm the webhook changes the campaign to paid. Checkout amounts are calculated as `$50 × selected QR/toilet placements × selected months`, and Stripe metadata includes `campaignId`, `placementCount`, `flightMonths`, `flightStartMonth`, and `flightEndMonth`.
 
 ### Basic testing checklist
 
 * Sign in as `admin@pottyfavor.com` and confirm `/admin/dashboard` shows venues, QR/toilet locations, inventory, campaigns, payments, and venue draft approval actions.
-* Sign in as `advertiser@pottyfavor.com` and confirm inventory filters, multi-placement selection, campaign draft save, preview cards, and Stripe Checkout setup notices work.
+* Sign in as `advertiser@pottyfavor.com` and confirm inventory filters, multi-placement selection, start month selection, flight duration selection, live price preview, campaign draft save, preview cards, and Stripe Checkout setup notices work.
 * Sign in as `venue@pottyfavor.com` and confirm only assigned venues/properties, QR/toilet locations, active campaigns, and venue draft statuses appear.
 * Attempt to open another role’s dashboard and confirm the app redirects to `/signin?error=role` when auth is configured.
 * Approve/reject an advertiser campaign and a venue content draft from the admin dashboard, including rejection reasons.
-* Confirm a paid + approved advertiser campaign is eligible for public ad serving and approved venue content appears on the matching public venue issue.
+* Confirm a paid + approved advertiser campaign is eligible for public ad serving only during its flight dates and approved venue content appears on the matching public venue issue.
 * Run `npx prisma validate`, `npm run build`, `npm run smoke:site`, `node --check admin/admin.js`, and `node --check script.js` before release.
