@@ -500,66 +500,87 @@ model ToiletLocation {
 }
 
 model AdSlotInventory {
-  id               String          @id @default(cuid())
-  venueId          String
-  restroomId       String?
-  qrCodeId         String?
-  toiletLocationId String?
-  slotNumber       Int
-  month            String
-  startsAt         DateTime?
-  endsAt           DateTime?
-  priceCents       Int             @default(5000)
-  status           InventoryStatus @default(OPEN)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  venue            Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  restroom         Restroom?       @relation(fields: [restroomId], references: [id], onDelete: SetNull)
-  qrCode           QrCode?         @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
-  toiletLocation   ToiletLocation? @relation(fields: [toiletLocationId], references: [id], onDelete: SetNull)
-  campaigns        AdCampaign[]
+  id                 String                @id @default(cuid())
+  venueId            String
+  restroomId         String?
+  qrCodeId           String?
+  toiletLocationId   String?
+  slotNumber         Int
+  month              String
+  startsAt           DateTime?
+  endsAt             DateTime?
+  priceCents         Int                   @default(5000)
+  status             InventoryStatus       @default(OPEN)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  venue              Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  restroom           Restroom?             @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  qrCode             QrCode?               @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  toiletLocation     ToiletLocation?       @relation(fields: [toiletLocationId], references: [id], onDelete: SetNull)
+  campaigns          AdCampaign[]
+  campaignPlacements AdCampaignPlacement[]
 
   @@unique([venueId, restroomId, qrCodeId, slotNumber, month])
   @@index([status, month])
 }
 
 model AdCampaign {
-  id                String           @id @default(cuid())
-  advertiserId      String
-  inventoryId       String?
-  adId              String?
-  name              String
-  businessName      String
-  headline          String
-  body              String
-  creativeUrl       String?
-  targetUrl         String           @default("#")
-  ctaText           String           @default("Learn More")
-  months            Int              @default(1)
-  locationCount     Int              @default(1)
-  priceCents        Int              @default(5000)
-  status            CampaignStatus   @default(DRAFT)
-  approvalStatus    ApprovalStatus   @default(PENDING)
-  adminApprovalNote String?
-  rejectionReason   String?
-  stripeSessionId   String?          @unique
-  paidAt            DateTime?
-  startsAt          DateTime?
-  endsAt            DateTime?
-  submittedAt       DateTime?
-  approvedAt        DateTime?
-  rejectedAt        DateTime?
-  approvedBy        String?
-  rejectedBy        String?
-  publishedAt       DateTime?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  advertiser        Advertiser       @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
-  inventory         AdSlotInventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
-  ad                Ad?              @relation(fields: [adId], references: [id], onDelete: SetNull)
-  payments          Payment[]
+  id                          String                @id @default(cuid())
+  advertiserId                String
+  inventoryId                 String?
+  adId                        String?
+  name                        String
+  businessName                String
+  headline                    String
+  body                        String
+  creativeUrl                 String?
+  targetUrl                   String                @default("#")
+  ctaText                     String                @default("Learn More")
+  months                      Int                   @default(1)
+  locationCount               Int                   @default(1)
+  priceCents                  Int                   @default(5000)
+  flightStartMonth            String                @default("2026-07")
+  flightEndMonth              String                @default("2026-07")
+  flightMonths                Int                   @default(1)
+  pricePerPlacementMonthCents Int                   @default(5000)
+  placementCount              Int                   @default(1)
+  totalAmountCents            Int                   @default(5000)
+  status                      CampaignStatus        @default(DRAFT)
+  approvalStatus              ApprovalStatus        @default(PENDING)
+  adminApprovalNote           String?
+  rejectionReason             String?
+  stripeSessionId             String?               @unique
+  paidAt                      DateTime?
+  startsAt                    DateTime?
+  endsAt                      DateTime?
+  submittedAt                 DateTime?
+  approvedAt                  DateTime?
+  rejectedAt                  DateTime?
+  approvedBy                  String?
+  rejectedBy                  String?
+  publishedAt                 DateTime?
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  advertiser                  Advertiser            @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  inventory                   AdSlotInventory?      @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  ad                          Ad?                   @relation(fields: [adId], references: [id], onDelete: SetNull)
+  payments                    Payment[]
+  placements                  AdCampaignPlacement[]
 
   @@index([advertiserId, status])
+  @@index([inventoryId])
+  @@index([flightStartMonth, flightEndMonth])
+}
+
+model AdCampaignPlacement {
+  id          String          @id @default(cuid())
+  campaignId  String
+  inventoryId String
+  createdAt   DateTime        @default(now())
+  campaign    AdCampaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  inventory   AdSlotInventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, inventoryId])
   @@index([inventoryId])
 }
 
@@ -582,22 +603,22 @@ model Payment {
 }
 
 model VenueContentDraft {
-  id             String         @id @default(cuid())
-  venueId        String
-  title          String
-  body           String
-  imageUrl       String?
-  approvalStatus ApprovalStatus @default(DRAFT)
-  adminNote      String?
+  id              String         @id @default(cuid())
+  venueId         String
+  title           String
+  body            String
+  imageUrl        String?
+  approvalStatus  ApprovalStatus @default(DRAFT)
+  adminNote       String?
   rejectionReason String?
-  submittedAt    DateTime?
-  approvedAt     DateTime?
-  rejectedAt     DateTime?
-  approvedBy     String?
-  rejectedBy     String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  venue          Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  approvedBy      String?
+  rejectedBy      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  venue           Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, approvalStatus])
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { slugify } from "./format";
+import { calculateFlightTotal, flightDateRange, flightEndMonth, normalizeFlightMonth, PRICE_PER_PLACEMENT_MONTH_CENTS, safeFlightMonths } from "./campaign-flights";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -251,19 +252,25 @@ export async function createAdSlotInventory(formData: FormData) {
 export async function createAdvertiserCampaign(formData: FormData) {
   const inventoryIds = formData.getAll("inventoryIds").map(String).filter(Boolean);
   const singleInventoryId = text(formData, "inventoryId");
-  const placements = inventoryIds.length ? inventoryIds : singleInventoryId ? [singleInventoryId] : [];
-  const firstInventoryId = placements[0] || null;
-  const months = Math.max(1, intValue(formData, "months", 1));
-  const locationCount = Math.max(1, placements.length || intValue(formData, "locationCount", 1));
-  const priceCents = 5000 * months * locationCount;
-  const startsAt = nullableText(formData, "startsAt") ? new Date(text(formData, "startsAt")) : null;
-  const endsAt = startsAt ? new Date(startsAt) : null;
-  if (endsAt) endsAt.setMonth(endsAt.getMonth() + months);
+  const placements = [...new Set(inventoryIds.length ? inventoryIds : singleInventoryId ? [singleInventoryId] : [])];
+  if (!placements.length) throw new Error("Select at least one QR/toilet placement before saving a campaign.");
 
-  const campaign = await prisma.adCampaign.create({
+  const flightMonths = safeFlightMonths(intValue(formData, "flightMonths", intValue(formData, "months", 1)));
+  const flightStartMonth = normalizeFlightMonth(text(formData, "flightStartMonth", text(formData, "startsAt")));
+  const flightEnd = flightEndMonth(flightStartMonth, flightMonths);
+  const placementCount = placements.length;
+  const totalAmountCents = calculateFlightTotal(placementCount, flightMonths);
+  const { startsAt, endsAt } = flightDateRange(flightStartMonth, flightMonths);
+  const inventory = await prisma.adSlotInventory.findMany({ where: { id: { in: placements } } });
+  if (inventory.length !== placements.length) throw new Error("One or more selected placements are no longer available.");
+  const conflicts = await findOverlappingCampaignPlacements(inventory, flightStartMonth, flightEnd);
+  if (conflicts.length) throw new Error("One or more selected placements already has a paid or active campaign during this flight.");
+
+  await prisma.adCampaign.create({
     data: {
       advertiserId: text(formData, "advertiserId"),
-      inventoryId: firstInventoryId,
+      inventoryId: placements[0],
+      placements: { create: placements.map((inventoryId) => ({ inventoryId })) },
       name: text(formData, "name", "Draft campaign"),
       businessName: text(formData, "businessName"),
       headline: text(formData, "headline"),
@@ -271,9 +278,15 @@ export async function createAdvertiserCampaign(formData: FormData) {
       creativeUrl: nullableText(formData, "creativeUrl"),
       targetUrl: text(formData, "targetUrl", "#"),
       ctaText: text(formData, "ctaText", "Learn More"),
-      months,
-      locationCount,
-      priceCents,
+      months: flightMonths,
+      locationCount: placementCount,
+      priceCents: totalAmountCents,
+      flightStartMonth,
+      flightEndMonth: flightEnd,
+      flightMonths,
+      pricePerPlacementMonthCents: PRICE_PER_PLACEMENT_MONTH_CENTS,
+      placementCount,
+      totalAmountCents,
       status: "DRAFT",
       approvalStatus: "SUBMITTED",
       submittedAt: new Date(),
@@ -282,9 +295,25 @@ export async function createAdvertiserCampaign(formData: FormData) {
     }
   });
 
-  if (placements.length) await prisma.adSlotInventory.updateMany({ where: { id: { in: placements }, status: "OPEN" }, data: { status: "RESERVED" } });
   revalidatePath("/portal/advertiser");
   revalidatePath("/admin/dashboard");
+}
+
+async function findOverlappingCampaignPlacements(inventory: Array<{ id: string; venueId: string; restroomId: string | null; qrCodeId: string | null; toiletLocationId: string | null; slotNumber: number }>, flightStartMonth: string, flightEndMonth: string, excludeCampaignId?: string) {
+  if (!inventory.length) return [];
+  const slotIdentity = inventory.map((slot) => ({ venueId: slot.venueId, restroomId: slot.restroomId, qrCodeId: slot.qrCodeId, toiletLocationId: slot.toiletLocationId, slotNumber: slot.slotNumber }));
+  return prisma.adCampaignPlacement.findMany({
+    where: {
+      campaignId: excludeCampaignId ? { not: excludeCampaignId } : undefined,
+      inventory: { OR: slotIdentity },
+      campaign: {
+        status: { in: ["PAID", "ACTIVE"] },
+        flightStartMonth: { lte: flightEndMonth },
+        flightEndMonth: { gte: flightStartMonth }
+      }
+    },
+    include: { campaign: true, inventory: true }
+  });
 }
 
 export async function approveAdCampaign(id: string, formData?: FormData) {
@@ -307,10 +336,12 @@ export async function rejectAdCampaign(id: string, formData?: FormData) {
 }
 
 async function publishPaidCampaign(campaignId: string) {
-  const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { inventory: true, advertiser: true } });
-  if (!campaign || campaign.status !== "PAID" || campaign.approvalStatus !== "APPROVED" || !campaign.inventory) return;
-  const ad = await prisma.ad.create({ data: { publisherId: campaign.advertiser.publisherId, advertiserId: campaign.advertiserId, businessName: campaign.businessName, title: campaign.headline, offer: campaign.body, artworkUrl: campaign.creativeUrl, ctaText: campaign.ctaText, targetUrl: campaign.targetUrl, status: "ACTIVE", scope: campaign.inventory.restroomId ? "RESTROOM" : "VENUE", venueId: campaign.inventory.venueId, restroomId: campaign.inventory.restroomId, monthlyPriceCents: 5000, campaignStartsAt: campaign.startsAt, campaignEndsAt: campaign.endsAt } });
-  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ad.id, status: "ACTIVE", publishedAt: new Date() } });
+  const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { placements: { include: { inventory: true } }, inventory: true, advertiser: true } });
+  if (!campaign || campaign.status !== "PAID" || campaign.approvalStatus !== "APPROVED") return;
+  const placements = campaign.placements.length ? campaign.placements.map((placement) => placement.inventory) : campaign.inventory ? [campaign.inventory] : [];
+  if (!placements.length) return;
+  const ads = await Promise.all(placements.map((inventory) => prisma.ad.create({ data: { publisherId: campaign.advertiser.publisherId, advertiserId: campaign.advertiserId, businessName: campaign.businessName, title: campaign.headline, offer: campaign.body, artworkUrl: campaign.creativeUrl, ctaText: campaign.ctaText, targetUrl: campaign.targetUrl, status: "ACTIVE", scope: inventory.restroomId ? "RESTROOM" : "VENUE", venueId: inventory.venueId, restroomId: inventory.restroomId, monthlyPriceCents: campaign.pricePerPlacementMonthCents, campaignStartsAt: campaign.startsAt, campaignEndsAt: campaign.endsAt } })));
+  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ads[0]?.id || null, status: "ACTIVE", publishedAt: new Date() } });
 }
 
 export async function createVenueContentDraft(formData: FormData) {
