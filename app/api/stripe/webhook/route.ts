@@ -22,8 +22,8 @@ export async function POST(request: Request) {
 }
 
 async function publishPaidCampaign(campaignId: string) {
-  const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { inventory: true } });
+  const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { inventory: true, advertiser: true } });
   if (!campaign || campaign.status !== "PAID" || campaign.approvalStatus !== "APPROVED" || !campaign.inventory) return;
-  const ad = await prisma.ad.create({ data: { publisherId: (await prisma.advertiser.findUniqueOrThrow({ where: { id: campaign.advertiserId } })).publisherId, advertiserId: campaign.advertiserId, businessName: campaign.businessName, title: campaign.headline, offer: campaign.body, artworkUrl: campaign.creativeUrl, ctaText: campaign.ctaText, targetUrl: campaign.targetUrl, status: "ACTIVE", scope: campaign.inventory.restroomId ? "RESTROOM" : "VENUE", venueId: campaign.inventory.venueId, restroomId: campaign.inventory.restroomId, monthlyPriceCents: 5000 } });
+  const ad = await prisma.ad.create({ data: { publisherId: campaign.advertiser.publisherId, advertiserId: campaign.advertiserId, businessName: campaign.businessName, title: campaign.headline, offer: campaign.body, artworkUrl: campaign.creativeUrl, ctaText: campaign.ctaText, targetUrl: campaign.targetUrl, status: "ACTIVE", scope: campaign.inventory.restroomId ? "RESTROOM" : "VENUE", venueId: campaign.inventory.venueId, restroomId: campaign.inventory.restroomId, monthlyPriceCents: 5000, campaignStartsAt: campaign.startsAt, campaignEndsAt: campaign.endsAt } });
   await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ad.id, status: "ACTIVE", publishedAt: new Date() } });
 }

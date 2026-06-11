@@ -15,10 +15,13 @@ enum Role {
 
 enum CampaignStatus {
   DRAFT
+  PAYMENT_PENDING
   PENDING_PAYMENT
   PAID
-  ACTIVE
+  APPROVED
   REJECTED
+  ACTIVE
+  EXPIRED
   ARCHIVED
 }
 
@@ -38,6 +41,7 @@ enum InventoryStatus {
 
 enum ApprovalStatus {
   DRAFT
+  SUBMITTED
   PENDING
   APPROVED
   REJECTED
@@ -537,8 +541,16 @@ model AdCampaign {
   status            CampaignStatus   @default(DRAFT)
   approvalStatus    ApprovalStatus   @default(PENDING)
   adminApprovalNote String?
+  rejectionReason   String?
   stripeSessionId   String?          @unique
   paidAt            DateTime?
+  startsAt          DateTime?
+  endsAt            DateTime?
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  approvedBy        String?
+  rejectedBy        String?
   publishedAt       DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -577,6 +589,12 @@ model VenueContentDraft {
   imageUrl       String?
   approvalStatus ApprovalStatus @default(DRAFT)
   adminNote      String?
+  rejectionReason String?
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  rejectedAt     DateTime?
+  approvedBy     String?
+  rejectedBy     String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   venue          Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)

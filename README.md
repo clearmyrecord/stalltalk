@@ -467,3 +467,73 @@ If auth or Stripe variables are missing, the app shows setup messages and keeps 
 ## Phase 2A workflow
 
 Advertisers reserve inventory at `$50 × number of QR/toilet locations × number of months`, save draft creative, and use Stripe Checkout. Webhook-confirmed payments mark campaigns paid; only paid and approved campaigns are eligible for live ad-slot publishing. Venue users can draft property-specific content for admin approval without editing global admin content.
+
+## Phase 2B Role-Based Dashboards
+
+### Login URLs
+
+* Sign in: `http://localhost:3000/signin`
+* Admin dashboard: `http://localhost:3000/admin/dashboard`
+* Advertiser dashboard: `http://localhost:3000/portal/advertiser`
+* Venue dashboard: `http://localhost:3000/portal/venue`
+
+After successful login, users are redirected by role:
+
+* `ADMIN` → `/admin/dashboard`
+* `ADVERTISER` → `/portal/advertiser`
+* `VENUE` → `/portal/venue`
+
+Each dashboard includes a logout action. When `AUTH_SECRET` and `DATABASE_URL` are configured, role dashboards redirect unauthorized users back to `/signin?error=role`.
+
+### Required environment variables
+
+* `DATABASE_URL` — PostgreSQL connection string for Prisma-backed dashboards, Stripe records, campaigns, venue drafts, and sessions.
+* `AUTH_SECRET` — random secret used to hash session tokens.
+* `NEXT_PUBLIC_SITE_URL` — public base URL for Stripe Checkout success/cancel redirects.
+* `STRIPE_SECRET_KEY` — Stripe secret key for Checkout session creation.
+* `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret for marking paid campaigns.
+* `OPENAI_API_KEY` — required only for live AI Creative Studio image generation.
+* `ADMIN_PUBLISH_TOKEN` — required for protected Publish Live API calls.
+
+The UI shows setup notices when auth, database, or Stripe variables are missing.
+
+### Seed users
+
+`npx prisma db seed` creates example role accounts:
+
+| Role | Email | Default password |
+| --- | --- | --- |
+| Admin | `admin@pottyfavor.com` | `admin-password-change-me` |
+| Advertiser | `advertiser@pottyfavor.com` | `advertiser-password-change-me` |
+| Venue | `venue@pottyfavor.com` | `venue-password-change-me` |
+
+Override these with `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADVERTISER_EMAIL`, `ADVERTISER_PASSWORD`, `VENUE_EMAIL`, and `VENUE_PASSWORD` before seeding.
+
+### Role descriptions
+
+* `ADMIN` users manage all venues, QR/toilet locations, ad inventory, advertiser campaigns, payments, venue content drafts, content editing, and Publish Live status.
+* `ADVERTISER` users view and filter available inventory, select one or multiple placements, save creative drafts, preview campaigns, and pay with Stripe Checkout.
+* `VENUE` users view only assigned venues/properties, QR/toilet locations, active campaigns in their properties, and property-specific content drafts. Venue users cannot edit global Potty Favor content or approve their own drafts.
+
+### Stripe webhook setup
+
+1. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `NEXT_PUBLIC_SITE_URL` locally or in Vercel.
+2. In Stripe Dashboard, create a webhook endpoint pointing to:
+
+   ```text
+   https://your-domain.example/api/stripe/webhook
+   ```
+
+3. Subscribe the endpoint to `checkout.session.completed`.
+4. Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
+5. Create or seed an advertiser campaign, click **Pay with Stripe Checkout**, complete the Checkout flow, and confirm the webhook changes the campaign to paid.
+
+### Basic testing checklist
+
+* Sign in as `admin@pottyfavor.com` and confirm `/admin/dashboard` shows venues, QR/toilet locations, inventory, campaigns, payments, and venue draft approval actions.
+* Sign in as `advertiser@pottyfavor.com` and confirm inventory filters, multi-placement selection, campaign draft save, preview cards, and Stripe Checkout setup notices work.
+* Sign in as `venue@pottyfavor.com` and confirm only assigned venues/properties, QR/toilet locations, active campaigns, and venue draft statuses appear.
+* Attempt to open another role’s dashboard and confirm the app redirects to `/signin?error=role` when auth is configured.
+* Approve/reject an advertiser campaign and a venue content draft from the admin dashboard, including rejection reasons.
+* Confirm a paid + approved advertiser campaign is eligible for public ad serving and approved venue content appears on the matching public venue issue.
+* Run `npx prisma validate`, `npm run build`, `npm run smoke:site`, `node --check admin/admin.js`, and `node --check script.js` before release.
