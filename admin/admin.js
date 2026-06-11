@@ -636,6 +636,14 @@ function creativeVenueAtmosphere(brief) {
   return [brief.venueTargeting, brief.cityTargeting, brief.stateTargeting].map((item) => String(item || "").trim()).filter(Boolean).join(", ") || "the selected venue and city atmosphere";
 }
 
+function adFormatForSize(adSize) {
+  const normalized = String(adSize || "Inline banner").trim().toLowerCase();
+  if (normalized.includes("mobile")) return { label: "Mobile card", layout: "vertical mobile card ad, phone-first portrait layout", previewWidth: 720, previewHeight: 960 };
+  if (normalized.includes("tall")) return { label: "Tall", layout: "vertical tall ad, portrait layout", previewWidth: 640, previewHeight: 960 };
+  if (normalized.includes("square")) return { label: "Square", layout: "square ad layout", previewWidth: 768, previewHeight: 768 };
+  return { label: normalized.includes("banner") && !normalized.includes("inline") ? "Banner" : "Inline banner", layout: "horizontal mobile inline banner ad, wide layout, readable on phone, no square poster composition", previewWidth: 768, previewHeight: 384 };
+}
+
 function buildEnhancedCreativePrompt(brief) {
   const businessName = String(brief.businessName || "the business").trim();
   const category = String(brief.businessCategory || "local sponsor").trim();
@@ -647,6 +655,7 @@ function buildEnhancedCreativePrompt(brief) {
   const colors = String(brief.brandColors || "premium brand colors with high contrast").trim();
   const requiredText = String(brief.requiredText || "").trim();
   const disclaimer = String(brief.optionalDisclaimer || "").trim();
+  const adFormat = adFormatForSize(brief.adSize);
   return [
     `Create a finished, high-quality commercial advertisement for ${businessName}, a ${category}.`,
     `Feature the business name "${businessName}" prominently with readable bold typography.`,
@@ -656,9 +665,11 @@ function buildEnhancedCreativePrompt(brief) {
     coupon ? `Include coupon code "${coupon}" in a polished coupon badge.` : "Do not invent a coupon code if none is provided.",
     `Match the selected visual style: ${style}. Match the tone: ${tone}.`,
     `Match the venue/city atmosphere: ${creativeVenueAtmosphere(brief)}.`,
+    `Use a ${adFormat.layout}.`,
+    "Make headline, offer, CTA, phone number, and coupon code large enough to read on mobile.",
     `Use premium visual composition, commercial lighting, strong hierarchy, clean spacing, ${colors}, and an eye-catching layout for restroom readers scanning quickly.`,
     brief.logoBase64 ? "A private uploaded logo is included in the request; use it as visual inspiration, preserve the brand feel, and do not publish or expose a logo URL." : "No logo was provided; do not invent a fake logo.",
-    `Design should be ready to publish in Potty Favor sponsor slots in ${brief.adSize || "Square"} format.`,
+    `Design should be ready to publish in Potty Favor sponsor slots in ${adFormat.label} format.`,
     requiredText ? `Also include this required text exactly if it fits: ${requiredText}.` : "Only include intentional readable ad copy; no extra filler text.",
     disclaimer ? `Add this disclaimer only if legible without clutter: ${disclaimer}.` : "Avoid tiny legal microcopy unless requested.",
     "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layout, and broken image placeholders.",
@@ -692,6 +703,80 @@ function showCreativeResult(payload, brief) {
   if (slotSelect) slotSelect.value = String(brief.slot || 1);
   publish.hidden = false;
   setCreativeStatus("Generated image ready. Review it, then publish to a slot.");
+}
+
+const PUBLISHED_AD_IMAGE_MAX_BYTES = 450 * 1024;
+
+function dataUrlByteLength(dataUrl) {
+  const value = String(dataUrl || "");
+  const comma = value.indexOf(",");
+  const payload = comma >= 0 ? value.slice(comma + 1) : value;
+  return Math.ceil((payload.length * 3) / 4);
+}
+
+function loadImageForCompression(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load generated image for local optimization."));
+    image.src = src;
+  });
+}
+
+function canvasToDataUrl(canvas, mimeType, quality) {
+  try {
+    return canvas.toDataURL(mimeType, quality);
+  } catch (_) {
+    return "";
+  }
+}
+
+async function optimizeGeneratedImageForStorage(imageUrl, adSize) {
+  if (!imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
+  const image = await loadImageForCompression(imageUrl);
+  const format = adFormatForSize(adSize);
+  const sourceWidth = image.naturalWidth || image.width || format.previewWidth;
+  const sourceHeight = image.naturalHeight || image.height || format.previewHeight;
+  const scale = Math.min(1, format.previewWidth / sourceWidth, format.previewHeight / sourceHeight);
+  let width = Math.max(320, Math.round(sourceWidth * scale));
+  let height = Math.max(180, Math.round(sourceHeight * scale));
+  const attempts = [
+    { mimeType: "image/webp", quality: 0.72 },
+    { mimeType: "image/webp", quality: 0.62 },
+    { mimeType: "image/jpeg", quality: 0.72 },
+    { mimeType: "image/jpeg", quality: 0.62 },
+  ];
+
+  let best = "";
+  for (let pass = 0; pass < 4; pass += 1) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not prepare the generated image for local optimization.");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+
+    for (const attempt of attempts) {
+      const dataUrl = canvasToDataUrl(canvas, attempt.mimeType, attempt.quality);
+      if (!dataUrl || dataUrl === "data:,") continue;
+      if (!best || dataUrl.length < best.length) best = dataUrl;
+      if (dataUrlByteLength(dataUrl) <= PUBLISHED_AD_IMAGE_MAX_BYTES) {
+        return { image: dataUrl, imageBytes: dataUrlByteLength(dataUrl), imageWidth: width, imageHeight: height, imageMimeType: dataUrl.slice(5, dataUrl.indexOf(";")) || attempt.mimeType };
+      }
+    }
+
+    width = Math.max(320, Math.round(width * 0.78));
+    height = Math.max(180, Math.round(height * 0.78));
+  }
+
+  if (!best) throw new Error("Could not optimize the generated image for local storage.");
+  return { image: best, imageBytes: dataUrlByteLength(best), imageWidth: width, imageHeight: height, imageMimeType: best.slice(5, best.indexOf(";")) || "image/jpeg" };
+}
+
+function isStorageQuotaError(error) {
+  return error?.name === "QuotaExceededError" || error?.name === "NS_ERROR_DOM_QUOTA_REACHED" || String(error?.message || "").toLowerCase().includes("quota");
 }
 
 function endpointErrorMessage(response, payload, rawText, endpoint) {
@@ -732,12 +817,12 @@ async function generateCreativeAd(brief) {
   return parseEndpointResponse(response, endpoint);
 }
 
-function generatedAdFromPublishForm() {
+async function generatedAdFromPublishForm() {
   if (!generatedCreative?.imageUrl) throw new Error("Generate a valid image before publishing. Broken fallback graphics are not saved.");
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
   const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const generatedImageBase64 = generatedCreative.imageBase64 || "";
+  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");
   return {
     slot,
     active: true,
@@ -747,15 +832,17 @@ function generatedAdFromPublishForm() {
     offer: brief.offer || generatedCreative.headline || "Reader-only offer",
     cta: generatedCreative.cta || generatedCreative.ctaText || brief.ctaText || "Learn More",
     targetUrl: brief.website || "#",
-    imageBase64: generatedImageBase64,
-    image: generatedImageBase64 ? `data:image/png;base64,${generatedImageBase64}` : generatedCreative.imageUrl,
+    image: optimized.image,
+    imageBytes: optimized.imageBytes,
+    imageWidth: optimized.imageWidth,
+    imageHeight: optimized.imageHeight,
+    imageMimeType: optimized.imageMimeType,
     category: brief.businessCategory || generatedCreative.category || "Local Business",
     city: brief.cityTargeting || "",
     state: brief.stateTargeting || "",
     createdAt: new Date().toISOString(),
     couponCode: generatedCreative.couponCode || brief.couponCode || "",
     businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
-    imageUrl: generatedCreative.imageUrl,
     market: "",
     adMode: "image",
     adSize: brief.adSize || "Inline banner",
@@ -965,19 +1052,23 @@ function bindActions() {
       button.textContent = "Generate Ad Image";
     }
   });
-  document.querySelector("#creative-publish-form").addEventListener("submit", (event) => {
+  document.querySelector("#creative-publish-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const ad = generatedAdFromPublishForm();
+      setCreativeStatus("Optimizing generated image before saving locally…");
+      const ad = await generatedAdFromPublishForm();
       activeSlot = ad.slot;
       const ads = state().ads.filter((item) => !(Number(item.slot) === Number(ad.slot) && String(item.targetingType || "global") === String(ad.targetingType || "global") && String(item.market || "") === String(ad.market || "")));
       ads.push(ad);
       saveAdsEverywhere(ads);
       renderAds();
       refreshExportBox();
-      setCreativeStatus(`Published generated ad to slot ${ad.slot}.`);
+      setCreativeStatus(`Published generated ad to slot ${ad.slot}. Optimized image: ${Math.round((ad.imageBytes || 0) / 1024)} KB.`);
     } catch (error) {
-      setCreativeStatus(error.message, true);
+      const message = isStorageQuotaError(error)
+        ? "Local storage is still full after optimization. Export/publish this ad using the JSON tools, remove older saved images, or reduce image size before trying again. Your generated preview is still available above."
+        : error.message;
+      setCreativeStatus(message, true);
     }
   });
   document.querySelector('#settings-form [name="vercelApiBaseUrl"]').addEventListener("input", refreshEndpointDisplay);
