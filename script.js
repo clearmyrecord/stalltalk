@@ -1150,6 +1150,119 @@ async function init() {
   bindEventSubmission();
 }
 
+
+function getAdSlot(slot) {
+  const slotNumber = Number(slot);
+  if (!Number.isFinite(slotNumber)) return null;
+  return document.querySelector(`[data-ad-slot="${slotNumber}"]`);
+}
+
+function showAdLoading(slot) {
+  const element = getAdSlot(slot);
+  if (!element) return null;
+  const slotNumber = Number(slot);
+  element.classList.remove("is-empty", "has-error");
+  element.classList.add("is-loading");
+  element.innerHTML = "";
+  const label = document.createElement("span");
+  label.className = "slot";
+  label.textContent = `Ad Slot ${slotNumber} · Generating`;
+  const headline = document.createElement("h3");
+  headline.textContent = "Generating sponsor ad…";
+  const copy = document.createElement("div");
+  copy.className = "ad-copy";
+  const message = document.createElement("p");
+  message.textContent = "Please wait while the ad image is created.";
+  copy.appendChild(message);
+  element.append(label, headline, copy);
+  return element;
+}
+
+function showAdError(slot, error) {
+  const element = getAdSlot(slot);
+  if (!element) return null;
+  const slotNumber = Number(slot);
+  const message = normalizeText(error?.message || error?.error || error) || "Ad image generation failed.";
+  element.classList.remove("is-empty", "is-loading");
+  element.classList.add("has-error");
+  element.innerHTML = "";
+  const label = document.createElement("span");
+  label.className = "slot";
+  label.textContent = `Ad Slot ${slotNumber} · Error`;
+  const headline = document.createElement("h3");
+  headline.textContent = "Could not generate ad";
+  const copy = document.createElement("div");
+  copy.className = "ad-copy";
+  const details = document.createElement("p");
+  details.textContent = message;
+  copy.appendChild(details);
+  element.append(label, headline, copy);
+  return element;
+}
+
+function renderGeneratedAd(slot, payload = {}) {
+  const element = getAdSlot(slot || payload.slot || payload.metadata?.slot);
+  if (!element) return null;
+  const slotNumber = Number(slot || payload.slot || payload.metadata?.slot || element.dataset.adSlot);
+  const image = imageSource(payload) || imageSource({ imageBase64: payload.imageBase64 });
+  const ad = normalizeAd({
+    slot: slotNumber,
+    advertiserName: payload.advertiserName || payload.businessName || payload.sponsorName || payload.metadata?.sponsorName || "Generated Sponsor",
+    headline: payload.headline || payload.generatedHeadline || payload.metadata?.offer || "Sponsor Message",
+    offer: payload.subheadline || payload.offer || payload.metadata?.offer || "Reader-only local offer.",
+    couponCode: payload.couponCode || "",
+    cta: payload.cta || payload.ctaText || payload.callToAction || payload.metadata?.callToAction || "Learn More",
+    targetUrl: payload.targetUrl || payload.website || "#",
+    image,
+    targetingType: payload.targetingType || "global",
+    market: payload.market || payload.metadata?.city || "",
+    active: payload.active !== false,
+    adMode: "image",
+  });
+  element.classList.remove("is-loading", "has-error");
+  renderAdElement(element, ad, slotNumber);
+  return ad;
+}
+
+function adImageEndpointFromBase(base) {
+  const normalizedBase = normalizeText(base).replace(/\/+$/, "");
+  if (!normalizedBase) return "";
+  return normalizedBase.endsWith("/api/generate-ad-image") ? normalizedBase : `${normalizedBase}/api/generate-ad-image`;
+}
+
+function adImageEndpoint() {
+  const explicitEndpoint = normalizeText(window.STALLTALK_AD_IMAGE_ENDPOINT).replace(/\/+$/, "");
+  if (explicitEndpoint) return explicitEndpoint;
+  return adImageEndpointFromBase(typeof API_BASE !== "undefined" ? API_BASE : "")
+    || adImageEndpointFromBase(window.API_BASE)
+    || adImageEndpointFromBase(window.STALLTALK_API_BASE_URL)
+    || "https://stalltalk.vercel.app/api/generate-ad-image";
+}
+
+async function generateAdImage(slot, brief = {}) {
+  const requestSlot = Number(brief.slot || slot);
+  showAdLoading(requestSlot);
+  const endpoint = adImageEndpoint();
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...brief, slot: requestSlot }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.error) throw new Error(payload.error || `Ad image generation failed with HTTP ${response.status}.`);
+    return renderGeneratedAd(requestSlot, payload);
+  } catch (error) {
+    showAdError(requestSlot, error);
+    throw error;
+  }
+}
+
+window.generateAdImage = generateAdImage;
+window.renderGeneratedAd = renderGeneratedAd;
+window.showAdLoading = showAdLoading;
+window.showAdError = showAdError;
+
 document.addEventListener("DOMContentLoaded", init);
 
 window.PottyFavorAds = {
