@@ -3,7 +3,7 @@ import { MissionCard, PublicationFooter, PublicationHeader } from "@/components/
 import { prisma } from "@/lib/prisma";
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
-import { PublicationAdFallback, StaticPublicationBlocks } from "@/components/StaticPublicationBlocks";
+import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks } from "@/components/StaticPublicationBlocks";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +58,7 @@ export default async function IssueQueryPage({
 }
 
 function StaticIssuePage() {
-  const ads = publishedAds
-    .filter((ad) => ad.active !== false)
-    .slice(0, 8);
+  const ads = getPublicationAds(publishedAds.filter((ad) => ad.active !== false));
 
   return (
     <main className="public-page">
