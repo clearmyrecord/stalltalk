@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus } from "@prisma/client";
+import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus, MediaAssetType, VenueContentType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { requireAdmin, requireRole } from "./auth";
 import { slugify } from "./format";
@@ -323,8 +323,9 @@ export async function signIn(formData: FormData) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !verifyPassword(password, user.passwordHash) || user.status !== "ACTIVE") redirect("/signin?error=credentials");
   await createSession(user.id);
-  if (user.role === "ADMIN") redirect("/admin/dashboard");
-  if (user.role === "VENUE") redirect("/portal/venue");
+  if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") redirect("/admin/dashboard");
+  if (user.role === "VENUE_MANAGER" || user.role === "VENUE") redirect("/portal/venue");
+  if (user.role === "DISTRIBUTOR") redirect("/portal/distributor");
   redirect("/portal/advertiser");
 }
 
@@ -435,9 +436,36 @@ async function publishPaidCampaign(campaignId: string) {
   await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ads[0]?.id || null, status: "ACTIVE", publishedAt: new Date() } });
 }
 
+async function requireAssignedVenue(venueId: string) {
+  const user = await requireRole(["VENUE_MANAGER", "VENUE", "SUPER_ADMIN", "ADMIN"]);
+  if ((user.role === "VENUE_MANAGER" || user.role === "VENUE") && user.venueId !== venueId) throw new Error("Venue managers can only manage their assigned venue.");
+  return user;
+}
+
 export async function createVenueContentDraft(formData: FormData) {
-  await requireRole(["VENUE", "ADMIN"]);
-  await prisma.venueContentDraft.create({ data: { venueId: text(formData, "venueId"), title: text(formData, "title"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), approvalStatus: "SUBMITTED", submittedAt: new Date() } });
+  const venueId = text(formData, "venueId");
+  await requireAssignedVenue(venueId);
+  const venue = await prisma.venue.findUniqueOrThrow({ where: { id: venueId }, select: { directPublishingApproved: true } });
+  const directPublish = venue.directPublishingApproved;
+  await prisma.venueContentDraft.create({ data: {
+    venueId,
+    contentType: text(formData, "contentType", "ANNOUNCEMENT") as VenueContentType,
+    title: text(formData, "title"),
+    body: text(formData, "body"),
+    imageUrl: nullableText(formData, "imageUrl"),
+    location: nullableText(formData, "location"),
+    websiteUrl: nullableText(formData, "websiteUrl"),
+    category: nullableText(formData, "category"),
+    startsAt: nullableText(formData, "startsAt") ? new Date(text(formData, "startsAt")) : null,
+    endsAt: nullableText(formData, "endsAt") ? new Date(text(formData, "endsAt")) : null,
+    expiresAt: nullableText(formData, "expiresAt") ? new Date(text(formData, "expiresAt")) : null,
+    couponCode: nullableText(formData, "couponCode"),
+    qrDestination: nullableText(formData, "qrDestination"),
+    approvalStatus: directPublish ? "PUBLISHED" : "SUBMITTED",
+    submittedAt: new Date(),
+    approvedAt: directPublish ? new Date() : null,
+    publishedAt: directPublish ? new Date() : null
+  } });
   revalidatePath("/portal/venue");
   revalidatePath("/admin/dashboard");
 }
@@ -453,5 +481,19 @@ export async function rejectVenueContentDraft(id: string, formData?: FormData) {
   const user = await requireAdmin();
   await prisma.venueContentDraft.update({ where: { id }, data: { approvalStatus: "REJECTED", rejectedAt: new Date(), rejectedBy: user?.id || null, rejectionReason: formData ? nullableText(formData, "rejectionReason") : null } });
   revalidatePath("/admin/dashboard");
+  revalidatePath("/portal/venue");
+}
+
+export async function publishVenueContentDraft(id: string) {
+  await requireAdmin();
+  await prisma.venueContentDraft.update({ where: { id }, data: { approvalStatus: "PUBLISHED", publishedAt: new Date() } });
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/portal/venue");
+}
+
+export async function createVenueMediaAsset(formData: FormData) {
+  const venueId = text(formData, "venueId");
+  await requireAssignedVenue(venueId);
+  await prisma.venueMediaAsset.create({ data: { venueId, assetType: text(formData, "assetType", "IMAGE") as MediaAssetType, title: text(formData, "title"), url: text(formData, "url"), altText: nullableText(formData, "altText"), galleryName: nullableText(formData, "galleryName") } });
   revalidatePath("/portal/venue");
 }
