@@ -47,7 +47,7 @@ export function PublicationFooter() {
 
 export function MissionCard({ missionText }: { missionText: string }) {
   return (
-    <section className="mission-card panel">
+    <section className="publication-content-block mission-card panel">
       <p className="mission-kicker">Potty Favor Purpose</p>
       <h2>Our Mission</h2>
       <p>{missionText}</p>
