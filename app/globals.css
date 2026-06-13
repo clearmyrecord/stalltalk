@@ -392,3 +392,80 @@ body:has(.public-page) {
   .directory-grid { grid-template-columns: 1fr; }
   .laughs { position: static; display: inline-block; margin: 0 auto 4px; transform: rotate(5deg); }
 }
+
+/* Potty Favor single-column publication restoration. */
+:root { --publication-max: 860px; }
+body:has(.public-page) { background: #000; }
+.public-page { padding: 28px 14px; background: #000; }
+.publication {
+  width: min(100%, var(--publication-max));
+  background: #fff8df;
+  border: 0;
+  box-shadow: 0 0 0 4px #08070a, 0 24px 70px rgba(0, 0, 0, .75);
+}
+.masthead { padding: 0; background: #15115f; border-bottom: 0; }
+.masthead-banner { border: 0; box-shadow: none; }
+.masthead-meta {
+  margin: 0;
+  padding: 9px 14px;
+  gap: 0;
+  color: #fff;
+  background: #070b3e;
+  border-top: 3px solid #090717;
+  border-bottom: 3px solid #090717;
+  font-size: .86rem;
+  text-transform: none;
+}
+.issue-kicker::after { content: " · "; letter-spacing: normal; }
+.admin-link { display: none; }
+.print-grid { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 18px; }
+.print-grid > *,
+.mission-card,
+.feature-card,
+.secondary-card,
+.inline-ad,
+.sponsor-directory,
+.humor-card,
+.quotes-card,
+.did-card,
+.word-card,
+.calendar-card,
+.restaurant-review,
+.submit-event-card { grid-column: 1 / -1; width: 100%; max-width: 760px; margin-inline: auto; }
+.panel { height: auto; background: rgba(255,255,255,.92); }
+.mission-card { max-width: 680px; min-height: 190px; }
+.article-copy { column-count: 1; }
+.feature-card h2,
+.secondary-card h2 { text-align: center; }
+.ad-card {
+  max-width: 760px;
+  min-height: 310px;
+  background: radial-gradient(circle at 15% 8%, rgba(255, 216, 76, .30), transparent 14rem), linear-gradient(135deg, #111037, #0b5472 55%, #171027);
+  grid-template-columns: minmax(0, 1fr) minmax(150px, .35fr);
+  grid-template-areas: "label image" "sponsor image" "headline image" "copy image" "actions image";
+}
+.ad-sponsor { grid-area: sponsor; margin: 0; color: #ffd84c; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.ad-mark { grid-area: image; display: grid; place-items: center; min-height: 190px; border: 3px solid rgba(255,255,255,.86); border-radius: 18px; background: rgba(255,255,255,.12); color: #ffd84c; font-size: clamp(3rem, 9vw, 6rem); font-weight: 1000; }
+.quotes-card { background: linear-gradient(#111076 0 54px, rgba(255,255,255,.92) 54px); }
+.did-card li { background: #f1f1f1; }
+.calendar-layout { grid-template-columns: 1fr; }
+.submit-event-card { text-align: center; border: 4px double #10106b; background: #fffdf5; }
+.submit-event-card h2 { color: #10106b; font-size: clamp(1.8rem, 5vw, 2.8rem); }
+.submit-event-card form { display: grid; gap: 12px; text-align: left; }
+.submit-event-card label { display: grid; gap: 5px; font-weight: 900; }
+.submit-event-card input,
+.submit-event-card textarea { width: 100%; border: 2px solid #111827; border-radius: 10px; padding: 11px 12px; background: #fff; font: inherit; }
+.submit-event-card textarea { min-height: 110px; resize: vertical; }
+.submit-event-card button { justify-self: center; border: 0; border-radius: 999px; padding: 12px 18px; background: #10106b; color: #fff; font-weight: 900; text-transform: uppercase; }
+.sponsor-directory { display: none; }
+
+@media (max-width: 760px) {
+  .public-page { padding: 0 0 48px; }
+  .publication { box-shadow: none; }
+  .print-grid { padding: 12px; gap: 14px; }
+  .masthead-meta { display: block; line-height: 1.5; }
+  .issue-kicker { display: inline; }
+  .issue-line { display: inline; }
+  .ad-card { grid-template-columns: 1fr; grid-template-areas: "label" "image" "sponsor" "headline" "copy" "actions"; min-height: 0; }
+  .ad-mark { min-height: 150px; }
+}

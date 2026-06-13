@@ -6,7 +6,7 @@ import { RestaurantReviewCard } from "@/components/RestaurantReviewCard";
 import { getServedAds } from "@/lib/ad-serving";
 import { prisma } from "@/lib/prisma";
 import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChrome";
-import { PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
+import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
 
 export const dynamic = "force-dynamic";
 type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: true } } } }>;
@@ -74,7 +74,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
 function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds; venueDrafts: Array<{ id: string; title: string; body: string; imageUrl: string | null }>; restaurantReviews: RestaurantReviewItem[] }) {
   const articleBlocks = issue.contentBlocks.filter((block) => block.type === "ARTICLE");
   const [mainFeature, secondaryFeature] = articleBlocks;
-  const publicationAds = ads.map((ad) => ad || undefined) as PublicationAdLike[];
+  const publicationAds = getPublicationAds(ads.map((ad) => ad || undefined) as PublicationAdLike[]);
 
   return (
     <section className="print-grid">

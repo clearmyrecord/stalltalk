@@ -9,7 +9,7 @@ export function PublicationHeader({
     <header className="masthead">
       <img
         className="masthead-banner"
-        src="assets/potty-favor-original-banner-2.png"
+        src="/assets/potty-favor-original-banner-2.png"
         alt="Potty Favor publication masthead"
         width={2171}
         height={724}
@@ -22,7 +22,7 @@ export function PublicationHeader({
       <div className="masthead-meta" aria-label="Issue information">
         <p className="issue-kicker">{monthYear}</p>
         <p className="issue-line">
-          One standard monthly issue · Designed for every reader
+          One standard monthly issue · Designed for every reader · Submit an event
           {venueLine ? ` · ${venueLine}` : ""}
         </p>
       </div>
