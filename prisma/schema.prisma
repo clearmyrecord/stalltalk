@@ -69,6 +69,7 @@ enum ContentBlockType {
   EVENT
   COUPON
   ADVERTISEMENT
+  RESTAURANT_REVIEW
 }
 
 enum AdStatus {
@@ -91,6 +92,9 @@ enum AnalyticsEventType {
   AD_IMPRESSION
   AD_CLICK
   COUPON_REDEMPTION
+  REVIEW_VIEW
+  REVIEW_WEBSITE_CLICK
+  REVIEW_SOCIAL_CLICK
 }
 
 enum QrCodeStatus {
@@ -153,6 +157,7 @@ model Publisher {
   issues          Issue[]
   qrCodes         QrCode[]
   events          AnalyticsEvent[]
+  restaurantReviews RestaurantReview[]
 }
 
 model Distributor {
@@ -220,6 +225,7 @@ model Venue {
   toiletLocations    ToiletLocation[]
   adSlotInventories  AdSlotInventory[]
   venueContentDrafts VenueContentDraft[]
+  restaurantReviews  RestaurantReview[]
 }
 
 model Restroom {
@@ -292,6 +298,37 @@ model Article {
   venueIds    String[]            @default([])
 
   @@unique([publisherId, slug])
+}
+
+model RestaurantReview {
+  id               String              @id @default(cuid())
+  publisherId      String
+  title            String
+  restaurantName   String              @map("restaurant_name")
+  venueId          String?             @map("venue_id")
+  venueIds         String[]            @default([]) @map("venue_ids")
+  featuredImageUrl String?             @map("featured_image_url")
+  starRating       Decimal             @default(5.0) @map("star_rating")
+  cuisineType      String?             @map("cuisine_type")
+  address          String?
+  city             String?
+  state            String?
+  websiteUrl       String?             @map("website_url")
+  instagramUrl     String?             @map("instagram_url")
+  facebookUrl      String?             @map("facebook_url")
+  reviewHeadline   String              @map("review_headline")
+  reviewBody       String              @map("review_body")
+  reviewerName     String              @map("reviewer_name")
+  publishDate      DateTime?           @map("publish_date")
+  status           IssueStatus         @default(DRAFT)
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  publisher        Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue            Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+
+  @@index([publisherId, status, publishDate])
+  @@index([venueId])
+  @@map("restaurant_reviews")
 }
 
 model Issue {

@@ -247,8 +247,68 @@ async function saveAdSlots(issueId: string, formData: FormData, db: any = prisma
   if (slots.length) await db.issueAdSlot.createMany({ data: slots });
 }
 
+
+export async function recordReviewClick(formData: FormData) {
+  await recordAnalytics(formData);
+  redirect(text(formData, "targetUrl", "/issue"));
+}
+
 export async function recordAnalytics(formData: FormData) {
-  await prisma.analyticsEvent.create({ data: { publisherId: nullableText(formData, "publisherId"), venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), issueId: nullableText(formData, "issueId"), advertiserId: nullableText(formData, "advertiserId"), adId: nullableText(formData, "adId"), type: text(formData, "type") as AnalyticsEventType, slotNumber: intValue(formData, "slotNumber") || null, visitorId: nullableText(formData, "visitorId"), sessionId: nullableText(formData, "sessionId"), durationMs: intValue(formData, "durationMs") || null, path: nullableText(formData, "path") } });
+  await prisma.analyticsEvent.create({ data: { publisherId: nullableText(formData, "publisherId"), venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), issueId: nullableText(formData, "issueId"), advertiserId: nullableText(formData, "advertiserId"), adId: nullableText(formData, "adId"), type: text(formData, "type") as AnalyticsEventType, slotNumber: intValue(formData, "slotNumber") || null, visitorId: nullableText(formData, "visitorId"), sessionId: nullableText(formData, "sessionId"), durationMs: intValue(formData, "durationMs") || null, path: nullableText(formData, "path"), metadata: nullableText(formData, "metadata") ? JSON.parse(text(formData, "metadata")) : undefined } });
+}
+
+
+function decimalValue(formData: FormData, key: string, fallback = 5) {
+  const value = Number.parseFloat(text(formData, key, String(fallback)));
+  return Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : fallback;
+}
+
+function reviewData(formData: FormData) {
+  const status = text(formData, "status", "DRAFT") as IssueStatus;
+  const publishDateText = nullableText(formData, "publishDate");
+  return {
+    publisherId: text(formData, "publisherId"),
+    title: text(formData, "title"),
+    restaurantName: text(formData, "restaurantName"),
+    venueId: nullableText(formData, "venueId"),
+    venueIds: selectedVenueIds(formData),
+    featuredImageUrl: nullableText(formData, "featuredImageUrl"),
+    starRating: decimalValue(formData, "starRating"),
+    cuisineType: nullableText(formData, "cuisineType"),
+    address: nullableText(formData, "address"),
+    city: nullableText(formData, "city"),
+    state: nullableText(formData, "state"),
+    websiteUrl: nullableText(formData, "websiteUrl"),
+    instagramUrl: nullableText(formData, "instagramUrl"),
+    facebookUrl: nullableText(formData, "facebookUrl"),
+    reviewHeadline: text(formData, "reviewHeadline"),
+    reviewBody: text(formData, "reviewBody"),
+    reviewerName: text(formData, "reviewerName", "Potty Favor Review Team"),
+    publishDate: publishDateText ? new Date(publishDateText) : status === "PUBLISHED" ? new Date() : null,
+    status
+  };
+}
+
+export async function createRestaurantReview(formData: FormData) {
+  await requireAdmin();
+  await prisma.restaurantReview.create({ data: reviewData(formData) });
+  revalidatePath("/admin/restaurant-reviews");
+  revalidatePath("/issue");
+}
+
+export async function updateRestaurantReview(id: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.restaurantReview.update({ where: { id }, data: reviewData(formData) });
+  revalidatePath("/admin/restaurant-reviews");
+  revalidatePath(`/admin/restaurant-reviews/${id}/edit`);
+  revalidatePath("/issue");
+}
+
+export async function deleteRestaurantReview(id: string) {
+  await requireAdmin();
+  await prisma.restaurantReview.delete({ where: { id } });
+  revalidatePath("/admin/restaurant-reviews");
+  revalidatePath("/issue");
 }
 
 export async function deleteAd(id: string) { await requireAdmin(); await prisma.ad.delete({ where: { id } }); revalidatePath("/admin/ads"); }

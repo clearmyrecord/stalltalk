@@ -9,6 +9,7 @@ const links = [
   ["/admin/venues", "Venues"],
   ["/admin/qr", "QR Inventory"],
   ["/admin/articles", "Articles"],
+  ["/admin/restaurant-reviews", "Restaurant Reviews"],
   ["/admin/issues", "Issues"],
   ["/admin/issue-builder", "Issue Builder"],
   ["/admin/ads", "Ads"],
