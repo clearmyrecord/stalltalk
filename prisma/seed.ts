@@ -211,39 +211,36 @@ async function main() {
 
   await prisma.stripeSubscription.create({ data: { advertiserId: advertiserRecords[0].id, adId: ads[0].id, stripeCustomerId: "cus_seed_hooters", stripeSubscriptionId: "sub_seed_monthly", status: "ACTIVE", locations: 1, monthlyAmountCents: 49900, currentPeriodEndsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });
-  await prisma.user.createMany({ data: [
-    { email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com", name: "Potty Favor Admin", role: "ADMIN", passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me") },
-await prisma.user.createMany({
-  data: [
-    {
-      email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com",
-      name: "Potty Favor Admin",
-      role: "ADMIN",
-      passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me")
-    },
-    {
-      email: process.env.ADVERTISER_EMAIL || "advertiser@pottyfavor.com",
-      name: "Seed Advertiser",
-      role: "ADVERTISER",
-      advertiserId: featureAdvertisers[0].id,
-      passwordHash: hashPassword(process.env.ADVERTISER_PASSWORD || "advertiser-password-change-me")
-    },
-    {
-      email: process.env.VENUE_EMAIL || "venue@pottyfavor.com",
-      name: "Seed Venue Manager",
-      role: "VENUE_MANAGER",
-      venueId: venue.id,
-      passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me")
-    },
-    {
-      email: process.env.DISTRIBUTOR_EMAIL || "distributor@pottyfavor.com",
-      name: "Seed Distributor",
-      role: "DISTRIBUTOR",
-      passwordHash: hashPassword(process.env.DISTRIBUTOR_PASSWORD || "distributor-password-change-me")
-    }
-  ]
-});
-  ] });
+  await prisma.user.createMany({
+    data: [
+      {
+        email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com",
+        name: "Potty Favor Admin",
+        role: "ADMIN",
+        passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me")
+      },
+      {
+        email: process.env.ADVERTISER_EMAIL || "advertiser@pottyfavor.com",
+        name: "Seed Advertiser",
+        role: "ADVERTISER",
+        advertiserId: featureAdvertisers[0].id,
+        passwordHash: hashPassword(process.env.ADVERTISER_PASSWORD || "advertiser-password-change-me")
+      },
+      {
+        email: process.env.VENUE_EMAIL || "venue@pottyfavor.com",
+        name: "Seed Venue Manager",
+        role: "VENUE_MANAGER",
+        venueId: venue.id,
+        passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me")
+      },
+      {
+        email: process.env.DISTRIBUTOR_EMAIL || "distributor@pottyfavor.com",
+        name: "Seed Distributor",
+        role: "DISTRIBUTOR",
+        passwordHash: hashPassword(process.env.DISTRIBUTOR_PASSWORD || "distributor-password-change-me")
+      }
+    ]
+  });
 
   await prisma.couponCampaign.create({ data: { advertiserId: advertiserRecords[5].id, name: "Graeter’s July Scoops", couponCode: "POTTYPOP", budgetCents: 25000, redemptionLimit: 500, startsAt: new Date("2024-07-01T00:00:00.000Z"), endsAt: new Date("2024-07-31T23:59:59.000Z") } });
   await prisma.qrScan.createMany({ data: [

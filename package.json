@@ -13,7 +13,8 @@
     "check:phase2": "node scripts/check-phase2.mjs",
     "db:up": "docker compose up -d postgres",
     "prebuild": "prisma generate",
-    "smoke:site": "node scripts/smoke-site.mjs"
+    "smoke:site": "node scripts/smoke-site.mjs",
+    "setup": "prisma migrate deploy && prisma db seed"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
