@@ -778,3 +778,53 @@ main,
 .has-bg-image {
   background-color: #fffdf5 !important;
 }
+
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .issue-wrap,
+  .content,
+  .container,
+  main {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+    box-sizing: border-box;
+  }
+
+  .hero img,
+  .banner img,
+  .mission-card,
+  .ad-card,
+  .section-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mission-card,
+  .ad-card,
+  .section-card {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 24px 18px;
+    border-radius: 24px;
+  }
+
+  .mission-card h1,
+  .ad-card h1,
+  .ad-card h2 {
+    font-size: clamp(2rem, 10vw, 3.5rem);
+    line-height: 1.05;
+    word-break: normal;
+  }
+
+  .mission-card p,
+  .ad-card p {
+    font-size: clamp(1.1rem, 5vw, 1.5rem);
+    line-height: 1.35;
+  }
+}
