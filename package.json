@@ -15,7 +15,8 @@
     "prebuild": "prisma generate",
     "smoke:site": "node scripts/smoke-site.mjs",
     "setup": "prisma migrate deploy && prisma db seed",
-    "vercel-build": "prisma migrate deploy && prisma generate && next build"
+    "vercel-build": "prisma migrate deploy && prisma generate && next build",
+    "db:diagnose": "node scripts/db-diagnose.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
