@@ -1,20 +1,43 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('ADMIN', 'ADVERTISER', 'VENUE');
+-- Defensive wrappers keep production recovery idempotent when this migration
+-- partially applied before Prisma recorded it successfully.
+DO $$ BEGIN CREATE TYPE "Role" AS ENUM ('ADMIN', 'ADVERTISER', 'VENUE'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ADMIN';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'ADVERTISER';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'VENUE';
 
 -- CreateEnum
-CREATE TYPE "CampaignStatus" AS ENUM ('DRAFT', 'PENDING_PAYMENT', 'PAID', 'ACTIVE', 'REJECTED', 'ARCHIVED');
+DO $$ BEGIN CREATE TYPE "CampaignStatus" AS ENUM ('DRAFT', 'PENDING_PAYMENT', 'PAID', 'ACTIVE', 'REJECTED', 'ARCHIVED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'DRAFT';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'PENDING_PAYMENT';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'PAID';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'ACTIVE';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'REJECTED';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'ARCHIVED';
 
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED');
+DO $$ BEGIN CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'PENDING';
+ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'SUCCEEDED';
+ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'FAILED';
+ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'REFUNDED';
 
 -- CreateEnum
-CREATE TYPE "InventoryStatus" AS ENUM ('OPEN', 'RESERVED', 'SOLD', 'DISABLED');
+DO $$ BEGIN CREATE TYPE "InventoryStatus" AS ENUM ('OPEN', 'RESERVED', 'SOLD', 'DISABLED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+ALTER TYPE "InventoryStatus" ADD VALUE IF NOT EXISTS 'OPEN';
+ALTER TYPE "InventoryStatus" ADD VALUE IF NOT EXISTS 'RESERVED';
+ALTER TYPE "InventoryStatus" ADD VALUE IF NOT EXISTS 'SOLD';
+ALTER TYPE "InventoryStatus" ADD VALUE IF NOT EXISTS 'DISABLED';
 
 -- CreateEnum
-CREATE TYPE "ApprovalStatus" AS ENUM ('DRAFT', 'PENDING', 'APPROVED', 'REJECTED');
+DO $$ BEGIN CREATE TYPE "ApprovalStatus" AS ENUM ('DRAFT', 'PENDING', 'APPROVED', 'REJECTED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+ALTER TYPE "ApprovalStatus" ADD VALUE IF NOT EXISTS 'DRAFT';
+ALTER TYPE "ApprovalStatus" ADD VALUE IF NOT EXISTS 'PENDING';
+ALTER TYPE "ApprovalStatus" ADD VALUE IF NOT EXISTS 'APPROVED';
+ALTER TYPE "ApprovalStatus" ADD VALUE IF NOT EXISTS 'REJECTED';
 
 -- CreateTable
-CREATE TABLE "User" (
+CREATE TABLE IF NOT EXISTS "User" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -30,7 +53,7 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
-CREATE TABLE "AuthSession" (
+CREATE TABLE IF NOT EXISTS "AuthSession" (
     "id" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -41,7 +64,7 @@ CREATE TABLE "AuthSession" (
 );
 
 -- CreateTable
-CREATE TABLE "ToiletLocation" (
+CREATE TABLE IF NOT EXISTS "ToiletLocation" (
     "id" TEXT NOT NULL,
     "venueId" TEXT NOT NULL,
     "restroomId" TEXT,
@@ -57,7 +80,7 @@ CREATE TABLE "ToiletLocation" (
 );
 
 -- CreateTable
-CREATE TABLE "AdSlotInventory" (
+CREATE TABLE IF NOT EXISTS "AdSlotInventory" (
     "id" TEXT NOT NULL,
     "venueId" TEXT NOT NULL,
     "restroomId" TEXT,
@@ -76,7 +99,7 @@ CREATE TABLE "AdSlotInventory" (
 );
 
 -- CreateTable
-CREATE TABLE "AdCampaign" (
+CREATE TABLE IF NOT EXISTS "AdCampaign" (
     "id" TEXT NOT NULL,
     "advertiserId" TEXT NOT NULL,
     "inventoryId" TEXT,
@@ -104,7 +127,7 @@ CREATE TABLE "AdCampaign" (
 );
 
 -- CreateTable
-CREATE TABLE "Payment" (
+CREATE TABLE IF NOT EXISTS "Payment" (
     "id" TEXT NOT NULL,
     "campaignId" TEXT NOT NULL,
     "advertiserId" TEXT NOT NULL,
@@ -120,7 +143,7 @@ CREATE TABLE "Payment" (
 );
 
 -- CreateTable
-CREATE TABLE "VenueContentDraft" (
+CREATE TABLE IF NOT EXISTS "VenueContentDraft" (
     "id" TEXT NOT NULL,
     "venueId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
@@ -135,98 +158,98 @@ CREATE TABLE "VenueContentDraft" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AuthSession_tokenHash_key" ON "AuthSession"("tokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "AuthSession_tokenHash_key" ON "AuthSession"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId");
+CREATE INDEX IF NOT EXISTS "AuthSession_userId_idx" ON "AuthSession"("userId");
 
 -- CreateIndex
-CREATE INDEX "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt");
+CREATE INDEX IF NOT EXISTS "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt");
 
 -- CreateIndex
-CREATE INDEX "ToiletLocation_venueId_idx" ON "ToiletLocation"("venueId");
+CREATE INDEX IF NOT EXISTS "ToiletLocation_venueId_idx" ON "ToiletLocation"("venueId");
 
 -- CreateIndex
-CREATE INDEX "ToiletLocation_restroomId_idx" ON "ToiletLocation"("restroomId");
+CREATE INDEX IF NOT EXISTS "ToiletLocation_restroomId_idx" ON "ToiletLocation"("restroomId");
 
 -- CreateIndex
-CREATE INDEX "ToiletLocation_qrCodeId_idx" ON "ToiletLocation"("qrCodeId");
+CREATE INDEX IF NOT EXISTS "ToiletLocation_qrCodeId_idx" ON "ToiletLocation"("qrCodeId");
 
 -- CreateIndex
-CREATE INDEX "AdSlotInventory_status_month_idx" ON "AdSlotInventory"("status", "month");
+CREATE INDEX IF NOT EXISTS "AdSlotInventory_status_month_idx" ON "AdSlotInventory"("status", "month");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AdSlotInventory_venueId_restroomId_qrCodeId_slotNumber_mont_key" ON "AdSlotInventory"("venueId", "restroomId", "qrCodeId", "slotNumber", "month");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdSlotInventory_venueId_restroomId_qrCodeId_slotNumber_mont_key" ON "AdSlotInventory"("venueId", "restroomId", "qrCodeId", "slotNumber", "month");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AdCampaign_stripeSessionId_key" ON "AdCampaign"("stripeSessionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdCampaign_stripeSessionId_key" ON "AdCampaign"("stripeSessionId");
 
 -- CreateIndex
-CREATE INDEX "AdCampaign_advertiserId_status_idx" ON "AdCampaign"("advertiserId", "status");
+CREATE INDEX IF NOT EXISTS "AdCampaign_advertiserId_status_idx" ON "AdCampaign"("advertiserId", "status");
 
 -- CreateIndex
-CREATE INDEX "AdCampaign_inventoryId_idx" ON "AdCampaign"("inventoryId");
+CREATE INDEX IF NOT EXISTS "AdCampaign_inventoryId_idx" ON "AdCampaign"("inventoryId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Payment_stripeSessionId_key" ON "Payment"("stripeSessionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Payment_stripeSessionId_key" ON "Payment"("stripeSessionId");
 
 -- CreateIndex
-CREATE INDEX "Payment_campaignId_idx" ON "Payment"("campaignId");
+CREATE INDEX IF NOT EXISTS "Payment_campaignId_idx" ON "Payment"("campaignId");
 
 -- CreateIndex
-CREATE INDEX "Payment_advertiserId_idx" ON "Payment"("advertiserId");
+CREATE INDEX IF NOT EXISTS "Payment_advertiserId_idx" ON "Payment"("advertiserId");
 
 -- CreateIndex
-CREATE INDEX "VenueContentDraft_venueId_approvalStatus_idx" ON "VenueContentDraft"("venueId", "approvalStatus");
+CREATE INDEX IF NOT EXISTS "VenueContentDraft_venueId_approvalStatus_idx" ON "VenueContentDraft"("venueId", "approvalStatus");
 
 -- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ToiletLocation" ADD CONSTRAINT "ToiletLocation_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ToiletLocation" ADD CONSTRAINT "ToiletLocation_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ToiletLocation" ADD CONSTRAINT "ToiletLocation_restroomId_fkey" FOREIGN KEY ("restroomId") REFERENCES "Restroom"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ToiletLocation" ADD CONSTRAINT "ToiletLocation_restroomId_fkey" FOREIGN KEY ("restroomId") REFERENCES "Restroom"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ToiletLocation" ADD CONSTRAINT "ToiletLocation_qrCodeId_fkey" FOREIGN KEY ("qrCodeId") REFERENCES "QrCode"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ToiletLocation" ADD CONSTRAINT "ToiletLocation_qrCodeId_fkey" FOREIGN KEY ("qrCodeId") REFERENCES "QrCode"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_restroomId_fkey" FOREIGN KEY ("restroomId") REFERENCES "Restroom"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_restroomId_fkey" FOREIGN KEY ("restroomId") REFERENCES "Restroom"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_qrCodeId_fkey" FOREIGN KEY ("qrCodeId") REFERENCES "QrCode"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_qrCodeId_fkey" FOREIGN KEY ("qrCodeId") REFERENCES "QrCode"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_toiletLocationId_fkey" FOREIGN KEY ("toiletLocationId") REFERENCES "ToiletLocation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdSlotInventory" ADD CONSTRAINT "AdSlotInventory_toiletLocationId_fkey" FOREIGN KEY ("toiletLocationId") REFERENCES "ToiletLocation"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdCampaign" ADD CONSTRAINT "AdCampaign_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdCampaign" ADD CONSTRAINT "AdCampaign_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdCampaign" ADD CONSTRAINT "AdCampaign_inventoryId_fkey" FOREIGN KEY ("inventoryId") REFERENCES "AdSlotInventory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdCampaign" ADD CONSTRAINT "AdCampaign_inventoryId_fkey" FOREIGN KEY ("inventoryId") REFERENCES "AdSlotInventory"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AdCampaign" ADD CONSTRAINT "AdCampaign_adId_fkey" FOREIGN KEY ("adId") REFERENCES "Ad"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AdCampaign" ADD CONSTRAINT "AdCampaign_adId_fkey" FOREIGN KEY ("adId") REFERENCES "Ad"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "AdCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Payment" ADD CONSTRAINT "Payment_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "AdCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Payment" ADD CONSTRAINT "Payment_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AddForeignKey
-ALTER TABLE "VenueContentDraft" ADD CONSTRAINT "VenueContentDraft_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "VenueContentDraft" ADD CONSTRAINT "VenueContentDraft_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 
