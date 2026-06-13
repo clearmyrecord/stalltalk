@@ -419,21 +419,23 @@ body:has(.public-page) { background: #000; }
 .issue-kicker::after { content: " · "; letter-spacing: normal; }
 .admin-link { display: none; }
 .print-grid { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 18px; }
-.print-grid > *,
-.mission-card,
-.feature-card,
-.secondary-card,
-.inline-ad,
-.sponsor-directory,
-.humor-card,
-.quotes-card,
-.did-card,
-.word-card,
-.calendar-card,
-.restaurant-review,
-.submit-event-card { grid-column: 1 / -1; width: 100%; max-width: 760px; margin-inline: auto; }
+.print-grid > * { grid-column: 1 / -1; }
+.publication-content-block {
+  width: 100%;
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+.publication-content-block {
+  grid-column: 1 / -1;
+  float: none;
+  position: relative;
+  left: auto;
+  right: auto;
+}
 .panel { height: auto; background: rgba(255,255,255,.92); }
-.mission-card { max-width: 680px; min-height: 190px; }
+.mission-card { min-height: 190px; }
 .article-copy { column-count: 1; }
 .feature-card h2,
 .secondary-card h2 { text-align: center; }
