@@ -25,21 +25,22 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
     include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
   });
   const issue = directIssue || await prisma.issue.findFirst({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
     include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
   });
   if (!issue) notFound();
-  issue.venue = requestedVenue;
-  issue.venueId = requestedVenue.id;
-  issue.restroomId = directIssue?.restroomId || null;
-  issue.qrCodeId = directIssue?.qrCodeId || null;
-  issue.contentBlocks = issue.contentBlocks.filter((block) => (!block.article || block.article.status === "PUBLISHED") && (!block.venueIds.length || block.venueIds.includes(requestedVenue.id)));
+  const renderIssue = issue as IssueWithContext & { venue: NonNullable<IssueWithContext["venue"]> };
+  renderIssue.venue = requestedVenue;
+  renderIssue.venueId = requestedVenue.id;
+  renderIssue.restroomId = directIssue?.restroomId || null;
+  renderIssue.qrCodeId = directIssue?.qrCodeId || null;
+  renderIssue.contentBlocks = issue.contentBlocks.filter((block) => (!block.article || block.article.status === "PUBLISHED") && (!block.venueIds.length || block.venueIds.includes(requestedVenue.id)));
   const approvedVenueDrafts = await prisma.venueContentDraft.findMany({ where: { venueId: requestedVenue.id, approvalStatus: "APPROVED" }, orderBy: { approvedAt: "desc" }, take: 3 });
   const now = new Date();
   const restaurantReviews = await prisma.restaurantReview.findMany({
     where: {
-      publisherId: issue.publisherId,
+      publisherId: renderIssue.publisherId,
       status: "PUBLISHED",
       AND: [
         { OR: [{ publishDate: null }, { publishDate: { lte: now } }] },
@@ -49,21 +50,21 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
     orderBy: [{ publishDate: "desc" }, { createdAt: "desc" }]
   });
   const sortedReviews = restaurantReviews.sort((a, b) => reviewPriority(b, requestedVenue.id) - reviewPriority(a, requestedVenue.id));
-  const ads = await getServedAds(issue);
+  const ads = await getServedAds(renderIssue);
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
 
   return (
     <main className="issue-shell min-h-screen overflow-x-hidden text-ink">
-      <ScanRecorder publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} issueId={issue.id} />
-      <ImpressionRecorder events={actualAds.map((ad) => ({ publisherId: issue.publisherId, venueId: issue.venueId, restroomId: issue.restroomId, qrCodeId: issue.qrCodeId, issueId: issue.id, advertiserId: ad.advertiserId, adId: ad.id, slotNumber: ad.slotNumber }))} />
+      <ScanRecorder publisherId={renderIssue.publisherId} venueId={renderIssue.venueId} restroomId={renderIssue.restroomId} qrCodeId={renderIssue.qrCodeId} issueId={renderIssue.id} />
+      <ImpressionRecorder events={actualAds.map((ad) => ({ publisherId: renderIssue.publisherId, venueId: renderIssue.venueId, restroomId: renderIssue.restroomId, qrCodeId: renderIssue.qrCodeId, issueId: renderIssue.id, advertiserId: ad.advertiserId, adId: ad.id, slotNumber: ad.slotNumber }))} />
       <header className="sticky top-0 z-40 border-b-4 border-ink bg-stallYellow px-3 py-2 text-center shadow-lg md:relative md:top-auto md:z-auto md:px-8">
-        <p className="text-xs font-black uppercase tracking-[.25em]">{issue.publisher.name} • {issue.venue.name} Edition • {issue.restroom?.name || "Venue-wide"}</p>
-        <h1 className="font-display text-5xl uppercase leading-none md:text-7xl">{issue.title}</h1>
-        <p className="font-black uppercase">{issue.venue.city}, {issue.venue.state} • {issue.month} {issue.year} • Issue #{issue.issueNumber} • QR {issue.qrCode?.code || "venue"}</p>
+        <p className="text-xs font-black uppercase tracking-[.25em]">{renderIssue.publisher.name} • {renderIssue.venue.name} Edition • {renderIssue.restroom?.name || "Venue-wide"}</p>
+        <h1 className="font-display text-5xl uppercase leading-none md:text-7xl">{renderIssue.title}</h1>
+        <p className="font-black uppercase">{renderIssue.venue.city}, {renderIssue.venue.state} • {renderIssue.month} {renderIssue.year} • Issue #{renderIssue.issueNumber} • QR {renderIssue.qrCode?.code || "venue"}</p>
       </header>
 
       <div className="mx-auto max-w-5xl p-3 pb-20 md:p-5">
-        <IssueContent issue={issue} ads={ads} venueDrafts={approvedVenueDrafts} restaurantReviews={sortedReviews} />
+        <IssueContent issue={renderIssue} ads={ads} venueDrafts={approvedVenueDrafts} restaurantReviews={sortedReviews} />
       </div>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t-4 border-ink bg-white p-2 shadow-lg md:hidden" aria-label="Sponsor slots">
         <div className="grid grid-cols-8 gap-1">{Array.from({ length: 8 }, (_, index) => <a key={index} href={`#sponsor-slot-${index + 1}`} className="rounded bg-stallYellow px-1 py-2 text-center text-xs font-black text-ink">{index + 1}</a>)}</div>
@@ -131,7 +132,7 @@ function RestaurantReviewsSection({ reviews, issue }: { reviews: RestaurantRevie
     <section className="grid min-w-0 gap-4" aria-label="Restaurant reviews">
       <div className="rounded-[1.5rem] border-4 border-ink bg-stallYellow p-4 shadow-brutal">
         <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">Featured Review / Dining Guide</p>
-        <h2 className="font-display text-5xl uppercase leading-none md:text-7xl">Where to Eat Near {issue.venue.name}</h2>
+        <h2 className="font-display text-5xl uppercase leading-none md:text-7xl">Where to Eat Near {issue.venue?.name || "this venue"}</h2>
         <p className="mt-2 font-black uppercase">Venue-specific reviews appear first, followed by Las Vegas and global picks.</p>
       </div>
       <RestaurantReviewCard review={featured} publisherId={issue.publisherId} venueId={issue.venueId} issueId={issue.id} featured />

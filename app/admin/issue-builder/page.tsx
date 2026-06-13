@@ -15,7 +15,7 @@ export default async function IssueBuilderPage() {
         <>
           <div className="mt-4 flex gap-3">
             <Link className="rounded bg-ink px-4 py-3 font-black uppercase text-white" href={`/admin/issues/${issue.id}/edit`}>Edit {issue.title}</Link>
-            <Link className="rounded bg-stallYellow px-4 py-3 font-black uppercase" href={`/issue/${issue.venue.slug}`}>Preview</Link>
+            <Link className="rounded bg-stallYellow px-4 py-3 font-black uppercase" href={issue.venue ? `/issue/${issue.venue.slug}` : "/issue"}>Preview</Link>
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
             <div className="grid gap-4 md:grid-cols-2">

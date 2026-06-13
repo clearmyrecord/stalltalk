@@ -44,7 +44,7 @@ function isActive(ad: Ad, now: Date) {
 function matchesScope(ad: Ad, issue: Context, scope: AdScope) {
   if (ad.scope !== scope) return false;
   if (scope === "RESTROOM") return Boolean(issue.restroomId && ad.restroomId === issue.restroomId);
-  if (scope === "VENUE") return ad.venueId === issue.venueId || ad.venueIds.includes(issue.venueId);
+  if (scope === "VENUE") return ad.venueId === issue.venueId || Boolean(issue.venueId && ad.venueIds.includes(issue.venueId));
   if (scope === "CITY") return ad.city === issue.venue.city && ad.state === issue.venue.state;
   return scope === "GLOBAL";
 }

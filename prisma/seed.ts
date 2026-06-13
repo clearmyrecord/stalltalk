@@ -42,6 +42,7 @@ async function main() {
   await prisma.analyticsEvent.deleteMany();
   await prisma.stalltalkCampaignHistory.deleteMany();
   await prisma.stalltalkAdSlot.deleteMany();
+  await prisma.issueHistory.deleteMany();
   await prisma.issueAdSlot.deleteMany();
   await prisma.issueContentBlock.deleteMany();
   await prisma.issue.deleteMany();
@@ -141,7 +142,7 @@ async function main() {
     { publisherId: publisher.id, title: "Local Bar & Grill Review", restaurantName: "Local Bar & Grill", featuredImageUrl: "https://placehold.co/1200x800/7d4cff/ffffff?text=Bar+%26+Grill", starRating: 4.5, cuisineType: "Bar & Grill", address: "Demo Bar District", city: "Las Vegas", state: "NV", websiteUrl: "https://example.com/bar-grill", instagramUrl: "https://instagram.com/example", facebookUrl: "https://facebook.com/example", reviewHeadline: "Global pick: cold drinks, hot baskets, easy wins", reviewBody: "Reliable wings, friendly bartenders, and enough TVs to make every seat feel intentional. A strong global fallback for any edition.", reviewerName: "Stall Talk Dining Desk", publishDate: new Date("2026-07-04T12:00:00.000Z"), status: "PUBLISHED" }
   ] });
 
-  const issue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "Potty Favor", month: "July", year: 2024, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2024-07-01T12:00:00.000Z") } });
+  const issue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "Potty Favor", month: "July", year: 2026, issueNumber: 82, status: "SCHEDULED", scheduledAt: new Date("2026-07-01T12:00:00.000Z") } });
   await prisma.issueContentBlock.createMany({ data: [
     ...blocks.map(([type, title, body], index) => ({ issueId: issue.id, articleId: articles[index].id, type, title, body, sortOrder: index + 1, layout: { column: index % 2, row: Math.floor(index / 2), span: index === 6 ? 2 : 1 } })),
     { issueId: issue.id, type: ContentBlockType.EVENT, title: "MGM Grand Edition: Arena Afterparty", body: "MGM Grand guests get a venue-only afterparty reminder and late-night snack tip.", venueIds: [venue.id], sortOrder: 9, layout: { venueSpecific: true } },
@@ -151,6 +152,9 @@ async function main() {
     { issueId: issue.id, type: ContentBlockType.COUPON, title: "Local Bar Demo Edition", body: "Bar scanners see happy-hour timing and late-night ride-share reminders.", venueIds: [barVenue.id], sortOrder: 13, layout: { venueSpecific: true } }
   ] });
   await prisma.issueAdSlot.createMany({ data: ads.map((ad, index) => ({ issueId: issue.id, adId: ad.id, slotNumber: index + 1, source: ad.scope })) });
+  await prisma.issueHistory.create({ data: { issueId: issue.id, action: "seeded", toStatus: issue.status, note: "July 2026 scheduled demo issue" } });
+  const juneIssue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: null, title: "Potty Favor", month: "June", year: 2026, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2026-06-01T12:00:00.000Z"), contentBlocks: { create: blocks.map(([type, title, body], index) => ({ articleId: articles[index].id, type, title: `${title} (June)`, body, sortOrder: index + 1, layout: { global: true } })) }, adSlots: { create: ads.slice(0, 4).map((ad, index) => ({ adId: ad.id, slotNumber: index + 1, source: ad.scope })) }, history: { create: { action: "seeded", toStatus: "PUBLISHED", note: "June 2026 global issue" } } } });
+  const mgmIssue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "MGM Demo Edition", month: "June", year: 2026, issueNumber: 8101, status: "PUBLISHED", publishedAt: new Date("2026-06-01T13:00:00.000Z"), contentBlocks: { create: blocks.slice(0, 6).map(([type, title, body], index) => ({ articleId: articles[index].id, type, title: `${title} — MGM`, body, venueIds: [venue.id], sortOrder: index + 1, layout: { venueSpecific: true } })) }, adSlots: { create: ads.map((ad, index) => ({ adId: ad.id, slotNumber: index + 1, source: ad.scope })) }, history: { create: { action: "seeded", toStatus: "PUBLISHED", note: "MGM venue-specific demo issue" } } } });
   await prisma.stalltalkAdSlot.createMany({
     data: ads.map((ad, index) => ({
       slotNumber: index + 1,
