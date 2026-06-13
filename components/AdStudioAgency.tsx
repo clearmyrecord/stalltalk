@@ -34,6 +34,8 @@ type GeneratedCreative = {
   campaignId?: string;
   historySaved?: boolean;
   historyError?: string;
+  imageFallback?: boolean;
+  imageError?: string;
 };
 
 type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number };
@@ -48,8 +50,13 @@ const sizes: Record<AdSize, { label: string; className: string }> = {
   Footer: { label: "Footer", className: "aspect-[5/1]" }
 };
 
-function safe(value: string, fallback: string) {
-  return value.trim() || fallback;
+function safe(value: string | undefined, fallback: string) {
+  return (value || "").trim() || fallback;
+}
+
+function limitText(value: string, max: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= max ? normalized : `${normalized.slice(0, Math.max(0, max - 1)).trim()}…`;
 }
 
 function shortenLabel(value: string, max = 28) {
@@ -92,6 +99,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   const [slotNumber, setSlotNumber] = useState("1");
   const [history, setHistory] = useState<CampaignHistoryItem[]>([]);
   const [creatives, setCreatives] = useState<GeneratedCreative[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [form, setForm] = useState({
     businessName: "",
     category: "",
@@ -131,8 +139,31 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function fallbackCreative(adSize: AdSize, message: string, data?: Partial<GeneratedCreative>): GeneratedCreative {
+    const headline = limitText(safe(data?.headline || form.offer, "Limited-Time Offer"), 34);
+    return {
+      adSize,
+      imageUrl: "",
+      promptUsed: data?.promptUsed || `Fallback styled ad card for ${safe(form.businessName, "Your Business")} using creative brief: ${safe(form.offer, "Limited-time offer")}.`,
+      headline,
+      subheadline: limitText(safe(data?.subheadline || `For ${activeAudience}`, "For nearby customers"), 46),
+      ctaText: limitText(safe(data?.ctaText || form.ctaText, "Claim Offer"), 18),
+      couponCode: limitText(safe(data?.couponCode || form.couponCode, ""), 16),
+      businessName: safe(data?.businessName || form.businessName, "Your Business"),
+      model: data?.model,
+      diagnostic: data?.diagnostic,
+      campaignId: data?.campaignId,
+      historySaved: data?.historySaved,
+      historyError: data?.historyError,
+      imageFallback: true,
+      imageError: message
+    };
+  }
+
   async function generateCampaign() {
+    if (!canGenerate) return;
     setIsGenerating(true);
+    setHasGenerated(false);
     setError("");
     const campaignBatchId = crypto.randomUUID();
     const base = { ...form, audience: activeAudience, campaignId: campaignBatchId };
@@ -154,7 +185,12 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           throw new Error(`API JSON parse error: ${message}`);
         }
         setApiStatus(data.diagnostic || { apiStatus: response.ok ? "ok" : "failed", model: data.model });
-        if (!response.ok || data.error) throw new Error(diagnosticMessage(data));
+        if (!response.ok || data.error) {
+          const message = diagnosticMessage(data);
+          generated.push(fallbackCreative(adSize, message, data));
+          if (!error) setError(`Image generation fallback active. ${message}`);
+          continue;
+        }
         generated.push({
           adSize,
           imageUrl: data.imageUrl,
@@ -172,12 +208,8 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         });
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Image generation failed.";
-        setError(message);
-        setCreatives(generated);
-        setSelectedCreativeIndex(0);
-        setStep(5);
-        setIsGenerating(false);
-        return;
+        generated.push(fallbackCreative(adSize, message));
+        setError(`Image generation fallback active. ${message}`);
       }
     }
 
@@ -185,6 +217,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
     setCreatives(generated);
     setSelectedCreativeIndex(0);
+    setHasGenerated(true);
     setHistory(mergedHistory);
     window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
     setStep(5);
@@ -223,7 +256,21 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     });
   }
 
-  const canGenerate = form.businessName.trim() && form.offer.trim();
+  const missingRequired = [
+    form.businessName.trim() ? "" : "business name",
+    form.offer.trim() ? "" : "offer",
+    form.audience === "Custom Audience" && !form.customAudience.trim() ? "custom audience" : ""
+  ].filter(Boolean);
+  const canGenerate = missingRequired.length === 0;
+  const generateButtonLabel = isGenerating
+    ? "Generating AI Campaign…"
+    : !canGenerate
+      ? `Missing ${missingRequired.join(", ")}`
+      : hasGenerated
+        ? selectedCreative
+          ? "Generated — Publish Ready"
+          : "Generated"
+        : "Generate Campaign";
 
   return (
     <section className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal md:p-6">
@@ -231,7 +278,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         <div>
           <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">AI Creative Studio</p>
           <h1 className="font-display text-6xl uppercase leading-none text-stallRed md:text-8xl">Campaign Builder</h1>
-          <p className="mt-2 max-w-3xl text-lg font-bold">Guided AI agency workflow for real graphic ad generation, multi-size output, preview editing, campaign history, and one-click publishing to Stall Talk ad slots.</p>
+          <p className="mt-2 max-w-3xl text-lg font-bold">AI ad generator from a creative brief: enter business info, offer, audience, and creative direction, then generate ad copy plus a graphic through the existing /api/generate-ad-image route before publishing to a Stall Talk ad slot.</p>
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <p className="text-xs font-black uppercase tracking-widest text-stallRed">Publish Target</p>
@@ -277,11 +324,14 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       </div> : null}
 
       {step === 5 ? <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="lg:col-span-2 rounded-2xl border-2 border-ink bg-stallYellow p-4 font-black uppercase">
+          <span>Button state: </span>{isGenerating ? "generating" : !canGenerate ? `missing required fields (${missingRequired.join(", ")})` : selectedCreative ? "publish ready" : hasGenerated ? "generated" : "ready to generate"}
+        </div>
         <div>
           <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.adSize} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>{creative.adSize}</button>)}</div>
           {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate a campaign to preview Banner, Square, Tall, and Footer image files.</p>}
           {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
-          {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">Image generation failed — no HTML/CSS fallback was created. {error}</p> : null}
+          {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">{error} Copy was still generated and a styled fallback ad preview is available.</p> : null}
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <h3 className="font-display text-4xl uppercase">Edit Before Publish</h3>
@@ -298,7 +348,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       <div className="mt-6 flex flex-wrap justify-between gap-3 border-t-4 border-ink pt-4">
         <button className="rounded-xl border-2 border-ink bg-paper px-4 py-2 font-black uppercase" onClick={() => setStep(Math.max(1, step - 1))}>Back</button>
         {step < 5 ? <button className="rounded-xl border-2 border-ink bg-stallYellow px-4 py-2 font-black uppercase" onClick={() => setStep(Math.min(5, step + 1))}>Next</button> : null}
-        <button className="rounded-xl border-4 border-ink bg-stallPurple px-5 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={!canGenerate || isGenerating} onClick={generateCampaign}>{isGenerating ? "Generating 4 sizes..." : "Generate Campaign"}</button>
+        <button title={!canGenerate ? `Complete required fields: ${missingRequired.join(", ")}` : selectedCreative ? "Campaign generated and ready to publish" : "Generate AI ad copy and image creative"} className={`rounded-xl border-4 border-ink px-5 py-3 font-black uppercase text-white shadow-brutal disabled:cursor-not-allowed disabled:opacity-60 ${selectedCreative ? "bg-green-700" : !canGenerate ? "bg-stallPurple/70" : "bg-stallPurple"}`} disabled={!canGenerate || isGenerating} onClick={generateCampaign}>{generateButtonLabel}</button>
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
@@ -323,7 +373,11 @@ function ChoiceGroup({ title, options, value, onChange }: { title: string; optio
 }
 
 function PreviewCard({ creative }: { creative: GeneratedCreative }) {
-  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}><img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
+  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}>{creative.imageUrl ? <img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /> : <FallbackAd creative={creative} />}</div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.imageFallback ? <p className="mt-2 text-xs font-black uppercase text-stallPurple">Styled fallback preview: {creative.imageError}</p> : null}{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
+}
+
+function FallbackAd({ creative }: { creative: GeneratedCreative }) {
+  return <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-stallPurple via-stallRed to-stallYellow p-6 text-white"><p className="text-xs font-black uppercase tracking-[.35em]">AI copy generated</p><div><p className="text-sm font-black uppercase text-white/80">{creative.businessName || "Generated Sponsor"}</p><h3 className="font-display text-4xl uppercase leading-none drop-shadow md:text-6xl">{creative.headline}</h3><p className="mt-2 max-w-xl text-lg font-black drop-shadow">{creative.subheadline}</p></div><div className="flex flex-wrap items-center gap-3"><span className="rounded-full border-2 border-white bg-ink px-4 py-2 text-sm font-black uppercase">{creative.ctaText}</span>{creative.couponCode ? <span className="rounded-full border-2 border-white bg-white px-4 py-2 text-sm font-black uppercase text-stallRed">Code {creative.couponCode}</span> : null}</div></div>;
 }
 
 function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
