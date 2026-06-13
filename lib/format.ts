@@ -8,7 +8,8 @@ export const contentLabels: Record<ContentBlockType, string> = {
   CALENDAR: "Entertainment Calendar",
   EVENT: "Event Spotlight",
   COUPON: "Local Deals",
-  ADVERTISEMENT: "Advertisement"
+  ADVERTISEMENT: "Advertisement",
+  RESTAURANT_REVIEW: "Restaurant Review"
 };
 
 export const typeOptions = Object.entries(contentLabels).map(([value, label]) => ({ value, label }));

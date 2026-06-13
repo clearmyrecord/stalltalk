@@ -45,6 +45,7 @@ async function main() {
   await prisma.issueAdSlot.deleteMany();
   await prisma.issueContentBlock.deleteMany();
   await prisma.issue.deleteMany();
+  await prisma.restaurantReview.deleteMany();
   await prisma.article.deleteMany();
   await prisma.category.deleteMany();
   await prisma.stripeSubscription.deleteMany();
@@ -131,6 +132,14 @@ async function main() {
       })
     )
   );
+
+
+  await prisma.restaurantReview.createMany({ data: [
+    { publisherId: publisher.id, title: "Best Burger Feature", restaurantName: "Best Burger", venueId: venue.id, venueIds: [venue.id], featuredImageUrl: "https://placehold.co/1200x800/fdca40/111111?text=Best+Burger", starRating: 4.8, cuisineType: "Burgers", address: "3799 S Las Vegas Blvd", city: "Las Vegas", state: "NV", websiteUrl: "https://example.com/best-burger", instagramUrl: "https://instagram.com/example", facebookUrl: "https://facebook.com/example", reviewHeadline: "A double-stack worth leaving the casino floor for", reviewBody: "Juicy patties, crisp pickles, and a sauce that survives late-night cravings make this an easy MGM Grand Edition pick.", reviewerName: "Potty Favor Review Team", publishDate: new Date("2026-07-01T12:00:00.000Z"), status: "PUBLISHED" },
+    { publisherId: publisher.id, title: "Steakhouse Spotlight", restaurantName: "Velvet Booth Steakhouse", venueIds: [venue.id, bellagioVenue.id], featuredImageUrl: "https://placehold.co/1200x800/111111/fdca40?text=Steakhouse", starRating: 4.9, cuisineType: "Steakhouse", address: "Las Vegas Strip", city: "Las Vegas", state: "NV", websiteUrl: "https://example.com/steakhouse", instagramUrl: "https://instagram.com/example", facebookUrl: "https://facebook.com/example", reviewHeadline: "Classic Strip polish with a serious sear", reviewBody: "Order the ribeye medium-rare and split the wedge salad. The room feels celebratory without slowing down the night.", reviewerName: "Stall Talk Dining Desk", publishDate: new Date("2026-07-02T12:00:00.000Z"), status: "PUBLISHED" },
+    { publisherId: publisher.id, title: "Pizza Restaurant Review", restaurantName: "Slice & Neon Pizza", venueId: newYorkVenue.id, venueIds: [newYorkVenue.id], featuredImageUrl: "https://placehold.co/1200x800/ff2d2d/ffffff?text=Pizza", starRating: 4.6, cuisineType: "Pizza", address: "3790 S Las Vegas Blvd", city: "Las Vegas", state: "NV", websiteUrl: "https://example.com/pizza", instagramUrl: "https://instagram.com/example", facebookUrl: "https://facebook.com/example", reviewHeadline: "Foldable slices for between-show hunger", reviewBody: "A crisp base, stretchy cheese, and fast counter service make this a restroom-scan friendly recommendation.", reviewerName: "Potty Favor Review Team", publishDate: new Date("2026-07-03T12:00:00.000Z"), status: "PUBLISHED" },
+    { publisherId: publisher.id, title: "Local Bar & Grill Review", restaurantName: "Local Bar & Grill", featuredImageUrl: "https://placehold.co/1200x800/7d4cff/ffffff?text=Bar+%26+Grill", starRating: 4.5, cuisineType: "Bar & Grill", address: "Demo Bar District", city: "Las Vegas", state: "NV", websiteUrl: "https://example.com/bar-grill", instagramUrl: "https://instagram.com/example", facebookUrl: "https://facebook.com/example", reviewHeadline: "Global pick: cold drinks, hot baskets, easy wins", reviewBody: "Reliable wings, friendly bartenders, and enough TVs to make every seat feel intentional. A strong global fallback for any edition.", reviewerName: "Stall Talk Dining Desk", publishDate: new Date("2026-07-04T12:00:00.000Z"), status: "PUBLISHED" }
+  ] });
 
   const issue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "Potty Favor", month: "July", year: 2024, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2024-07-01T12:00:00.000Z") } });
   await prisma.issueContentBlock.createMany({ data: [
