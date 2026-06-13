@@ -9,7 +9,7 @@ export function PublicationHeader({
     <header className="masthead">
       <img
         className="masthead-banner"
-        src="/assets/potty-favor-original-banner-2.png"
+        src="assets/potty-favor-original-banner-2.png"
         alt="Potty Favor publication masthead"
         width={2171}
         height={724}
@@ -31,6 +31,49 @@ export function PublicationHeader({
         Admin
       </a>
     </header>
+  );
+}
+
+export function PublicationFooter() {
+  return (
+    <footer className="publication-footer">
+      <p>
+        © {new Date().getFullYear()} Potty Favor / Stall Talk. Same monthly issue.
+        Smarter venue ads.
+      </p>
+    </footer>
+  );
+}
+
+export function MissionCard({ missionText }: { missionText: string }) {
+  return (
+    <section className="mission-card panel">
+      <p className="mission-kicker">Potty Favor Purpose</p>
+      <h2>Our Mission</h2>
+      <p>{missionText}</p>
+    </section>
+  );
+}
+      <div className="masthead-meta" aria-label="Issue information">
+        <p className="issue-kicker">{monthYear}</p>
+        <p className="issue-line">
+          One standard monthly issue · Designed for every reader
+          {venueLine ? ` · ${venueLine}` : ""}
+        </p>
+      </div>
+
+      <a className="admin-link" href="/signin">
+        Admin
+      </a>
+    </header>
+  );
+}
+
+export function PublicationFooter() {
+  return (
+    <footer className="publication-footer">
+      © {new Date().getFullYear()} Potty Favor / Stall Talk. Same monthly issue. Smarter venue ads.
+    </footer>
   );
 }
 

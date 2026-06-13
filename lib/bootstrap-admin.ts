@@ -56,7 +56,7 @@ export async function ensureBootstrapAdmin(): Promise<BootstrapAdminResult> {
       userCount: 0,
       email: BOOTSTRAP_ADMIN_EMAIL,
       passwordHashValid: false,
-      error: error instanceof Error ? error.message : "Bootstrap admin check failed."
+      error: "Authentication setup is not ready yet. Please run database migrations and try again."
     };
   }
 }
