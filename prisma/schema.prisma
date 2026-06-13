@@ -473,7 +473,6 @@ model Issue {
   contentBlocks IssueContentBlock[]
   adSlots       IssueAdSlot[]
   events        AnalyticsEvent[]
- 
   qrScans   QrScan[]
 
   @@index([status, year, issueNumber])
