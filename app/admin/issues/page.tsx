@@ -34,7 +34,7 @@ export default async function IssuesPage() {
                 </h2>
 
                 <p className="font-bold">
-                  {issue.venue.name} — {issue.restroom?.name || "Venue-wide"} — QR{" "}
+                  {issue.venue?.name || "Global Issue"} — {issue.restroom?.name || "Venue-wide"} — QR{" "}
                   {issue.qrCode?.qrSlug || "none"}
                 </p>
 
