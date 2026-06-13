@@ -15,6 +15,7 @@ const links = [
   ["/admin/ads", "Ads"],
   ["/admin/ad-studio", "Ad Studio"],
   ["/admin/health", "Health"],
+  ["/admin/startup-diagnostics", "Startup Diagnostics"],
   ["/admin/settings", "Settings"],
   ["/admin/deployment-checklist", "Deployment"],
   ["/admin/analytics", "Analytics"],

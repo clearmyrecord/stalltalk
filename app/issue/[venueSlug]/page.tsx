@@ -20,7 +20,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   if (!requestedVenue) notFound();
 
   const directIssue = await prisma.issue.findFirst({
-    where: { venueId: requestedVenue.id, status: "PUBLISHED", ...(qr ? { qrCode: { code: qr } } : {}) },
+    where: { venueId: requestedVenue.id, status: "PUBLISHED", ...(qr ? { qrCode: { qrSlug: qr } } : {}) },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
     include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
   });
@@ -58,9 +58,22 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
       <ScanRecorder publisherId={renderIssue.publisherId} venueId={renderIssue.venueId} restroomId={renderIssue.restroomId} qrCodeId={renderIssue.qrCodeId} issueId={renderIssue.id} />
       <ImpressionRecorder events={actualAds.map((ad) => ({ publisherId: renderIssue.publisherId, venueId: renderIssue.venueId, restroomId: renderIssue.restroomId, qrCodeId: renderIssue.qrCodeId, issueId: renderIssue.id, advertiserId: ad.advertiserId, adId: ad.id, slotNumber: ad.slotNumber }))} />
       <header className="sticky top-0 z-40 border-b-4 border-ink bg-stallYellow px-3 py-2 text-center shadow-lg md:relative md:top-auto md:z-auto md:px-8">
-        <p className="text-xs font-black uppercase tracking-[.25em]">{renderIssue.publisher.name} • {renderIssue.venue.name} Edition • {renderIssue.restroom?.name || "Venue-wide"}</p>
-        <h1 className="font-display text-5xl uppercase leading-none md:text-7xl">{renderIssue.title}</h1>
-        <p className="font-black uppercase">{renderIssue.venue.city}, {renderIssue.venue.state} • {renderIssue.month} {renderIssue.year} • Issue #{renderIssue.issueNumber} • QR {renderIssue.qrCode?.code || "venue"}</p>
+      <header className="sticky top-0 z-40 border-b-4 border-ink bg-stallYellow px-3 py-2 text-center shadow-lg md:relative md:top-auto md:z-auto md:px-8">
+        <p className="text-xs font-black uppercase tracking-[.25em]">
+          {renderIssue.publisher.name} • {renderIssue.venue.name} Edition •{" "}
+          {renderIssue.restroom?.name || "Venue-wide"}
+        </p>
+
+        <h1 className="font-display text-5xl uppercase leading-none md:text-7xl">
+          {renderIssue.title}
+        </h1>
+
+        <p className="font-black uppercase">
+          {renderIssue.venue.city}, {renderIssue.venue.state} • {renderIssue.month}{" "}
+          {renderIssue.year} • Issue #{renderIssue.issueNumber} • QR{" "}
+          {renderIssue.qrCode?.qrSlug || "venue"}
+        </p>
+      </header>
       </header>
 
       <div className="mx-auto max-w-5xl p-3 pb-20 md:p-5">

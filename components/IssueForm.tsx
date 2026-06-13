@@ -14,7 +14,7 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
       <Select name="publisherId" label="Publisher" value={issue?.publisherId} options={publishers.map((p) => [p.id, p.name])} />
       <Select name="venueId" label="Base / default venue" value={issue?.venueId} options={[["", "Global issue (all venues)"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} />
       <Select name="restroomId" label="Restroom" value={issue?.restroomId || ""} options={[["", "Venue-wide"], ...restrooms.map((r) => [r.id, r.name] as [string, string])]} />
-      <Select name="qrCodeId" label="QR code" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.label} (${q.code})`] as [string, string])]} />
+      <Select name="qrCodeId" label="QR code" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.qrName} (${q.qrSlug})`] as [string, string])]} />
       <Field name="title" label="Title" value={issue?.title || "Potty Favor"} />
       <Field name="month" label="Month" value={issue?.month || "June"} />
       <Field name="year" label="Year" value={String(issue?.year || new Date().getFullYear())} />

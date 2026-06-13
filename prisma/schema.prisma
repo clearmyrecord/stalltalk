@@ -8,21 +8,58 @@ datasource db {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
+  VENUE_MANAGER
   ADVERTISER
+  DISTRIBUTOR
   VENUE
 }
 
 enum CampaignStatus {
   DRAFT
+  SUBMITTED
   PAYMENT_PENDING
   PENDING_PAYMENT
   PAID
   APPROVED
   REJECTED
   ACTIVE
+  PAUSED
   EXPIRED
   ARCHIVED
+}
+
+enum CreativeKind {
+  IMAGE
+  COUPON
+  BANNER
+  SPONSORED_ARTICLE
+  RESTAURANT_PROMOTION
+  EVENT_PROMOTION
+}
+
+enum TargetType {
+  GLOBAL_NETWORK
+  STATE
+  CITY
+  VENUE
+  VENUE_TYPE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+enum CreativeApprovalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  FLAGGED
 }
 
 enum PaymentStatus {
@@ -45,6 +82,7 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  PUBLISHED
 }
 
 enum AccountStatus {
@@ -58,6 +96,30 @@ enum IssueStatus {
   SCHEDULED
   PUBLISHED
   ARCHIVED
+}
+
+enum VenueContentType {
+  ANNOUNCEMENT
+  PROMOTION
+  EVENT
+  RESTAURANT_REVIEW
+  PHOTO
+  COUPON
+  FEATURED_CONTENT
+}
+
+enum VenuePromotionCategory {
+  HAPPY_HOUR
+  RESTAURANT
+  RETAIL
+  HOTEL_PACKAGE
+  ENTERTAINMENT
+}
+
+enum MediaAssetType {
+  IMAGE
+  LOGO
+  GALLERY
 }
 
 enum ContentBlockType {
@@ -94,15 +156,42 @@ enum AnalyticsEventType {
   AD_IMPRESSION
   AD_CLICK
   COUPON_REDEMPTION
+  COUPON_CLICK
+  ISSUE_VIEW
+  WEBSITE_VISIT
   REVIEW_VIEW
   REVIEW_WEBSITE_CLICK
   REVIEW_SOCIAL_CLICK
 }
 
 enum QrCodeStatus {
-  INVENTORY
-  ASSIGNED
+  DRAFT
+  PRINTED
+  DEPLOYED
+  ACTIVE
   RETIRED
+}
+
+enum QrCodeType {
+  VENUE
+  RESTROOM
+  CAMPAIGN
+  TEST
+}
+
+enum QrStickerTemplate {
+  STALL_DOOR
+  URINAL_WALL
+  TABLE_TENT
+  WINDOW_STICKER
+}
+
+enum QrLifecycleAction {
+  CREATE
+  PRINT
+  DEPLOY
+  REPLACE
+  RETIRE
 }
 
 enum StripeSubscriptionStatus {
@@ -141,24 +230,25 @@ model AuthSession {
 }
 
 model Publisher {
-  id              String                     @id @default(cuid())
-  name            String
-  slug            String                     @unique
-  contactEmail    String
-  status          AccountStatus              @default(ACTIVE)
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  distributors    Distributor[]
-  advertisers     Advertiser[]
-  venues          Venue[]
-  articles        Article[]
-  categories      Category[]
-  ads             Ad[]
-  campaignHistory StalltalkCampaignHistory[]
-  adSlots         StalltalkAdSlot[]
-  issues          Issue[]
-  qrCodes         QrCode[]
-  events          AnalyticsEvent[]
+  id                String                     @id @default(cuid())
+  name              String
+  slug              String                     @unique
+  contactEmail      String
+  status            AccountStatus              @default(ACTIVE)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  distributors      Distributor[]
+  advertisers       Advertiser[]
+  venues            Venue[]
+  articles          Article[]
+  categories        Category[]
+  ads               Ad[]
+  campaignHistory   StalltalkCampaignHistory[]
+  adSlots           StalltalkAdSlot[]
+  issues            Issue[]
+  qrCodes           QrCode[]
+  qrScans           QrScan[]
+  events            AnalyticsEvent[]
   restaurantReviews RestaurantReview[]
 }
 
@@ -175,6 +265,7 @@ model Distributor {
   publisher         Publisher          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
   venues            Venue[]
   commissionReports CommissionReport[]
+  assignedQrCodes   QrCode[]
 
   @@unique([publisherId, slug])
 }
@@ -197,6 +288,8 @@ model Advertiser {
   analyticsEvents AnalyticsEvent[]
   users           User[]
   adCampaigns     AdCampaign[]
+  adCreatives     AdCreative[]
+  invoices        AdvertiserInvoice[]
   payments        Payment[]
 
   @@unique([publisherId, slug])
@@ -213,6 +306,7 @@ model Venue {
   address            String
   venueType          String              @default("venue") @map("venue_type")
   isActive           Boolean             @default(true) @map("is_active")
+  directPublishingApproved Boolean        @default(false)
   status             AccountStatus       @default(ACTIVE)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -221,12 +315,14 @@ model Venue {
   restrooms          Restroom[]
   issues             Issue[]
   qrCodes            QrCode[]
+  qrScans            QrScan[]
   ads                Ad[]
   events             AnalyticsEvent[]
   users              User[]
   toiletLocations    ToiletLocation[]
   adSlotInventories  AdSlotInventory[]
   venueContentDrafts VenueContentDraft[]
+  mediaAssets        VenueMediaAsset[]
   restaurantReviews  RestaurantReview[]
 }
 
@@ -241,6 +337,7 @@ model Restroom {
   updatedAt         DateTime          @updatedAt
   venue             Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
   qrCodes           QrCode[]
+  qrScans           QrScan[]
   issues            Issue[]
   ads               Ad[]
   events            AnalyticsEvent[]
@@ -249,23 +346,43 @@ model Restroom {
 }
 
 model QrCode {
-  id                String            @id @default(cuid())
-  publisherId       String
-  venueId           String?
-  restroomId        String?
-  code              String            @unique
-  label             String
-  destination       String
-  status            QrCodeStatus      @default(INVENTORY)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  publisher         Publisher         @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  venue             Venue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  restroom          Restroom?         @relation(fields: [restroomId], references: [id], onDelete: SetNull)
-  issues            Issue[]
-  events            AnalyticsEvent[]
-  toiletLocations   ToiletLocation[]
-  adSlotInventories AdSlotInventory[]
+  id                    String             @id @default(cuid())
+  uuid                  String             @unique @default(uuid())
+  publisherId           String
+  venueId               String?
+  restroomId            String?
+  assignedDistributorId String?
+  qrName                String             @map("qr_name")
+  qrSlug                String             @unique @map("qr_slug")
+  qrUrl                 String             @map("qr_url")
+  qrType                QrCodeType         @default(RESTROOM) @map("qr_type")
+  stickerTemplate       QrStickerTemplate  @default(STALL_DOOR) @map("sticker_template")
+  shortUrl              String?            @map("short_url")
+  callToAction          String             @default("Scan for Stall Talk") @map("call_to_action")
+  status                QrCodeStatus       @default(DRAFT)
+  installedAt           DateTime?          @map("installed_at")
+  lastScanAt            DateTime?          @map("last_scan_at")
+  installationPhotoUrl  String?            @map("installation_photo_url")
+  campaignSource        String?            @map("campaign_source")
+  advertisementSource   String?            @map("advertisement_source")
+  promotionSource       String?            @map("promotion_source")
+  couponSource          String?            @map("coupon_source")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  publisher             Publisher          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue                 Venue?             @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom              Restroom?          @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  assignedDistributor   Distributor?       @relation(fields: [assignedDistributorId], references: [id], onDelete: SetNull)
+  issues                Issue[]
+  scans                 QrScan[]
+  lifecycleEvents       QrLifecycleEvent[]
+  events                AnalyticsEvent[]
+  toiletLocations       ToiletLocation[]
+  adSlotInventories     AdSlotInventory[]
+
+  @@index([venueId, restroomId, status])
+  @@index([qrType, status])
+  @@map("qr_codes")
 }
 
 model Category {
@@ -303,30 +420,30 @@ model Article {
 }
 
 model RestaurantReview {
-  id               String              @id @default(cuid())
+  id               String      @id @default(cuid())
   publisherId      String
   title            String
-  restaurantName   String              @map("restaurant_name")
-  venueId          String?             @map("venue_id")
-  venueIds         String[]            @default([]) @map("venue_ids")
-  featuredImageUrl String?             @map("featured_image_url")
-  starRating       Decimal             @default(5.0) @map("star_rating")
-  cuisineType      String?             @map("cuisine_type")
+  restaurantName   String      @map("restaurant_name")
+  venueId          String?     @map("venue_id")
+  venueIds         String[]    @default([]) @map("venue_ids")
+  featuredImageUrl String?     @map("featured_image_url")
+  starRating       Decimal     @default(5.0) @map("star_rating")
+  cuisineType      String?     @map("cuisine_type")
   address          String?
   city             String?
   state            String?
-  websiteUrl       String?             @map("website_url")
-  instagramUrl     String?             @map("instagram_url")
-  facebookUrl      String?             @map("facebook_url")
-  reviewHeadline   String              @map("review_headline")
-  reviewBody       String              @map("review_body")
-  reviewerName     String              @map("reviewer_name")
-  publishDate      DateTime?           @map("publish_date")
-  status           IssueStatus         @default(DRAFT)
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
-  publisher        Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  venue            Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  websiteUrl       String?     @map("website_url")
+  instagramUrl     String?     @map("instagram_url")
+  facebookUrl      String?     @map("facebook_url")
+  reviewHeadline   String      @map("review_headline")
+  reviewBody       String      @map("review_body")
+  reviewerName     String      @map("reviewer_name")
+  publishDate      DateTime?   @map("publish_date")
+  status           IssueStatus @default(DRAFT)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  publisher        Publisher   @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue            Venue?      @relation(fields: [venueId], references: [id], onDelete: SetNull)
 
   @@index([publisherId, status, publishDate])
   @@index([venueId])
@@ -356,23 +473,11 @@ model Issue {
   contentBlocks IssueContentBlock[]
   adSlots       IssueAdSlot[]
   events        AnalyticsEvent[]
-  history       IssueHistory[]
+ 
+  history   IssueHistory[]
+  qrScans   QrScan[]
 
   @@index([status, year, issueNumber])
-}
-
-model IssueHistory {
-  id         String       @id @default(cuid())
-  issueId    String
-  action     String
-  fromStatus IssueStatus?
-  toStatus   IssueStatus?
-  note       String?
-  snapshot   Json?
-  createdAt  DateTime     @default(now())
-  issue      Issue        @relation(fields: [issueId], references: [id], onDelete: Cascade)
-
-  @@index([issueId, createdAt])
 }
 
 model IssueContentBlock {
@@ -524,6 +629,52 @@ model AnalyticsEvent {
   ad           Ad?                @relation(fields: [adId], references: [id], onDelete: SetNull)
 }
 
+model QrScan {
+  id                  String     @id @default(cuid())
+  qrCodeId            String     @map("qr_code_id")
+  publisherId         String?    @map("publisher_id")
+  venueId             String?    @map("venue_id")
+  restroomId          String?    @map("restroom_id")
+  issueId             String?    @map("issue_id")
+  visitorId           String?    @map("visitor_id")
+  sessionId           String?    @map("session_id")
+  deviceType          String?    @map("device_type")
+  browser             String?
+  operatingSystem     String?    @map("operating_system")
+  city                String?
+  state               String?
+  country             String?
+  referralSource      String?    @map("referral_source")
+  campaignSource      String?    @map("campaign_source")
+  advertisementSource String?    @map("advertisement_source")
+  promotionSource     String?    @map("promotion_source")
+  couponSource        String?    @map("coupon_source")
+  dwellTimeMs         Int?       @map("dwell_time_ms")
+  metadata            Json?
+  scannedAt           DateTime   @default(now()) @map("scanned_at")
+  qrCode              QrCode     @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  publisher           Publisher? @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  venue               Venue?     @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom            Restroom?  @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  issue               Issue?     @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@index([qrCodeId, scannedAt])
+  @@index([venueId, scannedAt])
+  @@map("qr_scans")
+}
+
+model QrLifecycleEvent {
+  id        String            @id @default(cuid())
+  qrCodeId  String            @map("qr_code_id")
+  action    QrLifecycleAction
+  note      String?
+  createdAt DateTime          @default(now()) @map("created_at")
+  qrCode    QrCode            @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+
+  @@index([qrCodeId, createdAt])
+  @@map("qr_lifecycle_events")
+}
+
 model StripeSubscription {
   id                   String                   @id @default(cuid())
   advertiserId         String
@@ -595,18 +746,31 @@ model AdCampaign {
   businessName                String
   headline                    String
   body                        String
+  description                 String?
   creativeUrl                 String?
   targetUrl                   String                @default("#")
   ctaText                     String                @default("Learn More")
   months                      Int                   @default(1)
   locationCount               Int                   @default(1)
   priceCents                  Int                   @default(5000)
+  budgetCents                 Int                   @default(0)
+  remainingBudgetCents        Int                   @default(0)
   flightStartMonth            String                @default("2026-07")
   flightEndMonth              String                @default("2026-07")
   flightMonths                Int                   @default(1)
   pricePerPlacementMonthCents Int                   @default(5000)
   placementCount              Int                   @default(1)
   totalAmountCents            Int                   @default(5000)
+  targetType                  TargetType            @default(GLOBAL_NETWORK)
+  targetStates                String[]              @default([])
+  targetCities                String[]              @default([])
+  targetVenueIds              String[]              @default([])
+  targetVenueTypes            String[]              @default([])
+  impressionsServed           Int                   @default(0)
+  clicksServed                Int                   @default(0)
+  qrScans                     Int                   @default(0)
+  estimatedCpmCents           Int                   @default(0)
+  estimatedCpcCents           Int                   @default(0)
   status                      CampaignStatus        @default(DRAFT)
   approvalStatus              ApprovalStatus        @default(PENDING)
   adminApprovalNote           String?
@@ -628,6 +792,8 @@ model AdCampaign {
   ad                          Ad?                   @relation(fields: [adId], references: [id], onDelete: SetNull)
   payments                    Payment[]
   placements                  AdCampaignPlacement[]
+  creatives                   AdCreative[]
+  invoices                    AdvertiserInvoice[]
 
   @@index([advertiserId, status])
   @@index([inventoryId])
@@ -644,6 +810,45 @@ model AdCampaignPlacement {
 
   @@unique([campaignId, inventoryId])
   @@index([inventoryId])
+}
+
+model AdCreative {
+  id             String                 @id @default(cuid())
+  campaignId     String
+  advertiserId   String
+  kind           CreativeKind           @default(IMAGE)
+  imageUrl       String?
+  headline       String
+  body           String
+  callToAction   String                 @default("Learn More")
+  destinationUrl String                 @default("#")
+  approvalStatus CreativeApprovalStatus @default(SUBMITTED)
+  reviewNote     String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  campaign       AdCampaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  advertiser     Advertiser             @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
+  @@index([advertiserId, approvalStatus])
+  @@index([campaignId])
+}
+
+model AdvertiserInvoice {
+  id               String        @id @default(cuid())
+  advertiserId     String
+  campaignId       String?
+  invoiceNumber    String        @unique
+  amountCents      Int
+  currency         String        @default("usd")
+  status           InvoiceStatus @default(DRAFT)
+  stripeCustomerId String?
+  stripeInvoiceId  String?
+  createdAt        DateTime      @default(now())
+  paidAt           DateTime?
+  advertiser       Advertiser    @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  campaign         AdCampaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([advertiserId, status])
 }
 
 model Payment {
@@ -667,22 +872,48 @@ model Payment {
 model VenueContentDraft {
   id              String         @id @default(cuid())
   venueId         String
+  contentType     VenueContentType @default(ANNOUNCEMENT)
   title           String
   body            String
   imageUrl        String?
+  location        String?
+  websiteUrl      String?
+  category        String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  expiresAt       DateTime?
+  couponCode      String?
+  qrDestination   String?
   approvalStatus  ApprovalStatus @default(DRAFT)
   adminNote       String?
   rejectionReason String?
   submittedAt     DateTime?
   approvedAt      DateTime?
   rejectedAt      DateTime?
+  publishedAt     DateTime?
   approvedBy      String?
   rejectedBy      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   venue           Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
-  @@index([venueId, approvalStatus])
+  @@index([venueId, contentType, approvalStatus])
+  @@index([venueId, startsAt, endsAt])
+}
+
+model VenueMediaAsset {
+  id          String         @id @default(cuid())
+  venueId     String
+  assetType   MediaAssetType @default(IMAGE)
+  title       String
+  url         String
+  altText     String?
+  galleryName String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  venue       Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, assetType])
 }
 
 model CouponCampaign {

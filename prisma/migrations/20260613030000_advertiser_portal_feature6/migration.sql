@@ -1,0 +1,61 @@
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'SUPER_ADMIN';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'VENUE_MANAGER';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'DISTRIBUTOR';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'SUBMITTED';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'PAUSED';
+
+DO $$ BEGIN CREATE TYPE "CreativeKind" AS ENUM ('IMAGE','COUPON','BANNER','SPONSORED_ARTICLE','RESTAURANT_PROMOTION','EVENT_PROMOTION'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE "TargetType" AS ENUM ('GLOBAL_NETWORK','STATE','CITY','VENUE','VENUE_TYPE'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE "InvoiceStatus" AS ENUM ('DRAFT','SENT','PAID','VOID'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE "CreativeApprovalStatus" AS ENUM ('DRAFT','SUBMITTED','APPROVED','REJECTED','FLAGGED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "budgetCents" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "remainingBudgetCents" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "targetType" "TargetType" NOT NULL DEFAULT 'GLOBAL_NETWORK';
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "targetStates" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "targetCities" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "targetVenueIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "targetVenueTypes" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "impressionsServed" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "clicksServed" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "qrScans" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "estimatedCpmCents" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "AdCampaign" ADD COLUMN IF NOT EXISTS "estimatedCpcCents" INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS "AdCreative" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "campaignId" TEXT NOT NULL,
+  "advertiserId" TEXT NOT NULL,
+  "kind" "CreativeKind" NOT NULL DEFAULT 'IMAGE',
+  "imageUrl" TEXT,
+  "headline" TEXT NOT NULL,
+  "body" TEXT NOT NULL,
+  "callToAction" TEXT NOT NULL DEFAULT 'Learn More',
+  "destinationUrl" TEXT NOT NULL DEFAULT '#',
+  "approvalStatus" "CreativeApprovalStatus" NOT NULL DEFAULT 'SUBMITTED',
+  "reviewNote" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "AdCreative_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "AdCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "AdCreative_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "AdCreative_advertiserId_approvalStatus_idx" ON "AdCreative"("advertiserId", "approvalStatus");
+CREATE INDEX IF NOT EXISTS "AdCreative_campaignId_idx" ON "AdCreative"("campaignId");
+
+CREATE TABLE IF NOT EXISTS "AdvertiserInvoice" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "advertiserId" TEXT NOT NULL,
+  "campaignId" TEXT,
+  "invoiceNumber" TEXT NOT NULL UNIQUE,
+  "amountCents" INTEGER NOT NULL,
+  "currency" TEXT NOT NULL DEFAULT 'usd',
+  "status" "InvoiceStatus" NOT NULL DEFAULT 'DRAFT',
+  "stripeCustomerId" TEXT,
+  "stripeInvoiceId" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "paidAt" TIMESTAMP(3),
+  CONSTRAINT "AdvertiserInvoice_advertiserId_fkey" FOREIGN KEY ("advertiserId") REFERENCES "Advertiser"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "AdvertiserInvoice_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "AdCampaign"("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "AdvertiserInvoice_advertiserId_status_idx" ON "AdvertiserInvoice"("advertiserId", "status");
