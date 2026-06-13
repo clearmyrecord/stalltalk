@@ -1,8 +1,8 @@
-import Link from "next/link";
 import IssueByVenuePage from "./[venueSlug]/page";
 import { prisma } from "@/lib/prisma";
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
+import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChrome";
 
 export const dynamic = "force-dynamic";
 
@@ -32,4 +32,36 @@ export default async function IssueQueryPage({ searchParams }: { searchParams: P
   }
 
   return <StaticIssuePage />;
+}
+
+function StaticIssuePage() {
+  return (
+    <main className="public-page">
+      <article className="publication" aria-label="Potty Favor monthly issue">
+        <PublicationHeader monthYear={publishedIssue.issueMonthYear} />
+        <section className="print-grid">
+          <MissionCard missionText={publishedIssue.missionText} />
+          {publishedAds.slice(0, 8).map((ad, index) => <StaticPublicationAd key={`${ad.slot}-${ad.advertiserName}`} ad={ad} slotNumber={index + 1} primary={index === 0} />)}
+        </section>
+      </article>
+    </main>
+  );
+}
+
+function StaticPublicationAd({ ad, slotNumber, primary = false }: { ad: StaticAd; slotNumber: number; primary?: boolean }) {
+  return (
+    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""}`} id={`sponsor-slot-${slotNumber}`}>
+      <span className="slot">Ad {slotNumber}</span>
+      {ad.image ? <img src={ad.image} alt={`${ad.advertiserName} advertisement`} /> : null}
+      <h3>{ad.advertiserName}</h3>
+      <div className="ad-copy">
+        <p>{ad.headline}</p>
+        <p>{ad.offer}</p>
+      </div>
+      <div className="ad-actions">
+        <a href={ad.targetUrl || "#"}>{ad.cta || "Learn More"}</a>
+        {ad.couponCode ? <span className="coupon">{ad.couponCode}</span> : null}
+      </div>
+    </article>
+  );
 }
