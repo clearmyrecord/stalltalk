@@ -6,6 +6,17 @@ import { money } from "@/lib/format";
 import { flightStatus } from "@/lib/campaign-flights";
 import { prisma } from "@/lib/prisma";
 
+type DashboardCounts = {
+  publishers: number;
+  distributors: number;
+  advertisers: number;
+  venues: number;
+  qrCodes: number;
+  issues: number;
+};
+
+const requiredDashboardTables = ["User", "AuthSession", "qr_codes", "qr_scans", "qr_lifecycle_events"] as const;
+
 export const dynamic = "force-dynamic";
 
 const adminLinks = [
@@ -31,6 +42,18 @@ export default async function AdminDashboardPage() {
   const user = await currentUser();
   if (auth.isConfigured && (!user || user.role !== "ADMIN")) redirect("/signin?error=role");
 
+  const [healthRows, dashboardCounts] = await Promise.all([
+    prisma.$queryRaw<Array<{ table_name: string }>>`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = current_schema()
+        AND table_name IN ('User', 'AuthSession', 'qr_codes', 'qr_scans', 'qr_lifecycle_events')
+    `,
+    getDashboardCounts()
+  ]);
+  const existingHealthTables = new Set(healthRows.map((row) => row.table_name));
+  const isSystemHealthy = requiredDashboardTables.every((table) => existingHealthTables.has(table));
+
   try {
     const [venues, qrCodes, inventory, campaigns, payments, drafts, published] = await Promise.all([
       prisma.venue.findMany({ include: { restrooms: true, qrCodes: true }, orderBy: { name: "asc" } }),
@@ -47,13 +70,28 @@ export default async function AdminDashboardPage() {
     const activeCampaigns = campaigns.filter((campaign) => campaign.status === "ACTIVE" || (campaign.status === "PAID" && campaign.approvalStatus === "APPROVED"));
     const expiredCampaigns = campaigns.filter((campaign) => campaign.status === "EXPIRED" || (campaign.endsAt && campaign.endsAt < new Date()));
 
-    return <section className="grid gap-6"><div><p className="font-black uppercase tracking-[.25em] text-stallRed">Role-protected admin</p><h1 className="font-display text-7xl uppercase">Admin Dashboard</h1><p className="max-w-4xl font-bold">Manage venues, QR/toilet locations, paid ad inventory, campaign approvals, payments, venue drafts, and Publish Live readiness from one mobile-friendly control center.</p>{!auth.isConfigured ? <Setup /> : null}</div><div className="grid gap-3 md:grid-cols-3">{adminLinks.map(([label, href]) => <Link key={label} href={href} className="rounded-2xl border-4 border-ink bg-white p-4 font-black uppercase shadow-brutal">{label}</Link>)}</div><div className="grid gap-3 md:grid-cols-4">{[["Venues", venues.length], ["QR/toilet locations", qrCodes.length], ["Ad inventory", inventory.length], ["Campaigns", campaigns.length], ["Paid revenue", money(paidRevenue)], ["Monthly revenue estimate", money(pipelineRevenue)], ["Active campaigns", activeCampaigns.length], ["Expired campaigns", expiredCampaigns.length]].map(([label, value]) => <div key={label} className="rounded-2xl border-4 border-ink bg-stallYellow p-4 shadow-brutal"><p className="font-black uppercase text-stallRed">{label}</p><p className="font-display text-4xl">{value}</p></div>)}</div><section className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><h2 className="font-display text-5xl uppercase">Publish Live status</h2><p className="font-bold">Last publish: {published ? published.publishedAt.toLocaleString() : "No published snapshot yet"}. Public pages keep fallbacks when venue-specific content or paid ads are unavailable.</p></section><Table title="All venues" empty="No venues have been created yet." rows={venues.map((venue) => [venue.name, `${venue.city}, ${venue.state}`, `${venue.restrooms.length} restroom(s)`, `${venue.qrCodes.length} QR code(s)`])} /><Table title="All QR/toilet locations" empty="No QR or toilet locations yet." rows={qrCodes.map((qr) => [qr.qrSlug, qr.venue?.name || "Unassigned", qr.restroom?.name || "Venue-wide", `${qr.toiletLocations.length} toilet location(s)`])} /><Table title="All ad inventory" empty="No ad inventory has been created yet." rows={inventory.map((slot) => [slot.venue.name, slot.month, `Slot ${slot.slotNumber}`, slot.restroom?.name || slot.qrCode?.qrSlug || "Venue-wide", money(slot.priceCents), slot.status])} /><CampaignApprovals campaigns={campaigns} /><Payments payments={payments} /><VenueDrafts drafts={drafts} /></section>;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error || "");
-    if (!/does not exist|P2021|AdCampaign|VenueContentDraft|PublishedContent/i.test(message)) throw error;
-    return <section><h1 className="font-display text-7xl uppercase">Admin Dashboard</h1><Setup message="Run Prisma migrations and set DATABASE_URL before loading Phase 2B dashboard data." /></section>;
+    return <section className="grid gap-6"><div><p className="font-black uppercase tracking-[.25em] text-stallRed">Role-protected admin</p><h1 className="font-display text-7xl uppercase">Admin Dashboard</h1><p className="max-w-4xl font-bold">Manage venues, QR/toilet locations, paid ad inventory, campaign approvals, payments, venue drafts, and Publish Live readiness from one mobile-friendly control center.</p>{!auth.isConfigured ? <Setup /> : null}</div><HealthBanner healthy={isSystemHealthy} /><div className="grid gap-3 md:grid-cols-3">{adminLinks.map(([label, href]) => <Link key={label} href={href} className="rounded-2xl border-4 border-ink bg-white p-4 font-black uppercase shadow-brutal">{label}</Link>)}</div><LiveCounts counts={dashboardCounts} /><div className="grid gap-3 md:grid-cols-4">{[["Paid revenue", money(paidRevenue)], ["Monthly revenue estimate", money(pipelineRevenue)], ["Active campaigns", activeCampaigns.length], ["Expired campaigns", expiredCampaigns.length]].map(([label, value]) => <div key={label} className="rounded-2xl border-4 border-ink bg-stallYellow p-4 shadow-brutal"><p className="font-black uppercase text-stallRed">{label}</p><p className="font-display text-4xl">{value}</p></div>)}</div><section className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><h2 className="font-display text-5xl uppercase">Publish Live status</h2><p className="font-bold">Last publish: {published ? published.publishedAt.toLocaleString() : "No published snapshot yet"}. Public pages keep fallbacks when venue-specific content or paid ads are unavailable.</p></section><Table title="All venues" empty="No venues have been created yet." rows={venues.map((venue) => [venue.name, `${venue.city}, ${venue.state}`, `${venue.restrooms.length} restroom(s)`, `${venue.qrCodes.length} QR code(s)`])} /><Table title="All QR/toilet locations" empty="No QR or toilet locations yet." rows={qrCodes.map((qr) => [qr.qrSlug, qr.venue?.name || "Unassigned", qr.restroom?.name || "Venue-wide", `${qr.toiletLocations.length} toilet location(s)`])} /><Table title="All ad inventory" empty="No ad inventory has been created yet." rows={inventory.map((slot) => [slot.venue.name, slot.month, `Slot ${slot.slotNumber}`, slot.restroom?.name || slot.qrCode?.qrSlug || "Venue-wide", money(slot.priceCents), slot.status])} /><CampaignApprovals campaigns={campaigns} /><Payments payments={payments} /><VenueDrafts drafts={drafts} /></section>;
+  } catch {
+    return <section className="grid gap-6"><div><p className="font-black uppercase tracking-[.25em] text-stallRed">Role-protected admin</p><h1 className="font-display text-7xl uppercase">Admin Dashboard</h1><p className="max-w-4xl font-bold">Manage venues, QR/toilet locations, paid ad inventory, campaign approvals, payments, venue drafts, and Publish Live readiness from one mobile-friendly control center.</p>{!auth.isConfigured ? <Setup /> : null}</div><HealthBanner healthy={isSystemHealthy} /><div className="grid gap-3 md:grid-cols-3">{adminLinks.map(([label, href]) => <Link key={label} href={href} className="rounded-2xl border-4 border-ink bg-white p-4 font-black uppercase shadow-brutal">{label}</Link>)}</div><LiveCounts counts={dashboardCounts} /></section>;
   }
+
 }
+
+async function getDashboardCounts(): Promise<DashboardCounts> {
+  const [publishers, distributors, advertisers, venues, qrCodes, issues] = await Promise.all([
+    prisma.publisher.count(),
+    prisma.distributor.count(),
+    prisma.advertiser.count(),
+    prisma.venue.count(),
+    prisma.qrCode.count(),
+    prisma.issue.count()
+  ]);
+
+  return { publishers, distributors, advertisers, venues, qrCodes, issues };
+}
+
+function HealthBanner({ healthy }: { healthy: boolean }) { return <p className={`rounded-2xl border-4 border-ink p-5 font-black uppercase shadow-brutal ${healthy ? "bg-green-100" : "bg-stallYellow"}`}>{healthy ? "System Healthy - Database Connected" : "Database connected - required dashboard tables are still being verified"}</p>; }
+function LiveCounts({ counts }: { counts: DashboardCounts }) { return <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">{[["Publishers", counts.publishers], ["Distributors", counts.distributors], ["Advertisers", counts.advertisers], ["Venues", counts.venues], ["QR Codes", counts.qrCodes], ["Issues", counts.issues]].map(([label, value]) => <div key={label} className="rounded-2xl border-4 border-ink bg-stallYellow p-4 shadow-brutal"><p className="font-black uppercase text-stallRed">{label}</p><p className="font-display text-4xl">{value}</p></div>)}</div>; }
 
 function Setup({ message = "Set AUTH_SECRET and DATABASE_URL to protect dashboards with role-based sessions." }: { message?: string }) { return <p className="mt-4 rounded-2xl border-4 border-ink bg-stallYellow p-5 font-black shadow-brutal">{message}</p>; }
 function Badge({ status }: { status: string }) { return <span className={`rounded-full border-2 border-ink px-2 py-1 text-xs font-black uppercase ${statusClass(status)}`}>{status}</span>; }
