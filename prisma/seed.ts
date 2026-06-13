@@ -213,6 +213,8 @@ async function main() {
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });
   await prisma.user.createMany({
     data: [
+  await prisma.user.createMany({
+    data: [
       {
         email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com",
         name: "Potty Favor Admin",
@@ -239,6 +241,8 @@ async function main() {
         role: "DISTRIBUTOR",
         passwordHash: hashPassword(process.env.DISTRIBUTOR_PASSWORD || "distributor-password-change-me")
       }
+    ]
+  });
     ]
   });
 
