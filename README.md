@@ -211,16 +211,19 @@ The seed creates:
 
 1. Push this repository to GitHub.
 2. Import the repository in Vercel.
-3. Create a PostgreSQL database and set `DATABASE_URL` to the Neon/Postgres connection string.
-4. Add `OPENAI_API_KEY` in **Project Settings → Environment Variables**.
-5. Add Stripe variables if billing is enabled.
-6. Keep the Vercel build command configured as:
+3. Create a PostgreSQL database and set `DATABASE_URL` to the Neon/Postgres connection string for **both Production and Preview** in **Project Settings → Environment Variables**.
+4. Set `AUTH_SECRET` for **both Production and Preview** so role sessions can be created.
+5. Add `OPENAI_API_KEY` in **Project Settings → Environment Variables**.
+6. Add Stripe variables if billing is enabled.
+7. Keep the Vercel build command configured as:
 
 ```bash
-npx prisma migrate deploy && npm run build
+npm run vercel-build
 ```
 
-This applies committed Prisma migrations before the production Next.js build so database-backed routes do not fail because tables such as `public.Advertiser` are missing. The advertiser portal is also rendered dynamically and falls back to demo portal data if the expected Prisma tables are unavailable.
+The repository-level Vercel build command runs `prisma migrate deploy` before `prisma generate` and `next build`, so committed Prisma migrations are applied to the target database before production pages and auth flows are built. Do not use `prisma db push` for normal deployments; reserve it for documented emergency-only database repair when migrations cannot be used.
+
+After the first migration deploy, create seed users with `npx prisma db seed` against the production database or use the guarded bootstrap admin flow on `/signin`. The bootstrap flow only creates `admin@pottyfavor.com` when no admin user exists, then the password should be changed immediately.
 
 If static pages are hosted on GitHub Pages but the API is hosted on Vercel, set `admin/config.js` to point to the deployed Vercel function:
 
@@ -372,10 +375,12 @@ npm run smoke:site
 ## Vercel Deployment
 
 1. Connect the repository to Vercel.
-2. Set `DATABASE_URL` and any live API keys in Vercel Project Settings.
-3. Run migrations/seeding as appropriate for the production database.
-4. Deploy the Next.js app. The production build marks Prisma-backed routes dynamic and guards database reads so static generation does not query Prisma for live data.
-5. Visit `/api/system-health` and `/admin/settings` → **Test OpenAI Connection** to confirm database, OpenAI, and publish-engine diagnostics.
+2. Set `DATABASE_URL` and `AUTH_SECRET` for both Production and Preview in Vercel Project Settings, plus any live API keys.
+3. Confirm Vercel's build command is `npm run vercel-build`; `vercel.json` pins that command for this repo.
+4. Deploy the Next.js app. The build runs `prisma migrate deploy` before `prisma generate` and `next build`, while Prisma-backed routes remain dynamic and guard database reads.
+5. Seed production with `npx prisma db seed` when demo users are desired, or let `/signin` create the guarded emergency `admin@pottyfavor.com` bootstrap account if no admin exists.
+6. Do not use `prisma db push` for normal deployments; use it only as an explicitly documented emergency-only database repair step.
+7. Visit `/api/system-health`, `/admin/startup-diagnostics`, and `/admin/settings` → **Test OpenAI Connection** to confirm database, seed/bootstrap admin, OpenAI, and publish-engine diagnostics.
 
 ## GitHub Pages / Static Mode
 
