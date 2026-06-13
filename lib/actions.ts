@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus } from "@prisma/client";
+import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus, MediaAssetType, VenueContentType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { requireAdmin, requireRole } from "./auth";
 import { slugify } from "./format";
@@ -324,7 +324,7 @@ export async function signIn(formData: FormData) {
   if (!user || !verifyPassword(password, user.passwordHash) || user.status !== "ACTIVE") redirect("/signin?error=credentials");
   await createSession(user.id);
   if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") redirect("/admin/dashboard");
-  if (user.role === "VENUE" || user.role === "VENUE_MANAGER") redirect("/portal/venue");
+
   redirect("/portal/advertiser");
 }
 
@@ -445,9 +445,36 @@ async function publishPaidCampaign(campaignId: string) {
   await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ads[0]?.id || null, status: "ACTIVE", publishedAt: new Date() } });
 }
 
+async function requireAssignedVenue(venueId: string) {
+  const user = await requireRole(["VENUE_MANAGER", "VENUE", "SUPER_ADMIN", "ADMIN"]);
+  if ((user.role === "VENUE_MANAGER" || user.role === "VENUE") && user.venueId !== venueId) throw new Error("Venue managers can only manage their assigned venue.");
+  return user;
+}
+
 export async function createVenueContentDraft(formData: FormData) {
-  await requireRole(["VENUE", "ADMIN"]);
-  await prisma.venueContentDraft.create({ data: { venueId: text(formData, "venueId"), title: text(formData, "title"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), approvalStatus: "SUBMITTED", submittedAt: new Date() } });
+  const venueId = text(formData, "venueId");
+  await requireAssignedVenue(venueId);
+  const venue = await prisma.venue.findUniqueOrThrow({ where: { id: venueId }, select: { directPublishingApproved: true } });
+  const directPublish = venue.directPublishingApproved;
+  await prisma.venueContentDraft.create({ data: {
+    venueId,
+    contentType: text(formData, "contentType", "ANNOUNCEMENT") as VenueContentType,
+    title: text(formData, "title"),
+    body: text(formData, "body"),
+    imageUrl: nullableText(formData, "imageUrl"),
+    location: nullableText(formData, "location"),
+    websiteUrl: nullableText(formData, "websiteUrl"),
+    category: nullableText(formData, "category"),
+    startsAt: nullableText(formData, "startsAt") ? new Date(text(formData, "startsAt")) : null,
+    endsAt: nullableText(formData, "endsAt") ? new Date(text(formData, "endsAt")) : null,
+    expiresAt: nullableText(formData, "expiresAt") ? new Date(text(formData, "expiresAt")) : null,
+    couponCode: nullableText(formData, "couponCode"),
+    qrDestination: nullableText(formData, "qrDestination"),
+    approvalStatus: directPublish ? "PUBLISHED" : "SUBMITTED",
+    submittedAt: new Date(),
+    approvedAt: directPublish ? new Date() : null,
+    publishedAt: directPublish ? new Date() : null
+  } });
   revalidatePath("/portal/venue");
   revalidatePath("/admin/dashboard");
 }
@@ -466,33 +493,80 @@ export async function rejectVenueContentDraft(id: string, formData?: FormData) {
   revalidatePath("/portal/venue");
 }
 
+codex/implement-advertiser-portal-feature
 export async function updateAdvertiserCampaign(id: string, formData: FormData) {
   const user = await requireRole(["ADVERTISER", "ADMIN", "SUPER_ADMIN"] as any);
   const existing = await prisma.adCampaign.findUnique({ where: { id } });
-  if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) throw new Error("Campaign not found or not permitted.");
-  const budgetCents = intValue(formData, "budgetDollars", Math.round((existing.budgetCents || existing.totalAmountCents) / 100)) * 100;
-  await prisma.adCampaign.update({ where: { id }, data: campaignEditableData(formData, budgetCents) as any });
-  await prisma.adCreative.create({ data: { campaignId: id, advertiserId: existing.advertiserId, kind: text(formData, "creativeKind", "IMAGE") as any, imageUrl: nullableText(formData, "creativeUrl"), headline: text(formData, "headline", existing.headline), body: text(formData, "body", existing.body), callToAction: text(formData, "ctaText", existing.ctaText), destinationUrl: text(formData, "targetUrl", existing.targetUrl), approvalStatus: "SUBMITTED" as any } });
+
+  if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) {
+    throw new Error("Campaign not found or not permitted.");
+  }
+
+  const budgetCents =
+    intValue(formData, "budgetDollars", Math.round((existing.budgetCents || existing.totalAmountCents) / 100)) * 100;
+
+  await prisma.adCampaign.update({
+    where: { id },
+    data: campaignEditableData(formData, budgetCents) as any
+  });
+
+  await prisma.adCreative.create({
+    data: {
+      campaignId: id,
+      advertiserId: existing.advertiserId,
+      kind: text(formData, "creativeKind", "IMAGE") as any,
+      imageUrl: nullableText(formData, "creativeUrl"),
+      headline: text(formData, "headline", existing.headline),
+      body: text(formData, "body", existing.body),
+      callToAction: text(formData, "ctaText", existing.ctaText),
+      destinationUrl: text(formData, "targetUrl", existing.targetUrl),
+      approvalStatus: "SUBMITTED" as any
+    }
+  });
+
   revalidatePath("/portal/advertiser");
   revalidatePath("/admin/dashboard");
 }
 
-export async function submitAdvertiserCampaign(id: string) { await advertiserCampaignStatus(id, "SUBMITTED", { approvalStatus: "SUBMITTED", submittedAt: new Date() }); }
-export async function pauseAdvertiserCampaign(id: string) { await advertiserCampaignStatus(id, "PAUSED", {}); }
-export async function resumeAdvertiserCampaign(id: string) { await advertiserCampaignStatus(id, "ACTIVE", {}); }
-export async function archiveAdvertiserCampaign(id: string) { await advertiserCampaignStatus(id, "ARCHIVED", {}); }
+export async function submitAdvertiserCampaign(id: string) {
+  await advertiserCampaignStatus(id, "SUBMITTED", {
+    approvalStatus: "SUBMITTED",
+    submittedAt: new Date()
+  });
+}
+
+export async function pauseAdvertiserCampaign(id: string) {
+  await advertiserCampaignStatus(id, "PAUSED", {});
+}
+
+export async function resumeAdvertiserCampaign(id: string) {
+  await advertiserCampaignStatus(id, "ACTIVE", {});
+}
+
+export async function archiveAdvertiserCampaign(id: string) {
+  await advertiserCampaignStatus(id, "ARCHIVED", {});
+}
 
 async function advertiserCampaignStatus(id: string, status: any, extra: any) {
   const user = await requireRole(["ADVERTISER", "ADMIN", "SUPER_ADMIN"] as any);
   const existing = await prisma.adCampaign.findUnique({ where: { id } });
-  if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) throw new Error("Campaign not found or not permitted.");
-  await prisma.adCampaign.update({ where: { id }, data: { status, ...extra } });
+
+  if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) {
+    throw new Error("Campaign not found or not permitted.");
+  }
+
+  await prisma.adCampaign.update({
+    where: { id },
+    data: { status, ...extra }
+  });
+
   revalidatePath("/portal/advertiser");
   revalidatePath("/admin/dashboard");
 }
 
 function campaignEditableData(formData: FormData, budgetCents: number) {
   const targetType = text(formData, "targetType", "GLOBAL_NETWORK");
+
   return {
     name: text(formData, "name", "Draft campaign"),
     businessName: text(formData, "businessName"),
@@ -510,4 +584,38 @@ function campaignEditableData(formData: FormData, budgetCents: number) {
     targetVenueIds: formData.getAll("targetVenueIds").map(String).filter(Boolean),
     targetVenueTypes: formData.getAll("targetVenueTypes").map(String).filter(Boolean)
   };
+}
+
+export async function publishVenueContentDraft(id: string) {
+  await requireAdmin();
+
+  await prisma.venueContentDraft.update({
+    where: { id },
+    data: {
+      approvalStatus: "PUBLISHED",
+      publishedAt: new Date()
+    }
+  });
+
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/portal/venue");
+}
+
+export async function createVenueMediaAsset(formData: FormData) {
+  const venueId = text(formData, "venueId");
+
+  await requireAssignedVenue(venueId);
+
+  await prisma.venueMediaAsset.create({
+    data: {
+      venueId,
+      assetType: text(formData, "assetType", "IMAGE") as any,
+      title: text(formData, "title"),
+      url: text(formData, "url"),
+      altText: nullableText(formData, "altText"),
+      galleryName: nullableText(formData, "galleryName")
+    }
+  });
+
+  revalidatePath("/portal/venue");
 }

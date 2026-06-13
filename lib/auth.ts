@@ -71,5 +71,14 @@ export async function requireRole(roles: Role[]) {
 }
 
 export async function requireAdmin() {
+export async function requireAdmin() {
   return requireRole(["SUPER_ADMIN", "ADMIN"] as Role[]);
+}
+
+export async function requireVenueManager() {
+  return requireRole(["VENUE_MANAGER", "VENUE", "SUPER_ADMIN", "ADMIN"] as Role[]);
+}
+
+export function isVenueManagerRole(role: Role) {
+  return role === "VENUE_MANAGER" || role === "VENUE";
 }

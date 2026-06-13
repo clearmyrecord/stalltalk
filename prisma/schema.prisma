@@ -82,6 +82,7 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  PUBLISHED
 }
 
 enum AccountStatus {
@@ -95,6 +96,30 @@ enum IssueStatus {
   SCHEDULED
   PUBLISHED
   ARCHIVED
+}
+
+enum VenueContentType {
+  ANNOUNCEMENT
+  PROMOTION
+  EVENT
+  RESTAURANT_REVIEW
+  PHOTO
+  COUPON
+  FEATURED_CONTENT
+}
+
+enum VenuePromotionCategory {
+  HAPPY_HOUR
+  RESTAURANT
+  RETAIL
+  HOTEL_PACKAGE
+  ENTERTAINMENT
+}
+
+enum MediaAssetType {
+  IMAGE
+  LOGO
+  GALLERY
 }
 
 enum ContentBlockType {
@@ -129,6 +154,9 @@ enum AnalyticsEventType {
   AD_IMPRESSION
   AD_CLICK
   COUPON_REDEMPTION
+  COUPON_CLICK
+  ISSUE_VIEW
+  WEBSITE_VISIT
   REVIEW_VIEW
   REVIEW_WEBSITE_CLICK
   REVIEW_SOCIAL_CLICK
@@ -250,6 +278,7 @@ model Venue {
   address            String
   venueType          String              @default("venue") @map("venue_type")
   isActive           Boolean             @default(true) @map("is_active")
+  directPublishingApproved Boolean        @default(false)
   status             AccountStatus       @default(ACTIVE)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -264,6 +293,7 @@ model Venue {
   toiletLocations    ToiletLocation[]
   adSlotInventories  AdSlotInventory[]
   venueContentDrafts VenueContentDraft[]
+  mediaAssets        VenueMediaAsset[]
   restaurantReviews  RestaurantReview[]
 }
 
@@ -741,22 +771,48 @@ model Payment {
 model VenueContentDraft {
   id              String         @id @default(cuid())
   venueId         String
+  contentType     VenueContentType @default(ANNOUNCEMENT)
   title           String
   body            String
   imageUrl        String?
+  location        String?
+  websiteUrl      String?
+  category        String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  expiresAt       DateTime?
+  couponCode      String?
+  qrDestination   String?
   approvalStatus  ApprovalStatus @default(DRAFT)
   adminNote       String?
   rejectionReason String?
   submittedAt     DateTime?
   approvedAt      DateTime?
   rejectedAt      DateTime?
+  publishedAt     DateTime?
   approvedBy      String?
   rejectedBy      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   venue           Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
-  @@index([venueId, approvalStatus])
+  @@index([venueId, contentType, approvalStatus])
+  @@index([venueId, startsAt, endsAt])
+}
+
+model VenueMediaAsset {
+  id          String         @id @default(cuid())
+  venueId     String
+  assetType   MediaAssetType @default(IMAGE)
+  title       String
+  url         String
+  altText     String?
+  galleryName String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  venue       Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, assetType])
 }
 
 model CouponCampaign {
