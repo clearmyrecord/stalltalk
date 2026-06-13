@@ -46,7 +46,6 @@ async function main() {
   await prisma.analyticsEvent.deleteMany();
   await prisma.stalltalkCampaignHistory.deleteMany();
   await prisma.stalltalkAdSlot.deleteMany();
-  await prisma.issueHistory.deleteMany();
   await prisma.issueAdSlot.deleteMany();
   await prisma.issueContentBlock.deleteMany();
   await prisma.issue.deleteMany();
@@ -171,9 +170,8 @@ async function main() {
     { issueId: issue.id, type: ContentBlockType.COUPON, title: "Local Bar Demo Edition", body: "Bar scanners see happy-hour timing and late-night ride-share reminders.", venueIds: [barVenue.id], sortOrder: 13, layout: { venueSpecific: true } }
   ] });
   await prisma.issueAdSlot.createMany({ data: ads.map((ad, index) => ({ issueId: issue.id, adId: ad.id, slotNumber: index + 1, source: ad.scope })) });
-  await prisma.issueHistory.create({ data: { issueId: issue.id, action: "seeded", toStatus: issue.status, note: "July 2026 scheduled demo issue" } });
-  const juneIssue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: null, title: "Potty Favor", month: "June", year: 2026, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2026-06-01T12:00:00.000Z"), contentBlocks: { create: blocks.map(([type, title, body], index) => ({ articleId: articles[index].id, type, title: `${title} (June)`, body, sortOrder: index + 1, layout: { global: true } })) }, adSlots: { create: ads.slice(0, 4).map((ad, index) => ({ adId: ad.id, slotNumber: index + 1, source: ad.scope })) }, history: { create: { action: "seeded", toStatus: "PUBLISHED", note: "June 2026 global issue" } } } });
-  const mgmIssue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "MGM Demo Edition", month: "June", year: 2026, issueNumber: 8101, status: "PUBLISHED", publishedAt: new Date("2026-06-01T13:00:00.000Z"), contentBlocks: { create: blocks.slice(0, 6).map(([type, title, body], index) => ({ articleId: articles[index].id, type, title: `${title} — MGM`, body, venueIds: [venue.id], sortOrder: index + 1, layout: { venueSpecific: true } })) }, adSlots: { create: ads.map((ad, index) => ({ adId: ad.id, slotNumber: index + 1, source: ad.scope })) }, history: { create: { action: "seeded", toStatus: "PUBLISHED", note: "MGM venue-specific demo issue" } } } });
+  const juneIssue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: null, title: "Potty Favor", month: "June", year: 2026, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2026-06-01T12:00:00.000Z"), contentBlocks: { create: blocks.map(([type, title, body], index) => ({ articleId: articles[index].id, type, title: `${title} (June)`, body, sortOrder: index + 1, layout: { global: true } })) }, adSlots: { create: ads.slice(0, 4).map((ad, index) => ({ adId: ad.id, slotNumber: index + 1, source: ad.scope })) } } });
+  const mgmIssue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "MGM Demo Edition", month: "June", year: 2026, issueNumber: 8101, status: "PUBLISHED", publishedAt: new Date("2026-06-01T13:00:00.000Z"), contentBlocks: { create: blocks.slice(0, 6).map(([type, title, body], index) => ({ articleId: articles[index].id, type, title: `${title} — MGM`, body, venueIds: [venue.id], sortOrder: index + 1, layout: { venueSpecific: true } })) }, adSlots: { create: ads.map((ad, index) => ({ adId: ad.id, slotNumber: index + 1, source: ad.scope })) } } });
   await prisma.stalltalkAdSlot.createMany({
     data: ads.map((ad, index) => ({
       slotNumber: index + 1,
@@ -217,8 +215,6 @@ async function main() {
   await prisma.commissionReport.create({ data: { distributorId: distributor.id, month: "July", year: 2024, grossRevenueCents: 329200, commissionCents: 65840, status: "OPEN" } });
   await prisma.user.createMany({
     data: [
-  await prisma.user.createMany({
-    data: [
       {
         email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com",
         name: "Potty Favor Admin",
@@ -245,8 +241,6 @@ async function main() {
         role: "DISTRIBUTOR",
         passwordHash: hashPassword(process.env.DISTRIBUTOR_PASSWORD || "distributor-password-change-me")
       }
-    ]
-  });
     ]
   });
 
