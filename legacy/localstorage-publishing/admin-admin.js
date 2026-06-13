@@ -653,7 +653,7 @@ async function collectCreativeBrief() {
     optionalDisclaimer: String(data.get("optionalDisclaimer") || ""),
     logoBase64,
     slot: Number(data.get("slot") || 1),
-    adSize: String(data.get("adSize") || "Inline banner"),
+    adSize: "Sponsor card",
   };
 }
 
@@ -707,12 +707,8 @@ function creativeVenueAtmosphere(brief) {
   return [brief.venueTargeting, brief.cityTargeting, brief.stateTargeting].map((item) => String(item || "").trim()).filter(Boolean).join(", ") || "the selected venue and city atmosphere";
 }
 
-function adFormatForSize(adSize) {
-  const normalized = String(adSize || "Inline banner").trim().toLowerCase();
-  if (normalized.includes("mobile")) return { label: "Mobile card", layout: "vertical mobile card ad, phone-first portrait layout", previewWidth: 720, previewHeight: 960 };
-  if (normalized.includes("tall")) return { label: "Tall", layout: "vertical tall ad, portrait layout", previewWidth: 640, previewHeight: 960 };
-  if (normalized.includes("square")) return { label: "Square", layout: "square ad layout", previewWidth: 768, previewHeight: 768 };
-  return { label: normalized.includes("banner") && !normalized.includes("inline") ? "Banner" : "Inline banner", layout: "horizontal mobile inline banner ad, wide layout, readable on phone, no square poster composition", previewWidth: 768, previewHeight: 384 };
+function adFormatForSize(_adSize) {
+  return { label: "Sponsor card", layout: "mobile-first 2:3 portrait sponsor card, full-bleed, no mixed ad sizes", previewWidth: 1024, previewHeight: 1536 };
 }
 
 function buildEnhancedCreativePrompt(brief) {
@@ -773,7 +769,7 @@ function showCreativeResult(payload, brief) {
   const slotSelect = document.querySelector('#creative-publish-form [name="slot"]');
   if (slotSelect) slotSelect.value = String(brief.slot || 1);
   publish.hidden = false;
-  setCreativeStatus("Generated image ready. Review it, then publish to a slot.");
+  setCreativeStatus(`Generated image ready. Publishing immediately to slot ${brief.slot || 1}…`);
 }
 
 const PUBLISHED_AD_IMAGE_MAX_BYTES = 450 * 1024;
@@ -808,9 +804,9 @@ async function optimizeGeneratedImageForStorage(imageUrl, adSize) {
   const format = adFormatForSize(adSize);
   const sourceWidth = image.naturalWidth || image.width || format.previewWidth;
   const sourceHeight = image.naturalHeight || image.height || format.previewHeight;
-  const scale = Math.min(1, format.previewWidth / sourceWidth, format.previewHeight / sourceHeight);
-  let width = Math.max(320, Math.round(sourceWidth * scale));
-  let height = Math.max(180, Math.round(sourceHeight * scale));
+  const scale = Math.max(format.previewWidth / sourceWidth, format.previewHeight / sourceHeight);
+  let width = Math.max(format.previewWidth, Math.round(sourceWidth * scale));
+  let height = Math.max(format.previewHeight, Math.round(sourceHeight * scale));
   const attempts = [
     { mimeType: "image/webp", quality: 0.72 },
     { mimeType: "image/webp", quality: 0.62 },
@@ -838,12 +834,24 @@ async function optimizeGeneratedImageForStorage(imageUrl, adSize) {
       }
     }
 
-    width = Math.max(320, Math.round(width * 0.78));
-    height = Math.max(180, Math.round(height * 0.78));
+    width = Math.max(format.previewWidth, Math.round(width * 0.78));
+    height = Math.max(format.previewHeight, Math.round(height * 0.78));
   }
 
   if (!best) throw new Error("Could not optimize the generated image for local storage.");
   return { image: best, imageBytes: dataUrlByteLength(best), imageWidth: width, imageHeight: height, imageMimeType: best.slice(5, best.indexOf(";")) || "image/jpeg" };
+}
+
+async function publishGeneratedCreativeToSelectedSlot() {
+  const ad = await generatedAdFromPublishForm();
+  activeSlot = ad.slot;
+  const ads = state().ads.filter((item) => !(Number(item.slot) === Number(ad.slot) && String(item.targetingType || "global") === String(ad.targetingType || "global") && String(item.market || "") === String(ad.market || "")));
+  ads.push(ad);
+  saveAdsEverywhere(ads);
+  renderAds();
+  refreshExportBox();
+  setCreativeStatus(`Published generated ad to slot ${ad.slot}. Optimized image: ${Math.round((ad.imageBytes || 0) / 1024)} KB. It will be included the next time you click Publish Live.`);
+  return ad;
 }
 
 function isStorageQuotaError(error) {
@@ -894,7 +902,7 @@ async function generatedAdFromPublishForm() {
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
   const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, brief.adSize || "Inline banner");
+  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, "Sponsor card");
 
   return {
     slot,
@@ -918,7 +926,7 @@ async function generatedAdFromPublishForm() {
     businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
     market: "",
     adMode: "image",
-    adSize: brief.adSize || "Inline banner",
+    adSize: "Sponsor card",
     imageStorage: optimized.image.startsWith("data:") ? "single-data-url" : "url",
   };
 }
@@ -1113,6 +1121,7 @@ function bindActions() {
       setCreativeStatus(`Generating finished ad image via ${creativeEndpoint()}…`);
       const payload = await generateCreativeAd(brief);
       showCreativeResult(payload, brief);
+      if (generatedCreative?.imageUrl) await publishGeneratedCreativeToSelectedSlot();
     } catch (error) {
       generatedCreative = null;
       document.querySelector("#creative-output").hidden = false;
@@ -1129,14 +1138,8 @@ function bindActions() {
     event.preventDefault();
     try {
       setCreativeStatus("Optimizing generated image before saving locally…");
-      const ad = await generatedAdFromPublishForm();
-      activeSlot = ad.slot;
-      const ads = state().ads.filter((item) => !(Number(item.slot) === Number(ad.slot) && String(item.targetingType || "global") === String(ad.targetingType || "global") && String(item.market || "") === String(ad.market || "")));
-      ads.push(ad);
-      saveAdsEverywhere(ads);
-      renderAds();
-      refreshExportBox();
-      setCreativeStatus(`Published generated ad to slot ${ad.slot}. Optimized image: ${Math.round((ad.imageBytes || 0) / 1024)} KB. It will be included the next time you click Publish Live.`);    } catch (error) {
+      await publishGeneratedCreativeToSelectedSlot();
+    } catch (error) {
       const message = isStorageQuotaError(error)
         ? "Local storage is still full after optimization. Export/publish this ad using the JSON tools, remove older saved images, or reduce image size before trying again. Your generated preview is still available above."
         : error.message;
