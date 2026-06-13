@@ -436,6 +436,34 @@ body:has(.public-page) { background: #000; }
 }
 .panel { height: auto; background: rgba(255,255,255,.92); }
 .mission-card { min-height: 190px; }
+
+/* Keep the mission panel readable after the single-column issue overrides.
+   The broad .panel background above is useful for article cards, but it must
+   never wash out the white mission copy on mobile/Vercel. */
+.publication-content-block.mission-card,
+.mission-card.panel {
+  background-color: #080526;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, 0) 34%),
+    linear-gradient(135deg, #080b4f 0%, #160850 55%, #080526 100%);
+  color: #ffffff;
+  border: 4px double #f3d680;
+  border-radius: 28px;
+  padding: clamp(24px, 6vw, 42px) clamp(18px, 5vw, 32px);
+  box-shadow: 0 14px 32px rgba(8, 5, 38, .38);
+}
+
+.publication-content-block.mission-card .mission-kicker,
+.mission-card.panel .mission-kicker,
+.publication-content-block.mission-card h2,
+.mission-card.panel h2 {
+  color: #f3d680;
+}
+
+.publication-content-block.mission-card p:last-child,
+.mission-card.panel p:last-child {
+  color: #ffffff;
+}
 .article-copy { column-count: 1; }
 .feature-card h2,
 .secondary-card h2 { text-align: center; }
@@ -470,4 +498,14 @@ body:has(.public-page) { background: #000; }
   .issue-line { display: inline; }
   .ad-card { grid-template-columns: 1fr; grid-template-areas: "label" "image" "sponsor" "headline" "copy" "actions"; min-height: 0; }
   .ad-mark { min-height: 150px; }
+  .publication-content-block.mission-card,
+  .mission-card.panel {
+    width: 100%;
+    min-height: 220px;
+    margin: 0 auto;
+    padding: 26px 18px;
+    background-color: #080526;
+    background-image: linear-gradient(135deg, #080b4f 0%, #160850 58%, #080526 100%);
+    color: #ffffff;
+  }
 }
