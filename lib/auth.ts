@@ -71,5 +71,5 @@ export async function requireRole(roles: Role[]) {
 }
 
 export async function requireAdmin() {
-  return requireRole(["ADMIN"]);
+  return requireRole(["SUPER_ADMIN", "ADMIN"] as Role[]);
 }
