@@ -52,11 +52,13 @@ export async function createRestroom(formData: FormData) {
 
 export async function createQrCode(formData: FormData) {
   await requireAdmin();
-  const code = text(formData, "code", `ST-${Date.now()}`);
+  const qrSlug = slugify(text(formData, "qrSlug", `qr-${Date.now()}`));
   const venueId = nullableText(formData, "venueId");
   const restroomId = nullableText(formData, "restroomId");
   const venue = venueId ? await prisma.venue.findUnique({ where: { id: venueId } }) : null;
-  await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, code, label: text(formData, "label", code), destination: venue ? `/issue?venue=${venue.slug}&qr=${code}` : `/issue?qr=${code}`, status: venueId ? "ASSIGNED" : "INVENTORY" } });
+  const qrUrl = venue ? `/api/qr/${qrSlug}/scan?venue=${venue.slug}` : `/api/qr/${qrSlug}/scan`;
+  const qrCode = await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, assignedDistributorId: nullableText(formData, "assignedDistributorId"), qrSlug, qrName: text(formData, "qrName", qrSlug), qrUrl, shortUrl: `/q/${qrSlug}`, qrType: text(formData, "qrType", restroomId ? "RESTROOM" : venueId ? "VENUE" : "TEST") as any, stickerTemplate: text(formData, "stickerTemplate", "STALL_DOOR") as any, callToAction: text(formData, "callToAction", "Scan for Potty Favor"), campaignSource: nullableText(formData, "campaignSource"), advertisementSource: nullableText(formData, "advertisementSource"), promotionSource: nullableText(formData, "promotionSource"), couponSource: nullableText(formData, "couponSource"), status: venueId ? "ACTIVE" : "DRAFT" } });
+  await prisma.qrLifecycleEvent.create({ data: { qrCodeId: qrCode.id, action: "CREATE", note: "QR created from admin registry" } });
   revalidatePath("/admin/qr");
 }
 

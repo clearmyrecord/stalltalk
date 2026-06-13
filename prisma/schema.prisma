@@ -98,9 +98,33 @@ enum AnalyticsEventType {
 }
 
 enum QrCodeStatus {
-  INVENTORY
-  ASSIGNED
+  DRAFT
+  PRINTED
+  DEPLOYED
+  ACTIVE
   RETIRED
+}
+
+enum QrCodeType {
+  VENUE
+  RESTROOM
+  CAMPAIGN
+  TEST
+}
+
+enum QrStickerTemplate {
+  STALL_DOOR
+  URINAL_WALL
+  TABLE_TENT
+  WINDOW_STICKER
+}
+
+enum QrLifecycleAction {
+  CREATE
+  PRINT
+  DEPLOY
+  REPLACE
+  RETIRE
 }
 
 enum StripeSubscriptionStatus {
@@ -139,24 +163,25 @@ model AuthSession {
 }
 
 model Publisher {
-  id              String                     @id @default(cuid())
-  name            String
-  slug            String                     @unique
-  contactEmail    String
-  status          AccountStatus              @default(ACTIVE)
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  distributors    Distributor[]
-  advertisers     Advertiser[]
-  venues          Venue[]
-  articles        Article[]
-  categories      Category[]
-  ads             Ad[]
-  campaignHistory StalltalkCampaignHistory[]
-  adSlots         StalltalkAdSlot[]
-  issues          Issue[]
-  qrCodes         QrCode[]
-  events          AnalyticsEvent[]
+  id                String                     @id @default(cuid())
+  name              String
+  slug              String                     @unique
+  contactEmail      String
+  status            AccountStatus              @default(ACTIVE)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  distributors      Distributor[]
+  advertisers       Advertiser[]
+  venues            Venue[]
+  articles          Article[]
+  categories        Category[]
+  ads               Ad[]
+  campaignHistory   StalltalkCampaignHistory[]
+  adSlots           StalltalkAdSlot[]
+  issues            Issue[]
+  qrCodes           QrCode[]
+  qrScans           QrScan[]
+  events            AnalyticsEvent[]
   restaurantReviews RestaurantReview[]
 }
 
@@ -173,6 +198,7 @@ model Distributor {
   publisher         Publisher          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
   venues            Venue[]
   commissionReports CommissionReport[]
+  assignedQrCodes   QrCode[]
 
   @@unique([publisherId, slug])
 }
@@ -219,6 +245,7 @@ model Venue {
   restrooms          Restroom[]
   issues             Issue[]
   qrCodes            QrCode[]
+  qrScans            QrScan[]
   ads                Ad[]
   events             AnalyticsEvent[]
   users              User[]
@@ -239,6 +266,7 @@ model Restroom {
   updatedAt         DateTime          @updatedAt
   venue             Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
   qrCodes           QrCode[]
+  qrScans           QrScan[]
   issues            Issue[]
   ads               Ad[]
   events            AnalyticsEvent[]
@@ -247,23 +275,43 @@ model Restroom {
 }
 
 model QrCode {
-  id                String            @id @default(cuid())
-  publisherId       String
-  venueId           String?
-  restroomId        String?
-  code              String            @unique
-  label             String
-  destination       String
-  status            QrCodeStatus      @default(INVENTORY)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  publisher         Publisher         @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  venue             Venue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  restroom          Restroom?         @relation(fields: [restroomId], references: [id], onDelete: SetNull)
-  issues            Issue[]
-  events            AnalyticsEvent[]
-  toiletLocations   ToiletLocation[]
-  adSlotInventories AdSlotInventory[]
+  id                    String             @id @default(cuid())
+  uuid                  String             @unique @default(uuid())
+  publisherId           String
+  venueId               String?
+  restroomId            String?
+  assignedDistributorId String?
+  qrName                String             @map("qr_name")
+  qrSlug                String             @unique @map("qr_slug")
+  qrUrl                 String             @map("qr_url")
+  qrType                QrCodeType         @default(RESTROOM) @map("qr_type")
+  stickerTemplate       QrStickerTemplate  @default(STALL_DOOR) @map("sticker_template")
+  shortUrl              String?            @map("short_url")
+  callToAction          String             @default("Scan for Stall Talk") @map("call_to_action")
+  status                QrCodeStatus       @default(DRAFT)
+  installedAt           DateTime?          @map("installed_at")
+  lastScanAt            DateTime?          @map("last_scan_at")
+  installationPhotoUrl  String?            @map("installation_photo_url")
+  campaignSource        String?            @map("campaign_source")
+  advertisementSource   String?            @map("advertisement_source")
+  promotionSource       String?            @map("promotion_source")
+  couponSource          String?            @map("coupon_source")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  publisher             Publisher          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue                 Venue?             @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom              Restroom?          @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  assignedDistributor   Distributor?       @relation(fields: [assignedDistributorId], references: [id], onDelete: SetNull)
+  issues                Issue[]
+  scans                 QrScan[]
+  lifecycleEvents       QrLifecycleEvent[]
+  events                AnalyticsEvent[]
+  toiletLocations       ToiletLocation[]
+  adSlotInventories     AdSlotInventory[]
+
+  @@index([venueId, restroomId, status])
+  @@index([qrType, status])
+  @@map("qr_codes")
 }
 
 model Category {
@@ -301,30 +349,30 @@ model Article {
 }
 
 model RestaurantReview {
-  id               String              @id @default(cuid())
+  id               String      @id @default(cuid())
   publisherId      String
   title            String
-  restaurantName   String              @map("restaurant_name")
-  venueId          String?             @map("venue_id")
-  venueIds         String[]            @default([]) @map("venue_ids")
-  featuredImageUrl String?             @map("featured_image_url")
-  starRating       Decimal             @default(5.0) @map("star_rating")
-  cuisineType      String?             @map("cuisine_type")
+  restaurantName   String      @map("restaurant_name")
+  venueId          String?     @map("venue_id")
+  venueIds         String[]    @default([]) @map("venue_ids")
+  featuredImageUrl String?     @map("featured_image_url")
+  starRating       Decimal     @default(5.0) @map("star_rating")
+  cuisineType      String?     @map("cuisine_type")
   address          String?
   city             String?
   state            String?
-  websiteUrl       String?             @map("website_url")
-  instagramUrl     String?             @map("instagram_url")
-  facebookUrl      String?             @map("facebook_url")
-  reviewHeadline   String              @map("review_headline")
-  reviewBody       String              @map("review_body")
-  reviewerName     String              @map("reviewer_name")
-  publishDate      DateTime?           @map("publish_date")
-  status           IssueStatus         @default(DRAFT)
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
-  publisher        Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  venue            Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  websiteUrl       String?     @map("website_url")
+  instagramUrl     String?     @map("instagram_url")
+  facebookUrl      String?     @map("facebook_url")
+  reviewHeadline   String      @map("review_headline")
+  reviewBody       String      @map("review_body")
+  reviewerName     String      @map("reviewer_name")
+  publishDate      DateTime?   @map("publish_date")
+  status           IssueStatus @default(DRAFT)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  publisher        Publisher   @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  venue            Venue?      @relation(fields: [venueId], references: [id], onDelete: SetNull)
 
   @@index([publisherId, status, publishDate])
   @@index([venueId])
@@ -354,6 +402,7 @@ model Issue {
   contentBlocks IssueContentBlock[]
   adSlots       IssueAdSlot[]
   events        AnalyticsEvent[]
+  qrScans       QrScan[]
 }
 
 model IssueContentBlock {
@@ -503,6 +552,52 @@ model AnalyticsEvent {
   qrCode       QrCode?            @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
   issue        Issue?             @relation(fields: [issueId], references: [id], onDelete: SetNull)
   ad           Ad?                @relation(fields: [adId], references: [id], onDelete: SetNull)
+}
+
+model QrScan {
+  id                  String     @id @default(cuid())
+  qrCodeId            String     @map("qr_code_id")
+  publisherId         String?    @map("publisher_id")
+  venueId             String?    @map("venue_id")
+  restroomId          String?    @map("restroom_id")
+  issueId             String?    @map("issue_id")
+  visitorId           String?    @map("visitor_id")
+  sessionId           String?    @map("session_id")
+  deviceType          String?    @map("device_type")
+  browser             String?
+  operatingSystem     String?    @map("operating_system")
+  city                String?
+  state               String?
+  country             String?
+  referralSource      String?    @map("referral_source")
+  campaignSource      String?    @map("campaign_source")
+  advertisementSource String?    @map("advertisement_source")
+  promotionSource     String?    @map("promotion_source")
+  couponSource        String?    @map("coupon_source")
+  dwellTimeMs         Int?       @map("dwell_time_ms")
+  metadata            Json?
+  scannedAt           DateTime   @default(now()) @map("scanned_at")
+  qrCode              QrCode     @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  publisher           Publisher? @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  venue               Venue?     @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom            Restroom?  @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  issue               Issue?     @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@index([qrCodeId, scannedAt])
+  @@index([venueId, scannedAt])
+  @@map("qr_scans")
+}
+
+model QrLifecycleEvent {
+  id        String            @id @default(cuid())
+  qrCodeId  String            @map("qr_code_id")
+  action    QrLifecycleAction
+  note      String?
+  createdAt DateTime          @default(now()) @map("created_at")
+  qrCode    QrCode            @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+
+  @@index([qrCodeId, createdAt])
+  @@map("qr_lifecycle_events")
 }
 
 model StripeSubscription {

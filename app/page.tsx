@@ -18,7 +18,7 @@ async function loadHomepageData() {
 
 export default async function Home() {
   const { venue, slots, diagnostic } = await loadHomepageData();
-  const qr = venue?.qrCodes[0]?.code;
+  const qr = venue?.qrCodes[0]?.qrSlug;
   return (
     <main className="min-h-screen bg-ink text-white">
       <section className="relative overflow-hidden px-5 py-8 md:px-12 md:py-16">

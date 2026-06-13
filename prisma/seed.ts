@@ -70,7 +70,20 @@ async function main() {
   ].map((item) => prisma.venue.create({ data: { publisherId: publisher.id, distributorId: distributor.id, ...item } })));
   const [venue, newYorkVenue, bellagioVenue, restaurantVenue, barVenue] = demoVenues;
   const restroom = await prisma.restroom.create({ data: { venueId: venue.id, name: "Casino Floor Men’s Restroom", floor: "Casino", placement: "Sink wall QR sticker" } });
-  const qrCode = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, code: "ST-MGM-CASINO-M-001", label: "MGM Casino Men’s #001", destination: "/issue?venue=mgm-grand&qr=ST-MGM-CASINO-M-001", status: "ASSIGNED" } });
+  const qrCode = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, assignedDistributorId: distributor.id, qrSlug: "st-mgm-casino-m-001", qrName: "MGM Casino Men’s #001", qrUrl: "/api/qr/st-mgm-casino-m-001/scan?venue=mgm-grand", shortUrl: "/q/st-mgm-casino-m-001", qrType: "RESTROOM", stickerTemplate: "STALL_DOOR", callToAction: "Scan for Potty Favor", campaignSource: "mgm-launch", advertisementSource: "stall-sticker", promotionSource: "vegas-strip", couponSource: "STALLWINGS", status: "ACTIVE", installedAt: new Date("2026-06-01T10:00:00.000Z") } });
+
+  const seededQrTargets = [
+    [newYorkVenue, "new-york-new-york", "NYNY Main Restroom #001", "st-nyny-main-001", "URINAL_WALL"],
+    [bellagioVenue, "bellagio", "Bellagio Conservatory Restroom #001", "st-bellagio-conservatory-001", "STALL_DOOR"],
+    [restaurantVenue, "local-restaurant-demo", "Restaurant Demo Table Tent #001", "st-restaurant-demo-001", "TABLE_TENT"],
+    [barVenue, "local-bar-demo", "Bar Demo Window Sticker #001", "st-bar-demo-001", "WINDOW_STICKER"]
+  ] as const;
+  for (const [seedVenue, venueSlug, qrName, qrSlug, template] of seededQrTargets) {
+    const seedRestroom = await prisma.restroom.create({ data: { venueId: seedVenue.id, name: `${qrName.split(" #")[0]} Restroom`, floor: "Main", placement: template === "TABLE_TENT" ? "Table tent" : "Sticker" } });
+    const seedQr = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: seedVenue.id, restroomId: seedRestroom.id, assignedDistributorId: distributor.id, qrSlug, qrName, qrUrl: `/api/qr/${qrSlug}/scan?venue=${venueSlug}`, shortUrl: `/q/${qrSlug}`, qrType: template === "TABLE_TENT" ? "CAMPAIGN" : "RESTROOM", stickerTemplate: template as any, callToAction: "Scan for Potty Favor", campaignSource: `${venueSlug}-launch`, advertisementSource: "qr-sticker", promotionSource: "demo-network", couponSource: "POTTYPOP", status: "ACTIVE", installedAt: new Date("2026-06-02T10:00:00.000Z") } });
+    await prisma.qrScan.createMany({ data: Array.from({ length: 8 }, (_, index) => ({ qrCodeId: seedQr.id, publisherId: publisher.id, venueId: seedVenue.id, restroomId: seedRestroom.id, visitorId: `seed-${qrSlug}-${index % 5}`, sessionId: `session-${qrSlug}-${index}`, deviceType: index % 3 === 0 ? "tablet" : "mobile", browser: index % 2 ? "Safari" : "Chrome", operatingSystem: index % 2 ? "iOS" : "Android", city: "Las Vegas", state: "NV", country: "US", referralSource: "direct", campaignSource: `${venueSlug}-launch`, advertisementSource: "qr-sticker", promotionSource: "demo-network", couponSource: "POTTYPOP", dwellTimeMs: 45000 + index * 3000, scannedAt: new Date(Date.now() - index * 86400000) })) });
+  }
+
   const toiletLocation = await prisma.toiletLocation.create({ data: { venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, name: "Casino Floor Men’s QR", label: "MGM Casino QR #001", placement: "Sink wall QR sticker" } });
   await prisma.adSlotInventory.createMany({ data: Array.from({ length: 4 }, (_, index) => ({ venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, toiletLocationId: toiletLocation.id, slotNumber: index + 1, month: "2026-07", priceCents: 5000, status: "OPEN" })) });
 
@@ -189,9 +202,13 @@ async function main() {
   ] });
 
   await prisma.couponCampaign.create({ data: { advertiserId: advertiserRecords[5].id, name: "Graeter’s July Scoops", couponCode: "POTTYPOP", budgetCents: 25000, redemptionLimit: 500, startsAt: new Date("2024-07-01T00:00:00.000Z"), endsAt: new Date("2024-07-31T23:59:59.000Z") } });
+  await prisma.qrScan.createMany({ data: [
+    { qrCodeId: qrCode.id, publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, visitorId: "visitor-a", sessionId: "session-a", deviceType: "mobile", browser: "Safari", operatingSystem: "iOS", city: "Las Vegas", state: "NV", country: "US", referralSource: "direct", campaignSource: "mgm-launch", advertisementSource: "stall-sticker", promotionSource: "vegas-strip", couponSource: "STALLWINGS", dwellTimeMs: 94000 },
+    { qrCodeId: qrCode.id, publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, visitorId: "visitor-b", sessionId: "session-b", deviceType: "desktop", browser: "Chrome", operatingSystem: "Windows", city: "Las Vegas", state: "NV", country: "US", referralSource: "newsletter", campaignSource: "mgm-launch", advertisementSource: "stall-sticker", promotionSource: "vegas-strip", couponSource: "POTTYPOP", dwellTimeMs: 62000 }
+  ] });
   await prisma.analyticsEvent.createMany({ data: [
-    { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "SCAN", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.destination },
-    { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "PAGE_VIEW", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.destination },
+    { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "SCAN", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.qrUrl },
+    { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "PAGE_VIEW", visitorId: "visitor-a", sessionId: "session-a", path: qrCode.qrUrl },
     { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, adId: ads[0].id, advertiserId: advertiserRecords[0].id, type: "AD_CLICK", slotNumber: 1, visitorId: "visitor-a", sessionId: "session-a" },
     { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, adId: ads[5].id, advertiserId: advertiserRecords[5].id, type: "COUPON_REDEMPTION", slotNumber: 6, visitorId: "visitor-b", sessionId: "session-b" },
     { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, issueId: issue.id, type: "TIME_ON_PAGE", durationMs: 94000, visitorId: "visitor-a", sessionId: "session-a" }
