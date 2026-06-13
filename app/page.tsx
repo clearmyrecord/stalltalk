@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 async function loadHomepageData() {
   try {
     const [venue, slots] = await Promise.all([
-      prisma.venue.findFirst({ where: { slug: "mgm-grand-las-vegas" }, include: { qrCodes: true } }),
+      prisma.venue.findFirst({ where: { slug: "mgm-grand" }, include: { qrCodes: true } }),
       prisma.stalltalkAdSlot.findMany({ orderBy: { slotNumber: "asc" }, take: 8 })
     ]);
     return { venue, slots, diagnostic: "Database connected" };
@@ -30,7 +30,7 @@ export default async function Home() {
             <p className="mt-5 max-w-2xl text-2xl font-black uppercase text-white md:text-4xl">Create real marketing graphics with AI, preview every campaign size, and publish professional sponsor ads into eight persistent Potty Favor ad slots.</p>
             <p className="mt-4 max-w-2xl rounded-xl border-4 border-white/80 bg-ink/70 p-3 text-sm font-black uppercase text-stallYellow">{diagnostic}</p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <Link className="rounded-xl border-4 border-stallYellow bg-stallRed px-6 py-4 font-black uppercase text-white shadow-brutal" href={venue ? `/issue/${venue.slug}${qr ? `?qr=${qr}` : ""}` : "/admin"}>Preview QR Issue</Link>
+              <Link className="rounded-xl border-4 border-stallYellow bg-stallRed px-6 py-4 font-black uppercase text-white shadow-brutal" href={venue ? `/issue?venue=${venue.slug}${qr ? `&qr=${qr}` : ""}` : "/admin"}>Preview QR Issue</Link>
               <Link className="rounded-xl border-4 border-white bg-stallPurple px-6 py-4 font-black uppercase text-white shadow-brutal" href="/admin/ads/new">Open AI Creative Studio</Link>
             </div>
           </div>

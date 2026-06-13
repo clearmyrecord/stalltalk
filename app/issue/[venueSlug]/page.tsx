@@ -14,12 +14,25 @@ type ServedAds = Awaited<ReturnType<typeof getServedAds>>;
 export default async function IssuePage({ params, searchParams }: { params: Promise<{ venueSlug: string }>; searchParams: Promise<{ qr?: string }> }) {
   const { venueSlug } = await params;
   const { qr } = await searchParams;
-  const issue = await prisma.issue.findFirst({
-    where: { venue: { slug: venueSlug }, status: "PUBLISHED", ...(qr ? { qrCode: { code: qr } } : {}) },
+  const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
+  if (!requestedVenue) notFound();
+
+  const directIssue = await prisma.issue.findFirst({
+    where: { venueId: requestedVenue.id, status: "PUBLISHED", ...(qr ? { qrCode: { code: qr } } : {}) },
+    orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
+    include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
+  });
+  const issue = directIssue || await prisma.issue.findFirst({
+    where: { status: "PUBLISHED" },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
     include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
   });
   if (!issue) notFound();
+  issue.venue = requestedVenue;
+  issue.venueId = requestedVenue.id;
+  issue.restroomId = directIssue?.restroomId || null;
+  issue.qrCodeId = directIssue?.qrCodeId || null;
+  issue.contentBlocks = issue.contentBlocks.filter((block) => !block.venueIds.length || block.venueIds.includes(requestedVenue.id));
   const approvedVenueDrafts = await prisma.venueContentDraft.findMany({ where: { venueId: issue.venueId, approvalStatus: "APPROVED" }, orderBy: { approvedAt: "desc" }, take: 3 });
   const ads = await getServedAds(issue);
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
@@ -29,7 +42,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
       <ScanRecorder publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} issueId={issue.id} />
       <ImpressionRecorder events={actualAds.map((ad) => ({ publisherId: issue.publisherId, venueId: issue.venueId, restroomId: issue.restroomId, qrCodeId: issue.qrCodeId, issueId: issue.id, advertiserId: ad.advertiserId, adId: ad.id, slotNumber: ad.slotNumber }))} />
       <header className="sticky top-0 z-40 border-b-4 border-ink bg-stallYellow px-3 py-2 text-center shadow-lg md:relative md:top-auto md:z-auto md:px-8">
-        <p className="text-xs font-black uppercase tracking-[.25em]">{issue.publisher.name} • {issue.venue.name} • {issue.restroom?.name || "Venue-wide"}</p>
+        <p className="text-xs font-black uppercase tracking-[.25em]">{issue.publisher.name} • {issue.venue.name} Edition • {issue.restroom?.name || "Venue-wide"}</p>
         <h1 className="font-display text-5xl uppercase leading-none md:text-7xl">{issue.title}</h1>
         <p className="font-black uppercase">{issue.venue.city}, {issue.venue.state} • {issue.month} {issue.year} • Issue #{issue.issueNumber} • QR {issue.qrCode?.code || "venue"}</p>
       </header>

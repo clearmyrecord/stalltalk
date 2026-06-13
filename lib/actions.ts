@@ -35,7 +35,7 @@ export async function createDistributor(formData: FormData) {
 
 export async function createVenue(formData: FormData) {
   const name = text(formData, "name");
-  await prisma.venue.create({ data: { publisherId: text(formData, "publisherId"), distributorId: nullableText(formData, "distributorId"), name, slug: text(formData, "slug", slugify(name)) || slugify(name), city: text(formData, "city"), state: text(formData, "state"), address: text(formData, "address") } });
+  await prisma.venue.create({ data: { publisherId: text(formData, "publisherId"), distributorId: nullableText(formData, "distributorId"), name, slug: text(formData, "slug", slugify(name)) || slugify(name), city: text(formData, "city"), state: text(formData, "state"), address: text(formData, "address"), venueType: text(formData, "venueType", "venue"), isActive: text(formData, "isActive", "on") !== "off" } });
   revalidatePath("/admin/venues");
 }
 
@@ -50,7 +50,7 @@ export async function createQrCode(formData: FormData) {
   const venueId = nullableText(formData, "venueId");
   const restroomId = nullableText(formData, "restroomId");
   const venue = venueId ? await prisma.venue.findUnique({ where: { id: venueId } }) : null;
-  await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, code, label: text(formData, "label", code), destination: venue ? `/issue/${venue.slug}?qr=${code}` : `/issue/unassigned?qr=${code}`, status: venueId ? "ASSIGNED" : "INVENTORY" } });
+  await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, code, label: text(formData, "label", code), destination: venue ? `/issue?venue=${venue.slug}&qr=${code}` : `/issue?qr=${code}`, status: venueId ? "ASSIGNED" : "INVENTORY" } });
   revalidatePath("/admin/qr");
 }
 
@@ -104,6 +104,7 @@ function adData(formData: FormData) {
     city: scope === "CITY" ? nullableText(formData, "city") : null,
     state: scope === "CITY" ? nullableText(formData, "state") : null,
     venueId: scope === "VENUE" ? nullableText(formData, "venueId") : null,
+    venueIds: scope === "VENUE" ? selectedVenueIds(formData) : [],
     restroomId: scope === "RESTROOM" ? nullableText(formData, "restroomId") : null,
     monthlyPriceCents: intValue(formData, "monthlyPriceDollars") * 100,
     stripePriceId: nullableText(formData, "stripePriceId")
@@ -206,9 +207,13 @@ function issueData(formData: FormData) {
 async function saveContentBlocks(issueId: string, formData: FormData) {
   const blocks = Array.from({ length: 8 }, (_, index) => {
     const row = index + 1;
-    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), sortOrder: row, layout: { zone: `slot-${row}`, locked: false } };
+    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: row, layout: { zone: `slot-${row}`, locked: false } };
   }).filter((block) => block.title || block.body || block.articleId);
   if (blocks.length) await prisma.issueContentBlock.createMany({ data: blocks });
+}
+
+function selectedVenueIds(formData: FormData, key = "venueIds") {
+  return formData.getAll(key).map(String).filter(Boolean);
 }
 
 async function saveAdSlots(issueId: string, formData: FormData) {
