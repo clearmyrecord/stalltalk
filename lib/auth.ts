@@ -1,5 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 import { prisma } from "./prisma";
 
@@ -65,6 +66,10 @@ export async function signOut() {
 
 export async function requireRole(roles: Role[]) {
   const user = await currentUser();
-  if (!user || !roles.includes(user.role)) return null;
+  if (!user || !roles.includes(user.role)) redirect("/signin?error=admin_required");
   return user;
+}
+
+export async function requireAdmin() {
+  return requireRole(["ADMIN"]);
 }

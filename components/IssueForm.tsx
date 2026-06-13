@@ -9,6 +9,7 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
   const blocks = Array.from({ length: 8 }, (_, index) => issue?.contentBlocks.find((block) => block.sortOrder === index + 1));
 
   return <form action={action} className="mt-6 grid gap-5">
+    {issue ? <input type="hidden" name="updatedAt" value={issue.updatedAt.toISOString()} /> : null}
     <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-4">
       <Select name="publisherId" label="Publisher" value={issue?.publisherId} options={publishers.map((p) => [p.id, p.name])} />
       <Select name="venueId" label="Base / default venue" value={issue?.venueId} options={venues.map((v) => [v.id, `${v.name} — ${v.city}`])} />

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus } from "@prisma/client";
 import { prisma } from "./prisma";
+import { requireAdmin, requireRole } from "./auth";
 import { slugify } from "./format";
 import { calculateFlightTotal, flightDateRange, flightEndMonth, normalizeFlightMonth, PRICE_PER_PLACEMENT_MONTH_CENTS, safeFlightMonths } from "./campaign-flights";
 
@@ -22,30 +23,35 @@ function intValue(formData: FormData, key: string, fallback = 0) {
 }
 
 export async function createPublisher(formData: FormData) {
+  await requireAdmin();
   const name = text(formData, "name");
   await prisma.publisher.create({ data: { name, slug: text(formData, "slug", slugify(name)) || slugify(name), contactEmail: text(formData, "contactEmail") } });
   revalidatePath("/admin/publishers");
 }
 
 export async function createDistributor(formData: FormData) {
+  await requireAdmin();
   const name = text(formData, "name");
   await prisma.distributor.create({ data: { publisherId: text(formData, "publisherId"), name, slug: text(formData, "slug", slugify(name)) || slugify(name), contactEmail: text(formData, "contactEmail"), commissionRate: intValue(formData, "commissionRate", 15) / 100 } });
   revalidatePath("/admin/distributors");
 }
 
 export async function createVenue(formData: FormData) {
+  await requireAdmin();
   const name = text(formData, "name");
   await prisma.venue.create({ data: { publisherId: text(formData, "publisherId"), distributorId: nullableText(formData, "distributorId"), name, slug: text(formData, "slug", slugify(name)) || slugify(name), city: text(formData, "city"), state: text(formData, "state"), address: text(formData, "address"), venueType: text(formData, "venueType", "venue"), isActive: text(formData, "isActive", "on") !== "off" } });
   revalidatePath("/admin/venues");
 }
 
 export async function createRestroom(formData: FormData) {
+  await requireAdmin();
   await prisma.restroom.create({ data: { venueId: text(formData, "venueId"), name: text(formData, "name"), floor: nullableText(formData, "floor"), placement: nullableText(formData, "placement") } });
   revalidatePath("/admin/venues");
   revalidatePath("/admin/qr");
 }
 
 export async function createQrCode(formData: FormData) {
+  await requireAdmin();
   const code = text(formData, "code", `ST-${Date.now()}`);
   const venueId = nullableText(formData, "venueId");
   const restroomId = nullableText(formData, "restroomId");
@@ -55,6 +61,7 @@ export async function createQrCode(formData: FormData) {
 }
 
 export async function createAdvertiser(formData: FormData) {
+  await requireAdmin();
   const name = text(formData, "name");
   await prisma.advertiser.create({ data: { publisherId: text(formData, "publisherId"), name, slug: text(formData, "slug", slugify(name)) || slugify(name), contactEmail: text(formData, "contactEmail"), portalNote: nullableText(formData, "portalNote") } });
   revalidatePath("/admin/advertisers");
@@ -63,6 +70,7 @@ export async function createAdvertiser(formData: FormData) {
 }
 
 export async function createAd(formData: FormData) {
+  await requireAdmin();
   const ad = await prisma.ad.create({ data: adData(formData) });
   await publishAdToSlot(ad.id, formData);
   revalidatePath("/admin/ads");
@@ -72,6 +80,7 @@ export async function createAd(formData: FormData) {
 }
 
 export async function updateAd(id: string, formData: FormData) {
+  await requireAdmin();
   await prisma.ad.update({ where: { id }, data: adData(formData) });
   await publishAdToSlot(id, formData);
   revalidatePath("/admin/ads");
@@ -176,58 +185,75 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
 }
 
 export async function createArticle(formData: FormData) {
+  await requireAdmin();
   const title = text(formData, "title");
   await prisma.article.create({ data: { publisherId: text(formData, "publisherId"), categoryId: nullableText(formData, "categoryId"), title, slug: text(formData, "slug", slugify(title)) || slugify(title), excerpt: text(formData, "excerpt"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), status: text(formData, "status", "DRAFT") as IssueStatus, scheduledAt: nullableText(formData, "scheduledAt") ? new Date(text(formData, "scheduledAt")) : null, publishedAt: text(formData, "status") === "PUBLISHED" ? new Date() : null } });
   revalidatePath("/admin/articles");
 }
 
 export async function createIssue(formData: FormData) {
-  const issue = await prisma.issue.create({ data: issueData(formData) });
-  await saveContentBlocks(issue.id, formData);
-  await saveAdSlots(issue.id, formData);
+  await requireAdmin();
+  const issue = await prisma.$transaction(async (tx) => {
+    const issue = await tx.issue.create({ data: issueData(formData) });
+    await saveContentBlocks(issue.id, formData, tx);
+    await saveAdSlots(issue.id, formData, tx);
+    return issue;
+  });
   revalidatePath("/admin/issues");
   redirect(`/admin/issues/${issue.id}/edit`);
 }
 
 export async function updateIssue(id: string, formData: FormData) {
-  await prisma.issue.update({ where: { id }, data: issueData(formData) });
-  await prisma.issueContentBlock.deleteMany({ where: { issueId: id } });
-  await prisma.issueAdSlot.deleteMany({ where: { issueId: id } });
-  await saveContentBlocks(id, formData);
-  await saveAdSlots(id, formData);
+  await requireAdmin();
+  const expectedUpdatedAt = nullableText(formData, "updatedAt");
+  const expectedDate = expectedUpdatedAt ? new Date(expectedUpdatedAt) : null;
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.issue.findUnique({ where: { id }, select: { status: true, publishedAt: true, updatedAt: true } });
+    if (!existing) throw new Error("Issue not found.");
+    if (expectedDate && existing.updatedAt.getTime() !== expectedDate.getTime()) throw new Error("This issue was changed by another editor. Refresh and try again.");
+    const data = issueData(formData, existing);
+    await tx.issue.update({ where: { id }, data });
+    await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
+    await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
+    await saveContentBlocks(id, formData, tx);
+    await saveAdSlots(id, formData, tx);
+  });
   revalidatePath("/admin/issues");
   revalidatePath(`/admin/issues/${id}/edit`);
 }
 
-function issueData(formData: FormData) {
+function issueData(formData: FormData, existing?: { status: IssueStatus; publishedAt: Date | null }) {
   const status = text(formData, "status", "DRAFT") as IssueStatus;
-  return { publisherId: text(formData, "publisherId"), venueId: text(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title"), month: text(formData, "month"), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt: nullableText(formData, "scheduledAt") ? new Date(text(formData, "scheduledAt")) : null, publishedAt: status === "PUBLISHED" ? new Date() : null };
+  const now = new Date();
+  const firstPublishedAt = existing?.publishedAt || (status === "PUBLISHED" ? now : null);
+  const republishedAt = existing?.publishedAt && status === "PUBLISHED" ? now : null;
+  return { publisherId: text(formData, "publisherId"), venueId: text(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title"), month: text(formData, "month"), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt: nullableText(formData, "scheduledAt") ? new Date(text(formData, "scheduledAt")) : null, publishedAt: firstPublishedAt, republishedAt };
 }
 
-async function saveContentBlocks(issueId: string, formData: FormData) {
+async function saveContentBlocks(issueId: string, formData: FormData, db: any = prisma) {
   const blocks = Array.from({ length: 8 }, (_, index) => {
     const row = index + 1;
     return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: row, layout: { zone: `slot-${row}`, locked: false } };
   }).filter((block) => block.title || block.body || block.articleId);
-  if (blocks.length) await prisma.issueContentBlock.createMany({ data: blocks });
+  if (blocks.length) await db.issueContentBlock.createMany({ data: blocks });
 }
 
 function selectedVenueIds(formData: FormData, key = "venueIds") {
   return formData.getAll(key).map(String).filter(Boolean);
 }
 
-async function saveAdSlots(issueId: string, formData: FormData) {
+async function saveAdSlots(issueId: string, formData: FormData, db: any = prisma) {
   const slots = Array.from({ length: 8 }, (_, index) => ({ slotNumber: index + 1, adId: text(formData, `slot${index + 1}`) })).filter((slot) => slot.adId).map((slot) => ({ ...slot, issueId }));
-  if (slots.length) await prisma.issueAdSlot.createMany({ data: slots });
+  if (slots.length) await db.issueAdSlot.createMany({ data: slots });
 }
 
 export async function recordAnalytics(formData: FormData) {
   await prisma.analyticsEvent.create({ data: { publisherId: nullableText(formData, "publisherId"), venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), issueId: nullableText(formData, "issueId"), advertiserId: nullableText(formData, "advertiserId"), adId: nullableText(formData, "adId"), type: text(formData, "type") as AnalyticsEventType, slotNumber: intValue(formData, "slotNumber") || null, visitorId: nullableText(formData, "visitorId"), sessionId: nullableText(formData, "sessionId"), durationMs: intValue(formData, "durationMs") || null, path: nullableText(formData, "path") } });
 }
 
-export async function deleteAd(id: string) { await prisma.ad.delete({ where: { id } }); revalidatePath("/admin/ads"); }
-export async function deleteVenue(id: string) { await prisma.venue.delete({ where: { id } }); revalidatePath("/admin/venues"); }
-export async function deleteIssue(id: string) { await prisma.issue.delete({ where: { id } }); revalidatePath("/admin/issues"); }
+export async function deleteAd(id: string) { await requireAdmin(); await prisma.ad.delete({ where: { id } }); revalidatePath("/admin/ads"); }
+export async function deleteVenue(id: string) { await requireAdmin(); await prisma.venue.delete({ where: { id } }); revalidatePath("/admin/venues"); }
+export async function deleteIssue(id: string) { await requireAdmin(); await prisma.issue.delete({ where: { id } }); revalidatePath("/admin/issues"); }
 
 export async function signIn(formData: FormData) {
   const { authEnvStatus, createSession, verifyPassword } = await import("./auth");
@@ -249,12 +275,14 @@ export async function signOutAction() {
 }
 
 export async function createAdSlotInventory(formData: FormData) {
+  await requireAdmin();
   await prisma.adSlotInventory.create({ data: { venueId: text(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), slotNumber: intValue(formData, "slotNumber", 1), month: text(formData, "month"), priceCents: intValue(formData, "priceDollars", 50) * 100, status: text(formData, "status", "OPEN") as any } });
   revalidatePath("/admin/venues");
   revalidatePath("/portal/advertiser");
 }
 
 export async function createAdvertiserCampaign(formData: FormData) {
+  await requireRole(["ADVERTISER", "ADMIN"]);
   const inventoryIds = formData.getAll("inventoryIds").map(String).filter(Boolean);
   const singleInventoryId = text(formData, "inventoryId");
   const placements = [...new Set(inventoryIds.length ? inventoryIds : singleInventoryId ? [singleInventoryId] : [])];
@@ -322,8 +350,7 @@ async function findOverlappingCampaignPlacements(inventory: Array<{ id: string; 
 }
 
 export async function approveAdCampaign(id: string, formData?: FormData) {
-  const { currentUser } = await import("./auth");
-  const user = await currentUser();
+  const user = await requireAdmin();
   const campaign = await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "APPROVED", approvedAt: new Date(), approvedBy: user?.id || null, adminApprovalNote: formData ? nullableText(formData, "adminApprovalNote") : null }, include: { inventory: true } });
   if (campaign.status === "PAID") await publishPaidCampaign(id);
   revalidatePath("/admin/ads");
@@ -332,8 +359,7 @@ export async function approveAdCampaign(id: string, formData?: FormData) {
 }
 
 export async function rejectAdCampaign(id: string, formData?: FormData) {
-  const { currentUser } = await import("./auth");
-  const user = await currentUser();
+  const user = await requireAdmin();
   await prisma.adCampaign.update({ where: { id }, data: { approvalStatus: "REJECTED", status: "REJECTED", rejectedAt: new Date(), rejectedBy: user?.id || null, rejectionReason: formData ? nullableText(formData, "rejectionReason") : null } });
   revalidatePath("/admin/ads");
   revalidatePath("/admin/dashboard");
@@ -350,22 +376,21 @@ async function publishPaidCampaign(campaignId: string) {
 }
 
 export async function createVenueContentDraft(formData: FormData) {
+  await requireRole(["VENUE", "ADMIN"]);
   await prisma.venueContentDraft.create({ data: { venueId: text(formData, "venueId"), title: text(formData, "title"), body: text(formData, "body"), imageUrl: nullableText(formData, "imageUrl"), approvalStatus: "SUBMITTED", submittedAt: new Date() } });
   revalidatePath("/portal/venue");
   revalidatePath("/admin/dashboard");
 }
 
 export async function approveVenueContentDraft(id: string, formData?: FormData) {
-  const { currentUser } = await import("./auth");
-  const user = await currentUser();
+  const user = await requireAdmin();
   await prisma.venueContentDraft.update({ where: { id }, data: { approvalStatus: "APPROVED", approvedAt: new Date(), approvedBy: user?.id || null, adminNote: formData ? nullableText(formData, "adminNote") : null } });
   revalidatePath("/admin/dashboard");
   revalidatePath("/portal/venue");
 }
 
 export async function rejectVenueContentDraft(id: string, formData?: FormData) {
-  const { currentUser } = await import("./auth");
-  const user = await currentUser();
+  const user = await requireAdmin();
   await prisma.venueContentDraft.update({ where: { id }, data: { approvalStatus: "REJECTED", rejectedAt: new Date(), rejectedBy: user?.id || null, rejectionReason: formData ? nullableText(formData, "rejectionReason") : null } });
   revalidatePath("/admin/dashboard");
   revalidatePath("/portal/venue");

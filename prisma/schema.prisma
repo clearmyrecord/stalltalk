@@ -307,6 +307,7 @@ model Issue {
   status        IssueStatus         @default(DRAFT)
   scheduledAt   DateTime?
   publishedAt   DateTime?
+  republishedAt DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   publisher     Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
