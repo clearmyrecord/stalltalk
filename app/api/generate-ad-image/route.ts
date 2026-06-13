@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type AdSize = "Banner" | "Square" | "Tall" | "Inline banner" | "Mobile card" | "Footer";
+type AdSize = "Sponsor card";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -17,16 +17,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1", "dall-e-3"]);
+const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1"]);
 const ALLOWED_ORIGINS = ["https://stalltalk.vercel.app", "https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
 
-const sizeMap: Record<AdSize, { apiSize: string; composition: string; cssSafeArea: string }> = {
-  Banner: { apiSize: "1536x1024", composition: "wide banner advertisement with large central headline and horizontal CTA safe area", cssSafeArea: "16:5 banner crop" },
-  Square: { apiSize: "1024x1024", composition: "square social-style advertisement with balanced headline, product atmosphere, and CTA", cssSafeArea: "1:1 square" },
-  Tall: { apiSize: "1024x1536", composition: "tall mobile advertisement with vertical hierarchy, clear offer, and bottom CTA", cssSafeArea: "4:5 tall crop" },
-  "Inline banner": { apiSize: "1536x1024", composition: "premium inline publication ad with readable type inside the article flow", cssSafeArea: "publication-width safe area" },
-  "Mobile card": { apiSize: "1024x1024", composition: "mobile-friendly sponsor card with simple hierarchy and bold CTA", cssSafeArea: "mobile card" },
-  Footer: { apiSize: "1536x1024", composition: "slim footer-strip advertisement composed inside a centered horizontal band with no important text near edges", cssSafeArea: "5:1 footer crop" }
+const SPONSOR_CARD_SIZE = {
+  apiSize: "1024x1536",
+  composition: "mobile-first full-bleed Potty Favor sponsor card with one clear vertical hierarchy and protected readable text areas",
+  cssSafeArea: "2:3 portrait sponsor card"
+};
+
+const sizeMap: Record<AdSize, typeof SPONSOR_CARD_SIZE> = {
+  "Sponsor card": SPONSOR_CARD_SIZE
 };
 
 function safe(value: unknown, fallback: string) {
@@ -38,14 +39,8 @@ function limitText(value: string, max: number) {
   return normalized.length <= max ? normalized : `${normalized.slice(0, Math.max(0, max - 1)).trim()}…`;
 }
 
-function normalizeSize(value: unknown): AdSize {
-  const normalized = safe(value, "Banner").toLowerCase();
-  if (normalized.includes("square")) return "Square";
-  if (normalized.includes("tall")) return "Tall";
-  if (normalized.includes("inline")) return "Inline banner";
-  if (normalized.includes("mobile") || normalized.includes("card")) return "Mobile card";
-  if (normalized.includes("footer")) return "Footer";
-  return "Banner";
+function normalizeSize(_value: unknown): AdSize {
+  return "Sponsor card";
 }
 
 function currentModel(body: Record<string, unknown> = {}) {
@@ -130,7 +125,7 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
       `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
       `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
       `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
-      `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; must stay readable when cropped into a ${size.cssSafeArea} Potty Favor sponsor slot.`,
+      `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and no important text at the outer edge.`,
       `Use readable bold typography, high contrast, and an eye-catching mobile-friendly layout for restroom readers scanning quickly.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
       logoInstruction,

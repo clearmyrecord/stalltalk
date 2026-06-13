@@ -65,7 +65,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
         <IssueContent issue={renderIssue} ads={ads} venueDrafts={approvedVenueDrafts} restaurantReviews={sortedReviews} />
       </article>
       <nav className="mobile-sponsor-nav" aria-label="Sponsor slots">
-        <div>{Array.from({ length: 8 }, (_, index) => <a key={index} href={`#sponsor-slot-${index + 1}`}>{index + 1}</a>)}</div>
+        <div>{Array.from({ length: 8 }, (_, index) => <a key={index} href={`#ad-${index + 1}`}>{index + 1}</a>)}</div>
       </nav>
     </main>
   );

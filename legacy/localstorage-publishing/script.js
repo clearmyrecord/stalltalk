@@ -745,11 +745,12 @@ function imageSource(ad) {
     : "";
 }
 
-function adSizeClass(adSize) {
-  const normalized = normalizeText(adSize || "inline banner").toLowerCase();
-  if (normalized.includes("tall")) return "generated-ad-tall";
-  if (normalized.includes("square") || normalized.includes("mobile")) return "generated-ad-square";
-  return "generated-ad-inline";
+function adSizeClass(_adSize) {
+  return "generated-ad-standard";
+}
+
+function escapeAttribute(value) {
+  return String(value || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function normalizeAd(ad) {
@@ -777,7 +778,7 @@ function normalizeAd(ad) {
     tone: ad.tone || "bold, premium, clean, high-converting",
     active: ad.active !== false,
     adMode: ad.adMode || (image ? "image" : "copy"),
-    adSize: ad.adSize || ad.size || "Inline banner",
+    adSize: "Sponsor card",
   };
 }
 
@@ -881,16 +882,18 @@ function renderGeneratedAd(slot, result) {
 
   const sizeClass = adSizeClass(result.adSize || metadata.adSize);
 
-  element.innerHTML = `
-    <div class="generated-ad ${sizeClass}" style="${imageUrl ? `background-image: url('${imageUrl}')` : ""}">
-      <div class="generated-ad-content">
-        <div class="generated-ad-sponsor">${sponsorName}</div>
-        <h3>${offer}</h3>
-        <p>${city} · ${category}</p>
-        <a class="generated-ad-cta" href="#">${callToAction}</a>
+  element.innerHTML = imageUrl
+    ? `<img class="generated-ad generated-ad-image ${sizeClass}" src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(`${sponsorName} advertisement`)}" />`
+    : `
+      <div class="generated-ad ${sizeClass}">
+        <div class="generated-ad-content">
+          <div class="generated-ad-sponsor">${sponsorName}</div>
+          <h3>${offer}</h3>
+          <p>${city} · ${category}</p>
+          <a class="generated-ad-cta" href="#">${callToAction}</a>
+        </div>
       </div>
-    </div>
-  `;
+    `;
 
   recordAnalytics("ai_ad_rendered", {
     slot,
@@ -989,16 +992,9 @@ function renderAdElement(element, ad, slot) {
   if (image) {
     const sizeClass = adSizeClass(ad.adSize);
     element.innerHTML = `
-      <div class="generated-ad ${sizeClass}" style="background-image: url('${image}')">
-        <div class="generated-ad-content">
-          <div class="generated-ad-sponsor">${ad.advertiserName}</div>
-          <h3>${ad.headline}</h3>
-          <p>${ad.offer}</p>
-          <a class="generated-ad-cta" href="${safeTargetUrl}" target="_blank" rel="noopener" data-ad-click>
-            ${ad.cta}
-          </a>
-        </div>
-      </div>
+      <a class="generated-ad-link" href="${safeTargetUrl}" target="_blank" rel="noopener" data-ad-click aria-label="${escapeAttribute(`${ad.advertiserName} advertisement`)}">
+        <img class="generated-ad generated-ad-image ${sizeClass}" src="${escapeAttribute(image)}" alt="${escapeAttribute(`${ad.advertiserName} advertisement`)}" />
+      </a>
     `;
   } else {
     element.innerHTML = `

@@ -878,3 +878,75 @@ section.purpose * {
     max-width: 640px !important;
   }
 }
+
+/* Standardized Potty Favor sponsor system: one mobile-first 2:3 ad card ratio. */
+:root {
+  --ad-width: min(100%, 760px);
+  --ad-aspect-ratio: 2 / 3;
+  --ad-radius: 24px;
+  --ad-spacing: 18px;
+  --ad-background: #090717;
+}
+
+.ad-card,
+.inline-ad,
+.ad-card[data-ad-slot] {
+  width: var(--ad-width) !important;
+  max-width: var(--ad-width) !important;
+  min-height: 0 !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  padding: 0 !important;
+  border: 4px solid #111827 !important;
+  border-radius: var(--ad-radius) !important;
+  overflow: hidden !important;
+  background: var(--ad-background) !important;
+  display: block !important;
+  box-shadow: 0 16px 34px rgba(18, 9, 30, .24);
+}
+
+.generated-ad,
+.ad-card img,
+.ad-card img.generated-ad-image,
+.ad-mark,
+.ad-loading,
+.ad-error {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+
+.ad-card img,
+.ad-card img.generated-ad-image,
+.generated-ad-image {
+  object-fit: cover !important;
+  display: block !important;
+  background: var(--ad-background) !important;
+}
+
+.generated-ad {
+  background-size: cover !important;
+  background-position: center !important;
+  padding: var(--ad-spacing) !important;
+}
+
+.ad-card.is-empty,
+.ad-card[data-ad-slot].is-empty,
+.inline-ad.is-empty {
+  padding: var(--ad-spacing) !important;
+  display: grid !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-style: dashed !important;
+  background:
+    repeating-linear-gradient(-45deg, rgba(16, 16, 107, .055), rgba(16, 16, 107, .055) 12px, rgba(255,255,255,.78) 12px, rgba(255,255,255,.78) 24px),
+    #fffdf5 !important;
+}
+
+@media (max-width: 760px) {
+  :root { --ad-width: 100%; --ad-radius: 22px; --ad-spacing: 16px; }
+}
+.generated-ad-link { display: block; width: 100%; height: 100%; }
