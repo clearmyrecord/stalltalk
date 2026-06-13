@@ -12,7 +12,7 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
     {issue ? <input type="hidden" name="updatedAt" value={issue.updatedAt.toISOString()} /> : null}
     <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-4">
       <Select name="publisherId" label="Publisher" value={issue?.publisherId} options={publishers.map((p) => [p.id, p.name])} />
-      <Select name="venueId" label="Base / default venue" value={issue?.venueId} options={venues.map((v) => [v.id, `${v.name} — ${v.city}`])} />
+      <Select name="venueId" label="Base / default venue" value={issue?.venueId} options={[["", "Global issue (all venues)"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} />
       <Select name="restroomId" label="Restroom" value={issue?.restroomId || ""} options={[["", "Venue-wide"], ...restrooms.map((r) => [r.id, r.name] as [string, string])]} />
       <Select name="qrCodeId" label="QR code" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.qrName} (${q.qrSlug})`] as [string, string])]} />
       <Field name="title" label="Title" value={issue?.title || "Potty Favor"} />
@@ -49,5 +49,5 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
 function VenueMultiSelect({ name, venues, selected }: { name: string; venues: Venue[]; selected: string[] }) {
   return <label className="grid gap-1 font-black uppercase">Venue targeting<span className="text-xs normal-case">No selection = global</span><select name={name} multiple defaultValue={selected} className="min-h-28 rounded border-2 border-ink p-2 normal-case">{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>;
 }
-function Field({ name, label, value }: { name: string; label: string; value: string }) { return <label className="grid gap-1 font-black uppercase">{label}<input name={name} defaultValue={value} required={name !== "scheduledAt"} className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>; }
-function Select({ name, label, value, options }: { name: string; label: string; value?: string; options: Array<[string, string]> }) { return <label className="grid gap-1 font-black uppercase">{label}<select name={name} defaultValue={value} className="rounded border-2 border-ink p-3">{options.map(([id, label]) => <option key={id || label} value={id}>{label}</option>)}</select></label>; }
+function Field({ name, label, value }: { name: string; label: string; value: string }) { return <label className="grid gap-1 font-black uppercase">{label}<input name={name} defaultValue={value || ""} required={name !== "scheduledAt"} className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>; }
+function Select({ name, label, value, options }: { name: string; label: string; value?: string | null; options: Array<[string, string]> }) { return <label className="grid gap-1 font-black uppercase">{label}<select name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3">{options.map(([id, label]) => <option key={id || label} value={id}>{label}</option>)}</select></label>; }

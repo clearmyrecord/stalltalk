@@ -132,6 +132,8 @@ enum ContentBlockType {
   COUPON
   ADVERTISEMENT
   RESTAURANT_REVIEW
+  ANNOUNCEMENT
+  SPONSOR_SLOT
 }
 
 enum AdStatus {
@@ -451,7 +453,7 @@ model RestaurantReview {
 model Issue {
   id            String              @id @default(cuid())
   publisherId   String
-  venueId       String
+  venueId       String?
   restroomId    String?
   qrCodeId      String?
   title         String
@@ -465,13 +467,17 @@ model Issue {
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   publisher     Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  venue         Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue         Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
   restroom      Restroom?           @relation(fields: [restroomId], references: [id], onDelete: SetNull)
   qrCode        QrCode?             @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
   contentBlocks IssueContentBlock[]
   adSlots       IssueAdSlot[]
   events        AnalyticsEvent[]
-  qrScans       QrScan[]
+ 
+  history   IssueHistory[]
+  qrScans   QrScan[]
+
+  @@index([status, year, issueNumber])
 }
 
 model IssueContentBlock {

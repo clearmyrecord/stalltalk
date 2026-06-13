@@ -9,7 +9,9 @@ export const contentLabels: Record<ContentBlockType, string> = {
   EVENT: "Event Spotlight",
   COUPON: "Local Deals",
   ADVERTISEMENT: "Advertisement",
-  RESTAURANT_REVIEW: "Restaurant Review"
+  RESTAURANT_REVIEW: "Restaurant Review",
+  ANNOUNCEMENT: "Announcement",
+  SPONSOR_SLOT: "Sponsor Slot"
 };
 
 export const typeOptions = Object.entries(contentLabels).map(([value, label]) => ({ value, label }));
