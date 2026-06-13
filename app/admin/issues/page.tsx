@@ -44,12 +44,16 @@ export default async function IssuesPage() {
               </div>
 
               <div className="flex gap-2">
-                <Link
-                  className="rounded-lg bg-stallYellow px-4 py-2 font-black uppercase"
-                  href={issue.venue ? `/issue/${issue.venue.slug}${issue.qrCode ? `?qr=${issue.qrCode.qrSlug}` : ""}` : "/issue"}
-                >
-                  Preview
-                </Link>
+               <Link
+  className="rounded-lg bg-stallYellow px-4 py-2 font-black uppercase"
+  href={
+    issue.venue?.slug
+      ? `/issue/${issue.venue.slug}${issue.qrCode ? `?qr=${issue.qrCode.qrSlug}` : ""}`
+      : "/issue"
+  }
+>
+  Preview
+</Link>
 
                 <Link
                   className="rounded-lg bg-ink px-4 py-2 font-black uppercase text-white"
