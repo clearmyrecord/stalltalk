@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS "qr_codes" (
   "sticker_template" "QrStickerTemplate" NOT NULL DEFAULT 'STALL_DOOR',
   "short_url" TEXT,
   "call_to_action" TEXT NOT NULL DEFAULT 'Scan for Stall Talk',
-  "status" "QrCodeStatus" NOT NULL DEFAULT 'DRAFT',
+  "status" "QrCodeStatus" NOT NULL,
   "installed_at" TIMESTAMP(3),
   "last_scan_at" TIMESTAMP(3),
   "installation_photo_url" TEXT,
@@ -159,9 +159,8 @@ DO $$ BEGIN IF to_regclass('public."Venue"') IS NOT NULL THEN ALTER TABLE "qr_co
 DO $$ BEGIN IF to_regclass('public."Restroom"') IS NOT NULL THEN ALTER TABLE "qr_codes" ADD CONSTRAINT "qr_codes_restroomId_fkey" FOREIGN KEY ("restroomId") REFERENCES "Restroom"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN IF to_regclass('public."Distributor"') IS NOT NULL THEN ALTER TABLE "qr_codes" ADD CONSTRAINT "qr_codes_assignedDistributorId_fkey" FOREIGN KEY ("assignedDistributorId") REFERENCES "Distributor"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Preserve legacy QR enum values if they already exist in production, but normalize rows to schema values.
-UPDATE "qr_codes" SET "status" = 'DRAFT' WHERE "status"::text = 'INVENTORY';
-UPDATE "qr_codes" SET "status" = 'ACTIVE' WHERE "status"::text = 'ASSIGNED';
+-- QrCodeStatus row normalization is intentionally deferred to the next migration.
+-- PostgreSQL cannot safely use enum values added by ALTER TYPE until that transaction commits.
 
 -- Create commonly-missing platform tables from migrations that were manually marked applied.
 DO $$ BEGIN CREATE TYPE "CreativeKind" AS ENUM ('IMAGE','COUPON','BANNER','SPONSORED_ARTICLE','RESTAURANT_PROMOTION','EVENT_PROMOTION'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
