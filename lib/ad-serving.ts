@@ -1,7 +1,7 @@
 import type { Ad, AdScope, Issue, IssueAdSlot, Restroom, Venue } from "@prisma/client";
 import { prisma } from "./prisma";
 
-type Context = Issue & { venue: Venue; restroom: Restroom | null; adSlots?: Array<IssueAdSlot & { ad: Ad }> };
+type Context = Issue & { venue: Venue | null; restroom: Restroom | null; adSlots?: Array<IssueAdSlot & { ad: Ad }> };
 export type ServedAd = (Ad & { source: AdScope; slotNumber: number }) | null;
 
 export async function getServedAds(issue: Context): Promise<ServedAd[]> {
@@ -45,6 +45,6 @@ function matchesScope(ad: Ad, issue: Context, scope: AdScope) {
   if (ad.scope !== scope) return false;
   if (scope === "RESTROOM") return Boolean(issue.restroomId && ad.restroomId === issue.restroomId);
   if (scope === "VENUE") return ad.venueId === issue.venueId || Boolean(issue.venueId && ad.venueIds.includes(issue.venueId));
-  if (scope === "CITY") return ad.city === issue.venue.city && ad.state === issue.venue.state;
+  if (scope === "CITY") return Boolean(issue.venue && ad.city === issue.venue.city && ad.state === issue.venue.state);
   return scope === "GLOBAL";
 }

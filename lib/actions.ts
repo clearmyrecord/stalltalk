@@ -197,7 +197,6 @@ export async function createIssue(formData: FormData) {
   await requireAdmin();
   const issue = await prisma.$transaction(async (tx) => {
     const issue = await tx.issue.create({ data: issueData(formData) });
-    await tx.issueHistory.create({ data: { issueId: issue.id, action: "created", toStatus: issue.status, snapshot: issue } });
     await saveContentBlocks(issue.id, formData, tx);
     await saveAdSlots(issue.id, formData, tx);
     return issue;
@@ -215,8 +214,7 @@ export async function updateIssue(id: string, formData: FormData) {
     if (!existing) throw new Error("Issue not found.");
     if (expectedDate && existing.updatedAt.getTime() !== expectedDate.getTime()) throw new Error("This issue was changed by another editor. Refresh and try again.");
     const data = issueData(formData, existing);
-    const updated = await tx.issue.update({ where: { id }, data });
-    await tx.issueHistory.create({ data: { issueId: id, action: existing.status === updated.status ? "edited" : "status_changed", fromStatus: existing.status, toStatus: updated.status, snapshot: updated } });
+    await tx.issue.update({ where: { id }, data });
     await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
     await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
     await saveContentBlocks(id, formData, tx);
@@ -321,33 +319,28 @@ export async function publishIssue(id: string) {
   await requireAdmin();
   const existing = await prisma.issue.findUniqueOrThrow({ where: { id }, select: { status: true, publishedAt: true } });
   const now = new Date();
-  const updated = await prisma.issue.update({ where: { id }, data: { status: "PUBLISHED", publishedAt: existing.publishedAt || now, republishedAt: existing.publishedAt ? now : null } });
-  await prisma.issueHistory.create({ data: { issueId: id, action: existing.publishedAt ? "republished" : "published", fromStatus: existing.status, toStatus: "PUBLISHED", snapshot: updated } });
+  await prisma.issue.update({ where: { id }, data: { status: "PUBLISHED", publishedAt: existing.publishedAt || now, republishedAt: existing.publishedAt ? now : null } });
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
 
 export async function unpublishIssue(id: string) {
   await requireAdmin();
-  const existing = await prisma.issue.findUniqueOrThrow({ where: { id }, select: { status: true } });
-  const updated = await prisma.issue.update({ where: { id }, data: { status: "DRAFT" } });
-  await prisma.issueHistory.create({ data: { issueId: id, action: "unpublished", fromStatus: existing.status, toStatus: "DRAFT", snapshot: updated } });
+  await prisma.issue.update({ where: { id }, data: { status: "DRAFT" } });
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
 
 export async function archiveIssue(id: string) {
   await requireAdmin();
-  const existing = await prisma.issue.findUniqueOrThrow({ where: { id }, select: { status: true } });
-  const updated = await prisma.issue.update({ where: { id }, data: { status: "ARCHIVED" } });
-  await prisma.issueHistory.create({ data: { issueId: id, action: "archived", fromStatus: existing.status, toStatus: "ARCHIVED", snapshot: updated } });
+  await prisma.issue.update({ where: { id }, data: { status: "ARCHIVED" } });
   revalidatePath("/admin/issues");
 }
 
 export async function cloneIssue(id: string) {
   await requireAdmin();
   const source = await prisma.issue.findUniqueOrThrow({ where: { id }, include: { contentBlocks: true, adSlots: true } });
-  const clone = await prisma.issue.create({ data: { publisherId: source.publisherId, venueId: source.venueId, restroomId: source.restroomId, qrCodeId: null, title: source.title, month: source.month, year: source.year, issueNumber: source.issueNumber + 1, status: "DRAFT", scheduledAt: null, contentBlocks: { create: source.contentBlocks.map((block) => ({ articleId: block.articleId, type: block.type, title: block.title, body: block.body, imageUrl: block.imageUrl, venueIds: block.venueIds, sortOrder: block.sortOrder, startsAt: block.startsAt, endsAt: block.endsAt, layout: block.layout === null ? undefined : block.layout })) }, adSlots: { create: source.adSlots.map((slot) => ({ adId: slot.adId, slotNumber: slot.slotNumber, source: slot.source })) }, history: { create: { action: "cloned", note: `Cloned from ${source.month} ${source.year} #${source.issueNumber}`, toStatus: "DRAFT" } } } });
+  const clone = await prisma.issue.create({ data: { publisherId: source.publisherId, venueId: source.venueId, restroomId: source.restroomId, qrCodeId: null, title: source.title, month: source.month, year: source.year, issueNumber: source.issueNumber + 1, status: "DRAFT", scheduledAt: null, contentBlocks: { create: source.contentBlocks.map((block) => ({ articleId: block.articleId, type: block.type, title: block.title, body: block.body, imageUrl: block.imageUrl, venueIds: block.venueIds, sortOrder: block.sortOrder, startsAt: block.startsAt, endsAt: block.endsAt, layout: block.layout === null ? undefined : block.layout })) }, adSlots: { create: source.adSlots.map((slot) => ({ adId: slot.adId, slotNumber: slot.slotNumber, source: slot.source })) } } });
   revalidatePath("/admin/issues");
   redirect(`/admin/issues/${clone.id}/edit`);
 }
