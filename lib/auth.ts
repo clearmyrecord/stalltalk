@@ -52,7 +52,10 @@ export async function currentUser() {
     return session.user;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "");
-    if (/does not exist|P2021|AuthSession|User/i.test(message)) return null;
+    if (/does not exist|P2021|AuthSession|User/i.test(message)) {
+      console.error("[auth-session]", { context: "current_user", table: "AuthSession", relatedTable: "User", query: "findUniqueByTokenHash", prismaCode: (error as { code?: string })?.code, errorName: (error as { name?: string })?.name, meta: (error as { meta?: unknown })?.meta });
+      return null;
+    }
     throw error;
   }
 }

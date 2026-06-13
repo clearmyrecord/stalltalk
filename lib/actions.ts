@@ -356,14 +356,14 @@ export async function signIn(formData: FormData) {
   try {
     user = await prisma.user.findUnique({ where: { email } });
   } catch (error) {
-    console.error("Sign-in database lookup failed.", error);
+    console.error("[auth-signin]", { context: "user_lookup", table: "User", query: "findUniqueByEmail", prismaCode: (error as { code?: string })?.code, errorName: (error as { name?: string })?.name, meta: (error as { meta?: unknown })?.meta });
     redirect("/signin?error=setup");
   }
   if (!user || !verifyPassword(password, user.passwordHash) || user.status !== "ACTIVE") redirect("/signin?error=credentials");
   try {
     await createSession(user.id);
   } catch (error) {
-    console.error("Sign-in session creation failed.", error);
+    console.error("[auth-signin]", { context: "session_create", table: "AuthSession", query: "create", prismaCode: (error as { code?: string })?.code, errorName: (error as { name?: string })?.name, meta: (error as { meta?: unknown })?.meta });
     redirect("/signin?error=setup");
   }
   if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") redirect("/admin/dashboard");
