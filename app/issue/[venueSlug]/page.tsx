@@ -6,6 +6,7 @@ import { RestaurantReviewCard } from "@/components/RestaurantReviewCard";
 import { getServedAds } from "@/lib/ad-serving";
 import { prisma } from "@/lib/prisma";
 import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChrome";
+import { PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
 
 export const dynamic = "force-dynamic";
 type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: true } } } }>;
@@ -70,58 +71,16 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   );
 }
 
-function AdPlacement({ ads, slotNumber }: { ads: ServedAds; slotNumber: number }) {
-  const ad = ads[slotNumber - 1];
-  if (!ad) return <PublicationAd slotNumber={slotNumber} />;
-  return <PublicationAd ad={ad} slotNumber={slotNumber} />;
-}
-
-function PublicationAd({ ad, slotNumber, primary = false }: { ad?: NonNullable<ServedAds[number]>; slotNumber: number; primary?: boolean }) {
-  return (
-    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${ad ? "" : "is-empty"}`} id={`sponsor-slot-${slotNumber}`}>
-      <span className="slot">Ad {slotNumber}</span>
-      {ad?.artworkUrl ? <img src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /> : null}
-      <h3>{ad?.businessName || "Available Sponsor Slot"}</h3>
-      <div className="ad-copy">
-        <p>{ad?.generatedHeadline || ad?.title || "Advertise Here"}</p>
-        <p>{ad?.generatedSubheadline || ad?.offer || "Reach restroom readers in this venue."}</p>
-      </div>
-      <div className="ad-actions">
-        <a href={ad?.targetUrl || "/signin"}>{ad?.ctaText || "Book Slot"}</a>
-        {ad?.couponCode ? <span className="coupon">{ad.couponCode}</span> : null}
-      </div>
-    </article>
-  );
-}
-
-function IssueContent({ issue, ads, venueDrafts, restaurantReviews }: { issue: IssueWithContext; ads: ServedAds; venueDrafts: Array<{ id: string; title: string; body: string; imageUrl: string | null }>; restaurantReviews: RestaurantReviewItem[] }) {
-  const placedSlots = new Set<number>();
-  const nextAdAfterBlock = (index: number) => {
-    const slotNumber = index + 2;
-    if (slotNumber > 8) return null;
-    placedSlots.add(slotNumber);
-    return <AdPlacement key={`ad-${slotNumber}`} ads={ads} slotNumber={slotNumber} />;
-  };
+function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds; venueDrafts: Array<{ id: string; title: string; body: string; imageUrl: string | null }>; restaurantReviews: RestaurantReviewItem[] }) {
+  const articleBlocks = issue.contentBlocks.filter((block) => block.type === "ARTICLE");
+  const [mainFeature, secondaryFeature] = articleBlocks;
+  const publicationAds = ads.map((ad) => ad || undefined) as PublicationAdLike[];
 
   return (
     <section className="print-grid">
       <MissionCard missionText="Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall." />
-      {venueDrafts.map((draft) => <section key={draft.id} className="panel secondary-card"><h2>{draft.title}</h2>{draft.imageUrl ? <img src={draft.imageUrl} alt="" className="content-image" /> : null}<p className="article-copy whitespace-pre-wrap">{draft.body}</p></section>)}
-      {restaurantReviews.length ? <RestaurantReviewsSection reviews={restaurantReviews} issue={issue} /> : null}
-      <PublicationAd ad={ads[0] || undefined} slotNumber={1} primary />
-      {issue.contentBlocks.flatMap((block, index) => [
-        <article key={block.id} className={`panel ${index % 2 === 0 ? "feature-card" : "secondary-card"}`}>
-          <h2>{block.title}</h2>
-          <div className="article-copy whitespace-pre-wrap">{block.body}</div>
-        </article>,
-        nextAdAfterBlock(index)
-      ].filter(Boolean))}
-      {[2, 3, 4, 5, 6, 7, 8].filter((slotNumber) => !placedSlots.has(slotNumber)).map((slotNumber) => <AdPlacement key={`remaining-ad-${slotNumber}`} ads={ads} slotNumber={slotNumber} />)}
-      <section className="sponsor-directory panel">
-        <p className="directory-kicker">Sponsor Directory</p>
-        <h2>Featured Sponsors</h2>
-        <p>Eight inline publication ad slots support restroom, venue, city, and global targeting.</p>
-      </section>
+      <PublicationAdFallback ad={publicationAds[0]} slotNumber={1} primary />
+      <StaticPublicationBlocks ads={publicationAds} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} />
     </section>
   );
 }
