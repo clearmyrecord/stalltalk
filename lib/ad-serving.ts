@@ -8,7 +8,7 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
   const now = new Date();
   const activeManualSlots = new Map(
     (issue.adSlots || [])
-      .filter((slot) => isActive(slot.ad, now))
+      .filter((slot) => isActive(slot.ad, now) && matchesScope(slot.ad, issue, slot.ad.scope))
       .map((slot) => [slot.slotNumber, { ...slot.ad, source: slot.source || slot.ad.scope, slotNumber: slot.slotNumber }])
   );
   const ads = await prisma.ad.findMany({
@@ -44,7 +44,7 @@ function isActive(ad: Ad, now: Date) {
 function matchesScope(ad: Ad, issue: Context, scope: AdScope) {
   if (ad.scope !== scope) return false;
   if (scope === "RESTROOM") return Boolean(issue.restroomId && ad.restroomId === issue.restroomId);
-  if (scope === "VENUE") return ad.venueId === issue.venueId;
+  if (scope === "VENUE") return ad.venueId === issue.venueId || ad.venueIds.includes(issue.venueId);
   if (scope === "CITY") return ad.city === issue.venue.city && ad.state === issue.venue.state;
   return scope === "GLOBAL";
 }

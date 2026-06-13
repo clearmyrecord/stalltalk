@@ -60,9 +60,16 @@ async function main() {
 
   const publisher = await prisma.publisher.create({ data: { name: "Stall Talk Media", slug: "stall-talk-media", contactEmail: "ops@stalltalk.local" } });
   const distributor = await prisma.distributor.create({ data: { publisherId: publisher.id, name: "Vegas Restroom Network", slug: "vegas-restroom-network", contactEmail: "vegas@stalltalk.local", commissionRate: 0.2 } });
-  const venue = await prisma.venue.create({ data: { publisherId: publisher.id, distributorId: distributor.id, name: "MGM Grand Las Vegas", slug: "mgm-grand-las-vegas", city: "Las Vegas", state: "NV", address: "3799 S Las Vegas Blvd" } });
+  const demoVenues = await Promise.all([
+    { name: "MGM Grand", slug: "mgm-grand", address: "3799 S Las Vegas Blvd", city: "Las Vegas", state: "NV", venueType: "casino resort" },
+    { name: "New York-New York", slug: "new-york-new-york", address: "3790 S Las Vegas Blvd", city: "Las Vegas", state: "NV", venueType: "casino resort" },
+    { name: "Bellagio", slug: "bellagio", address: "3600 S Las Vegas Blvd", city: "Las Vegas", state: "NV", venueType: "casino resort" },
+    { name: "Local Restaurant Demo", slug: "local-restaurant-demo", address: "Demo Restaurant Row", city: "Las Vegas", state: "NV", venueType: "restaurant" },
+    { name: "Local Bar Demo", slug: "local-bar-demo", address: "Demo Bar District", city: "Las Vegas", state: "NV", venueType: "bar" }
+  ].map((item) => prisma.venue.create({ data: { publisherId: publisher.id, distributorId: distributor.id, ...item } })));
+  const [venue, newYorkVenue, bellagioVenue, restaurantVenue, barVenue] = demoVenues;
   const restroom = await prisma.restroom.create({ data: { venueId: venue.id, name: "Casino Floor Men’s Restroom", floor: "Casino", placement: "Sink wall QR sticker" } });
-  const qrCode = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, code: "ST-MGM-CASINO-M-001", label: "MGM Casino Men’s #001", destination: "/issue/mgm-grand-las-vegas?qr=ST-MGM-CASINO-M-001", status: "ASSIGNED" } });
+  const qrCode = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, code: "ST-MGM-CASINO-M-001", label: "MGM Casino Men’s #001", destination: "/issue?venue=mgm-grand&qr=ST-MGM-CASINO-M-001", status: "ASSIGNED" } });
   const toiletLocation = await prisma.toiletLocation.create({ data: { venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, name: "Casino Floor Men’s QR", label: "MGM Casino QR #001", placement: "Sink wall QR sticker" } });
   await prisma.adSlotInventory.createMany({ data: Array.from({ length: 4 }, (_, index) => ({ venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, toiletLocationId: toiletLocation.id, slotNumber: index + 1, month: "2026-07", priceCents: 5000, status: "OPEN" })) });
 
@@ -114,6 +121,7 @@ async function main() {
           city: scope === "CITY" ? "Las Vegas" : null,
           state: scope === "CITY" ? "NV" : null,
           venueId: scope === "VENUE" ? venue.id : null,
+          venueIds: scope === "VENUE" ? [venue.id, restaurantVenue.id] : [],
           restroomId: scope === "RESTROOM" ? restroom.id : null,
           monthlyPriceCents,
           stripePriceId: `price_seed_${scope.toLowerCase()}_${index + 1}`,
@@ -125,7 +133,14 @@ async function main() {
   );
 
   const issue = await prisma.issue.create({ data: { publisherId: publisher.id, venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, title: "Potty Favor", month: "July", year: 2024, issueNumber: 81, status: "PUBLISHED", publishedAt: new Date("2024-07-01T12:00:00.000Z") } });
-  await prisma.issueContentBlock.createMany({ data: blocks.map(([type, title, body], index) => ({ issueId: issue.id, articleId: articles[index].id, type, title, body, sortOrder: index + 1, layout: { column: index % 2, row: Math.floor(index / 2), span: index === 6 ? 2 : 1 } })) });
+  await prisma.issueContentBlock.createMany({ data: [
+    ...blocks.map(([type, title, body], index) => ({ issueId: issue.id, articleId: articles[index].id, type, title, body, sortOrder: index + 1, layout: { column: index % 2, row: Math.floor(index / 2), span: index === 6 ? 2 : 1 } })),
+    { issueId: issue.id, type: ContentBlockType.EVENT, title: "MGM Grand Edition: Arena Afterparty", body: "MGM Grand guests get a venue-only afterparty reminder and late-night snack tip.", venueIds: [venue.id], sortOrder: 9, layout: { venueSpecific: true } },
+    { issueId: issue.id, type: ContentBlockType.EVENT, title: "New York-New York Edition: Big Apple Coaster Tip", body: "Scan from New York-New York to see coaster timing, pub specials, and bridge photo-op notes.", venueIds: [newYorkVenue.id], sortOrder: 10, layout: { venueSpecific: true } },
+    { issueId: issue.id, type: ContentBlockType.ARTICLE, title: "Bellagio Edition: Fountain Timing", body: "Bellagio readers see a subtle fountain-show reminder plus conservatory crowd tips.", venueIds: [bellagioVenue.id], sortOrder: 11, layout: { venueSpecific: true } },
+    { issueId: issue.id, type: ContentBlockType.COUPON, title: "Local Restaurant Demo Edition", body: "Restaurant scanners see a local chef special and table-turn timing note.", venueIds: [restaurantVenue.id], sortOrder: 12, layout: { venueSpecific: true } },
+    { issueId: issue.id, type: ContentBlockType.COUPON, title: "Local Bar Demo Edition", body: "Bar scanners see happy-hour timing and late-night ride-share reminders.", venueIds: [barVenue.id], sortOrder: 13, layout: { venueSpecific: true } }
+  ] });
   await prisma.issueAdSlot.createMany({ data: ads.map((ad, index) => ({ issueId: issue.id, adId: ad.id, slotNumber: index + 1, source: ad.scope })) });
   await prisma.stalltalkAdSlot.createMany({
     data: ads.map((ad, index) => ({

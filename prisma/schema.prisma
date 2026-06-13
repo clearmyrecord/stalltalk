@@ -204,6 +204,8 @@ model Venue {
   city               String
   state              String
   address            String
+  venueType          String              @default("venue") @map("venue_type")
+  isActive           Boolean             @default(true) @map("is_active")
   status             AccountStatus       @default(ACTIVE)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -287,6 +289,7 @@ model Article {
   publisher   Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
   category    Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   blocks      IssueContentBlock[]
+  venueIds    String[]            @default([])
 
   @@unique([publisherId, slug])
 }
@@ -324,6 +327,7 @@ model IssueContentBlock {
   body      String
   imageUrl  String?
   layout    Json?
+  venueIds  String[]         @default([])
   sortOrder Int              @default(0)
   startsAt  DateTime?
   endsAt    DateTime?
@@ -357,6 +361,7 @@ model Ad {
   city                 String?
   state                String?
   venueId              String?
+  venueIds             String[]                   @default([])
   restroomId           String?
   monthlyPriceCents    Int                        @default(0)
   stripePriceId        String?
