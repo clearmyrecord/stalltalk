@@ -474,7 +474,6 @@ model Issue {
   adSlots       IssueAdSlot[]
   events        AnalyticsEvent[]
  
-  history   IssueHistory[]
   qrScans   QrScan[]
 
   @@index([status, year, issueNumber])
