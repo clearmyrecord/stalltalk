@@ -176,8 +176,16 @@ async function main() {
   await prisma.ad.update({ where: { id: ads[0].id }, data: { campaignStartsAt: samplePaidCampaign.startsAt, campaignEndsAt: samplePaidCampaign.endsAt } });
   await prisma.adCampaign.create({ data: { advertiserId: advertiserRecords[1].id, inventoryId: draftInventory.id, placements: { create: [{ inventoryId: draftInventory.id }] }, name: "Zoo August draft", businessName: "Columbus Zoo", headline: "Wild Weekend", body: "Save $5 on admission and meet somebody hairier than your group chat.", creativeUrl: "https://placehold.co/600x600/7d4cff/ffffff?text=Zoo", targetUrl: "https://example.com", ctaText: "Save $5", months: 1, locationCount: 1, priceCents: 5000, flightStartMonth: "2026-08", flightEndMonth: "2026-08", flightMonths: 1, pricePerPlacementMonthCents: 5000, placementCount: 1, totalAmountCents: 5000, status: "DRAFT", approvalStatus: "SUBMITTED", startsAt: new Date("2026-08-01T00:00:00.000Z"), endsAt: new Date("2026-08-31T23:59:59.999Z"), submittedAt: new Date("2026-06-12T12:00:00.000Z") } });
   await prisma.venueContentDraft.createMany({ data: [
-    { venueId: venue.id, title: "MGM late-night bites", body: "Ask the host stand about late-night restaurant specials before the next show.", approvalStatus: "APPROVED", submittedAt: new Date("2026-06-08T12:00:00.000Z"), approvedAt: new Date("2026-06-09T12:00:00.000Z") },
-    { venueId: venue.id, title: "Pool entrance reminder", body: "Draft reminder for guests scanning from the casino floor restroom.", approvalStatus: "SUBMITTED", submittedAt: new Date("2026-06-10T12:00:00.000Z") }
+    { venueId: venue.id, contentType: "ANNOUNCEMENT", title: "MGM late-night bites", body: "Ask the host stand about late-night restaurant specials before the next show.", approvalStatus: "APPROVED", submittedAt: new Date("2026-06-08T12:00:00.000Z"), approvedAt: new Date("2026-06-09T12:00:00.000Z") },
+    { venueId: venue.id, contentType: "EVENT", location: "MGM Grand Pool Entrance", startsAt: new Date("2026-07-05T20:00:00.000Z"), endsAt: new Date("2026-07-05T23:00:00.000Z"), title: "Pool entrance reminder", body: "Draft reminder for guests scanning from the casino floor restroom.", approvalStatus: "SUBMITTED", submittedAt: new Date("2026-06-10T12:00:00.000Z") }
+  ] });
+
+  await prisma.venueMediaAsset.createMany({ data: [
+    { venueId: venue.id, assetType: "LOGO", title: "MGM Grand Logo", url: "https://placehold.co/600x300/111111/fdca40?text=MGM+Grand" },
+    { venueId: newYorkVenue.id, assetType: "IMAGE", title: "New York-New York Exterior", url: "https://placehold.co/1200x800/ff2d2d/ffffff?text=NYNY" },
+    { venueId: bellagioVenue.id, assetType: "GALLERY", title: "Bellagio Fountains", url: "https://placehold.co/1200x800/111111/fdca40?text=Bellagio", galleryName: "Resort Highlights" },
+    { venueId: restaurantVenue.id, assetType: "IMAGE", title: "Restaurant Demo Dish", url: "https://placehold.co/1200x800/fdca40/111111?text=Restaurant" },
+    { venueId: barVenue.id, assetType: "IMAGE", title: "Bar Demo Happy Hour", url: "https://placehold.co/1200x800/7d4cff/ffffff?text=Happy+Hour" }
   ] });
 
   await prisma.stripeSubscription.create({ data: { advertiserId: advertiserRecords[0].id, adId: ads[0].id, stripeCustomerId: "cus_seed_hooters", stripeSubscriptionId: "sub_seed_monthly", status: "ACTIVE", locations: 1, monthlyAmountCents: 49900, currentPeriodEndsAt: new Date("2024-07-31T23:59:59.000Z") } });
@@ -185,7 +193,8 @@ async function main() {
   await prisma.user.createMany({ data: [
     { email: process.env.ADMIN_EMAIL || "admin@pottyfavor.com", name: "Potty Favor Admin", role: "ADMIN", passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "admin-password-change-me") },
     { email: process.env.ADVERTISER_EMAIL || "advertiser@pottyfavor.com", name: "Seed Advertiser", role: "ADVERTISER", advertiserId: advertiserRecords[0].id, passwordHash: hashPassword(process.env.ADVERTISER_PASSWORD || "advertiser-password-change-me") },
-    { email: process.env.VENUE_EMAIL || "venue@pottyfavor.com", name: "Seed Venue", role: "VENUE", venueId: venue.id, passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me") }
+    { email: process.env.VENUE_EMAIL || "venue@pottyfavor.com", name: "Seed Venue Manager", role: "VENUE_MANAGER", venueId: venue.id, passwordHash: hashPassword(process.env.VENUE_PASSWORD || "venue-password-change-me") },
+    { email: process.env.DISTRIBUTOR_EMAIL || "distributor@pottyfavor.com", name: "Seed Distributor", role: "DISTRIBUTOR", passwordHash: hashPassword(process.env.DISTRIBUTOR_PASSWORD || "distributor-password-change-me") }
   ] });
 
   await prisma.couponCampaign.create({ data: { advertiserId: advertiserRecords[5].id, name: "Graeter’s July Scoops", couponCode: "POTTYPOP", budgetCents: 25000, redemptionLimit: 500, startsAt: new Date("2024-07-01T00:00:00.000Z"), endsAt: new Date("2024-07-31T23:59:59.000Z") } });
