@@ -26,6 +26,8 @@ ALTER TABLE "qr_codes" ADD COLUMN "advertisement_source" TEXT;
 ALTER TABLE "qr_codes" ADD COLUMN "promotion_source" TEXT;
 ALTER TABLE "qr_codes" ADD COLUMN "coupon_source" TEXT;
 UPDATE "qr_codes" SET "short_url" = COALESCE("short_url", '/q/' || "qr_slug") WHERE "qr_slug" IS NOT NULL;
+-- Drop the legacy enum default before changing the column type; PostgreSQL cannot cast an attached default automatically.
+ALTER TABLE "qr_codes" ALTER COLUMN "status" DROP DEFAULT;
 ALTER TABLE "qr_codes" ALTER COLUMN "status" TYPE TEXT USING (CASE WHEN "status"::text = 'ASSIGNED' THEN 'ACTIVE' WHEN "status"::text = 'INVENTORY' THEN 'DRAFT' ELSE "status"::text END);
 ALTER TABLE "qr_codes" ALTER COLUMN "status" TYPE "QrCodeStatus_new" USING "status"::"QrCodeStatus_new";
 ALTER TABLE "qr_codes" ALTER COLUMN "status" SET DEFAULT 'DRAFT';
