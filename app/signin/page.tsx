@@ -16,9 +16,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         {!auth.isConfigured ? <p className="mt-4 rounded-xl border-2 border-ink bg-stallYellow p-3 font-black">Setup required: set DATABASE_URL and AUTH_SECRET to enable secure super admin, admin, advertiser, distributor, and venue manager sessions.</p> : null}
         {params.error === "credentials" ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">Email or password was not recognized.</p> : null}
         {params.error === "role" ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">That account cannot access the requested dashboard. Sign in with the correct role.</p> : null}
+        {params.error === "setup" ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">Sign in is temporarily unavailable while the database finishes setup. Please try again shortly.</p> : null}
         {params.setup === "auth" ? <p className="mt-4 rounded-xl bg-stallYellow p-3 font-black">Login is disabled until AUTH_SECRET and DATABASE_URL are configured.</p> : null}
         {bootstrap?.created ? <p className="mt-4 rounded-xl bg-stallYellow p-3 font-black">Emergency bootstrap admin created for admin@pottyfavor.com. Change the password after signing in.</p> : null}
-        {bootstrap?.error ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">Bootstrap admin check failed: {bootstrap.error}</p> : null}
+        {bootstrap?.error ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">{bootstrap.error}</p> : null}
         <form action={signIn} className="mt-6 grid gap-3">
           <label className="grid gap-1 font-black uppercase">Email<input name="email" type="email" required className="rounded border-2 border-ink p-3" /></label>
           <label className="grid gap-1 font-black uppercase">Password<input name="password" type="password" required className="rounded border-2 border-ink p-3" /></label>

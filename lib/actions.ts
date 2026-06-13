@@ -352,9 +352,20 @@ export async function signIn(formData: FormData) {
   if (!authEnvStatus().isConfigured) redirect("/signin?setup=auth");
   const email = text(formData, "email").toLowerCase();
   const password = text(formData, "password");
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+  } catch (error) {
+    console.error("Sign-in database lookup failed.", error);
+    redirect("/signin?error=setup");
+  }
   if (!user || !verifyPassword(password, user.passwordHash) || user.status !== "ACTIVE") redirect("/signin?error=credentials");
-  await createSession(user.id);
+  try {
+    await createSession(user.id);
+  } catch (error) {
+    console.error("Sign-in session creation failed.", error);
+    redirect("/signin?error=setup");
+  }
   if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") redirect("/admin/dashboard");
 
   redirect("/portal/advertiser");

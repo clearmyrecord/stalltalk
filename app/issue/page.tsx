@@ -1,5 +1,5 @@
-import Link from "next/link";
 import IssueByVenuePage from "./[venueSlug]/page";
+import { MissionCard, PublicationFooter, PublicationHeader } from "@/components/PublicationIssueChrome";
 import { prisma } from "@/lib/prisma";
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
@@ -63,100 +63,58 @@ function StaticIssuePage() {
     .slice(0, 8);
 
   return (
-    <main className="min-h-screen bg-paper px-4 py-8 text-ink md:px-8">
-      <section className="mx-auto max-w-5xl rounded-[2rem] border-4 border-ink bg-white p-6 shadow-brutal">
-        <p className="text-xs font-black uppercase tracking-[0.35em] text-stallRed">
-          {publishedIssue.issueMonthYear}
-        </p>
-
-        <h1 className="mt-2 font-display text-7xl uppercase leading-none md:text-9xl">
-          {publishedIssue.mastheadBrand}
-        </h1>
-
-        <p className="mt-4 max-w-xl text-xl font-bold">
-          {publishedIssue.missionText}
-        </p>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            className="rounded-xl bg-stallYellow px-4 py-3 font-black uppercase"
-            href="/signin"
-          >
-            Admin Sign In
-          </Link>
-        </div>
-      </section>
-
-      <section className="mx-auto mt-8 grid max-w-5xl gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="grid gap-6">
-          <StaticArticle
-            title={publishedIssue.mainFeatureTitle}
-            body={publishedIssue.mainFeatureBody}
-          />
-
-          <StaticArticle
-            title={publishedIssue.secondaryFeatureTitle}
-            body={publishedIssue.secondaryFeatureBody}
-          />
-
-          <StaticArticle
-            title={publishedIssue.humorTitle}
-            body={publishedIssue.humorBody}
-          />
-        </div>
-
-        <aside className="grid content-start gap-4">
-          {ads.map((ad) => (
-            <a
-              key={ad.slot}
-              className="rounded-2xl border-4 border-ink bg-white p-4 shadow-brutal"
-              href={ad.targetUrl || "#"}
-            >
-              <p className="text-xs font-black uppercase tracking-widest text-stallPurple">
-                Sponsor #{ad.slot}
-              </p>
-
-              <h2 className="mt-2 font-display text-4xl uppercase leading-none">
-                {ad.headline}
-              </h2>
-
-              <p className="mt-2 font-bold">{ad.offer}</p>
-
-              {ad.couponCode ? (
-                <p className="mt-3 inline-block rounded-lg bg-stallYellow px-3 py-2 font-black uppercase">
-                  {ad.couponCode}
-                </p>
-              ) : null}
-
-              <p className="mt-3 font-black uppercase text-stallRed">
-                {ad.cta}
-              </p>
-            </a>
+    <main className="public-page">
+      <article className="publication" aria-label="Potty Favor monthly issue">
+        <PublicationHeader monthYear={publishedIssue.issueMonthYear} />
+        <section className="print-grid">
+          <MissionCard missionText={publishedIssue.missionText} />
+          <PublicationAdFallback ad={ads[0]} slotNumber={1} primary />
+          <StaticArticle title={publishedIssue.humorTitle} body={publishedIssue.humorBody} variant="secondary-card" />
+          <PublicationAdFallback ad={ads[1]} slotNumber={2} />
+          <StaticArticle title={publishedIssue.mainFeatureTitle} body={publishedIssue.mainFeatureBody} variant="feature-card" />
+          <PublicationAdFallback ad={ads[2]} slotNumber={3} />
+          <StaticArticle title={publishedIssue.secondaryFeatureTitle} body={publishedIssue.secondaryFeatureBody} variant="secondary-card" />
+          {ads.slice(3, 8).map((ad, index) => (
+            <PublicationAdFallback key={ad.slot} ad={ad} slotNumber={index + 4} />
           ))}
-        </aside>
-      </section>
+          <section className="sponsor-directory panel">
+            <p className="directory-kicker">Sponsor Directory</p>
+            <h2>Featured Potty Favor Sponsors</h2>
+            <p>Every ad above is served by venue, city, state, or global targeting so local offers can travel with the publication without leaving the reading flow.</p>
+          </section>
+        </section>
+        <PublicationFooter />
+      </article>
     </main>
   );
 }
 
-function StaticArticle({
-  title,
-  body
-}: {
-  title: string;
-  body: string;
-}) {
+function PublicationAdFallback({ ad, slotNumber, primary = false }: { ad?: StaticAd; slotNumber: number; primary?: boolean }) {
   return (
-    <article className="rounded-[2rem] border-4 border-ink bg-white p-6 shadow-brutal">
-      <h2 className="font-display text-5xl uppercase leading-none md:text-7xl">
-        {title}
-      </h2>
+    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${ad ? "" : "is-empty"}`} id={`sponsor-slot-${slotNumber}`}>
+      <span className="slot">Ad {slotNumber}</span>
+      <h3>{ad?.headline || "Available Sponsor Slot"}</h3>
+      <div className="ad-copy">
+        <p>{ad?.offer || "Advertise Here"}</p>
+        <p>{ad?.cta || "Reach restroom readers in this venue."}</p>
+      </div>
+      <div className="ad-actions">
+        <a href={ad?.targetUrl || "/signin"}>{ad?.cta || "Book Slot"}</a>
+        {ad?.couponCode ? <span className="coupon">{ad.couponCode}</span> : null}
+      </div>
+    </article>
+  );
+}
 
-      <div className="mt-4 space-y-4 text-lg font-bold leading-relaxed">
+function StaticArticle({ title, body, variant }: { title: string; body: string; variant: "feature-card" | "secondary-card" }) {
+  return (
+    <section className={`panel ${variant}`}>
+      <h2>{title}</h2>
+      <div className="article-copy">
         {body.split("\n\n").map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>
         ))}
       </div>
-    </article>
+    </section>
   );
 }
