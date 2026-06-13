@@ -11,10 +11,16 @@ export default async function DeploymentChecklistPage() {
   const prismaCheck = await prismaStatus();
   const databaseUrl = process.env.DATABASE_URL ? "Detected" : "Missing";
   const openAiKey = process.env.OPENAI_API_KEY ? "Detected" : "Missing";
+  const authSecret = process.env.AUTH_SECRET ? "Detected" : "Missing";
+  const vercelEnv = process.env.VERCEL_ENV || "Local / unknown";
   const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
   const openAiReady = process.env.OPENAI_API_KEY ? "Ready to test in Settings" : "Failed: OPENAI_API_KEY missing";
   const items = [
     ["DATABASE_URL status", databaseUrl],
+    ["AUTH_SECRET status", authSecret],
+    ["Vercel environment", vercelEnv],
+    ["Vercel build command", "npm run vercel-build"],
+    ["Migration command", "prisma migrate deploy before next build"],
     ["OPENAI_API_KEY status", openAiKey],
     ["Prisma status", prismaCheck],
     ["OpenAI image generation status", openAiReady],
