@@ -32,8 +32,8 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   issue.venueId = requestedVenue.id;
   issue.restroomId = directIssue?.restroomId || null;
   issue.qrCodeId = directIssue?.qrCodeId || null;
-  issue.contentBlocks = issue.contentBlocks.filter((block) => !block.venueIds.length || block.venueIds.includes(requestedVenue.id));
-  const approvedVenueDrafts = await prisma.venueContentDraft.findMany({ where: { venueId: issue.venueId, approvalStatus: "APPROVED" }, orderBy: { approvedAt: "desc" }, take: 3 });
+  issue.contentBlocks = issue.contentBlocks.filter((block) => (!block.article || block.article.status === "PUBLISHED") && (!block.venueIds.length || block.venueIds.includes(requestedVenue.id)));
+  const approvedVenueDrafts = await prisma.venueContentDraft.findMany({ where: { venueId: requestedVenue.id, approvalStatus: "APPROVED" }, orderBy: { approvedAt: "desc" }, take: 3 });
   const ads = await getServedAds(issue);
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
 
@@ -47,17 +47,20 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
         <p className="font-black uppercase">{issue.venue.city}, {issue.venue.state} • {issue.month} {issue.year} • Issue #{issue.issueNumber} • QR {issue.qrCode?.code || "venue"}</p>
       </header>
 
-      <div className="mx-auto max-w-5xl p-3 md:p-5">
+      <div className="mx-auto max-w-5xl p-3 pb-20 md:p-5">
         <IssueContent issue={issue} ads={ads} venueDrafts={approvedVenueDrafts} />
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t-4 border-ink bg-white p-2 shadow-lg md:hidden" aria-label="Sponsor slots">
+        <div className="grid grid-cols-8 gap-1">{Array.from({ length: 8 }, (_, index) => <a key={index} href={`#sponsor-slot-${index + 1}`} className="rounded bg-stallYellow px-1 py-2 text-center text-xs font-black text-ink">{index + 1}</a>)}</div>
+      </nav>
     </main>
   );
 }
 
 function AdPlacement({ ads, slotNumber, issue, compact = false, chip = false }: { ads: ServedAds; slotNumber: number; issue: IssueWithContext; compact?: boolean; chip?: boolean }) {
   const ad = ads[slotNumber - 1];
-  if (!ad) return <AdPlaceholder slotNumber={slotNumber} chip={chip} />;
-  return <AdCard ad={ad} slotNumber={slotNumber} issueId={issue.id} publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} compact={compact} chip={chip} />;
+  if (!ad) return <div id={`sponsor-slot-${slotNumber}`}><AdPlaceholder slotNumber={slotNumber} chip={chip} /></div>;
+  return <div id={`sponsor-slot-${slotNumber}`}><AdCard ad={ad} slotNumber={slotNumber} issueId={issue.id} publisherId={issue.publisherId} venueId={issue.venueId} restroomId={issue.restroomId} qrCodeId={issue.qrCodeId} compact={compact} chip={chip} /></div>;
 }
 
 function IssueContent({ issue, ads, venueDrafts }: { issue: IssueWithContext; ads: ServedAds; venueDrafts: Array<{ id: string; title: string; body: string; imageUrl: string | null }> }) {
