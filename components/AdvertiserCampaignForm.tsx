@@ -6,7 +6,7 @@ import { FLIGHT_MONTH_OPTIONS, PRICE_PER_PLACEMENT_MONTH_CENTS, addMonthsToFligh
 import { money } from "@/lib/format";
 
 type AdvertiserOption = { id: string; name: string };
-type PlacementOption = { id: string; month: string; venueName: string; restroomName: string; qrCode: string; toiletLabel: string; slotNumber: number; priceCents: number };
+type PlacementOption = { id: string; month: string; venueName: string; restroomName: string; qrCode: string; toiletLabel: string; slotNumber: number; priceCents: number; venueId?: string; city?: string; state?: string; venueType?: string };
 
 export function AdvertiserCampaignForm({ advertisers, placements, selectedAdvertiserId, initialStartMonth }: { advertisers: AdvertiserOption[]; placements: PlacementOption[]; selectedAdvertiserId: string; initialStartMonth: string }) {
   const [selectedPlacements, setSelectedPlacements] = useState<string[]>([]);
@@ -38,11 +38,15 @@ export function AdvertiserCampaignForm({ advertisers, placements, selectedAdvert
         {placements.length === 0 ? <p className="font-black">No placements available to select for this start month.</p> : null}
       </fieldset>
       <input name="name" placeholder="Campaign name" className="rounded border-2 border-ink p-3" />
+      <input name="budgetDollars" type="number" min="1" placeholder="Campaign budget dollars" className="rounded border-2 border-ink p-3" />
+      <textarea name="description" placeholder="Campaign description / approval notes" className="rounded border-2 border-ink p-3 md:col-span-2" />
       <input name="businessName" placeholder="Business name" required className="rounded border-2 border-ink p-3" />
+      <select name="creativeKind" className="rounded border-2 border-ink p-3"><option value="IMAGE">Image ad</option><option value="COUPON">Coupon ad</option><option value="BANNER">Banner ad</option><option value="SPONSORED_ARTICLE">Sponsored article</option><option value="RESTAURANT_PROMOTION">Restaurant promotion</option><option value="EVENT_PROMOTION">Event promotion</option></select>
       <input name="headline" placeholder="Ad headline" required className="rounded border-2 border-ink p-3" />
       <input name="creativeUrl" placeholder="Uploaded/generated creative image URL" className="rounded border-2 border-ink p-3" />
       <input name="targetUrl" placeholder="Website" className="rounded border-2 border-ink p-3" />
       <input name="ctaText" placeholder="CTA" className="rounded border-2 border-ink p-3" />
+      <fieldset className="rounded-xl border-2 border-ink bg-white p-3 md:col-span-2"><legend className="px-2 font-black uppercase">Multi-select targeting</legend><div className="grid gap-2 md:grid-cols-5"><label className="font-bold"><input type="radio" name="targetType" value="GLOBAL_NETWORK" defaultChecked /> Global Network</label><label className="font-bold"><input type="radio" name="targetType" value="STATE" /> State</label><label className="font-bold"><input type="radio" name="targetType" value="CITY" /> City</label><label className="font-bold"><input type="radio" name="targetType" value="VENUE" /> Venue</label><label className="font-bold"><input type="radio" name="targetType" value="VENUE_TYPE" /> Venue Type</label></div><div className="mt-3 grid gap-2 md:grid-cols-4"><input name="targetStates" placeholder="NV" className="rounded border-2 border-ink p-2"/><input name="targetCities" placeholder="Las Vegas" className="rounded border-2 border-ink p-2"/><input name="targetVenueTypes" placeholder="restaurant / bar / casino resort" className="rounded border-2 border-ink p-2"/><select name="targetVenueIds" multiple className="rounded border-2 border-ink p-2">{placements.map((placement) => placement.venueId ? <option key={placement.id} value={placement.venueId}>{placement.venueName}</option> : null)}</select></div></fieldset>
       <textarea name="body" placeholder="Offer/body copy" required className="rounded border-2 border-ink p-3 md:col-span-2" />
       <button disabled={!selectedAdvertiserId || placements.length === 0 || selectedPlacements.length === 0} className="rounded-xl bg-ink px-5 py-3 font-black uppercase text-white disabled:opacity-50 md:col-span-2">Save {flightMonths}-month campaign draft · {money(totalAmountCents)}</button>
     </form>

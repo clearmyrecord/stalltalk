@@ -8,21 +8,58 @@ datasource db {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
+  VENUE_MANAGER
   ADVERTISER
+  DISTRIBUTOR
   VENUE
 }
 
 enum CampaignStatus {
   DRAFT
+  SUBMITTED
   PAYMENT_PENDING
   PENDING_PAYMENT
   PAID
   APPROVED
   REJECTED
   ACTIVE
+  PAUSED
   EXPIRED
   ARCHIVED
+}
+
+enum CreativeKind {
+  IMAGE
+  COUPON
+  BANNER
+  SPONSORED_ARTICLE
+  RESTAURANT_PROMOTION
+  EVENT_PROMOTION
+}
+
+enum TargetType {
+  GLOBAL_NETWORK
+  STATE
+  CITY
+  VENUE
+  VENUE_TYPE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+enum CreativeApprovalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  FLAGGED
 }
 
 enum PaymentStatus {
@@ -45,6 +82,7 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  PUBLISHED
 }
 
 enum AccountStatus {
@@ -58,6 +96,30 @@ enum IssueStatus {
   SCHEDULED
   PUBLISHED
   ARCHIVED
+}
+
+enum VenueContentType {
+  ANNOUNCEMENT
+  PROMOTION
+  EVENT
+  RESTAURANT_REVIEW
+  PHOTO
+  COUPON
+  FEATURED_CONTENT
+}
+
+enum VenuePromotionCategory {
+  HAPPY_HOUR
+  RESTAURANT
+  RETAIL
+  HOTEL_PACKAGE
+  ENTERTAINMENT
+}
+
+enum MediaAssetType {
+  IMAGE
+  LOGO
+  GALLERY
 }
 
 enum ContentBlockType {
@@ -92,6 +154,9 @@ enum AnalyticsEventType {
   AD_IMPRESSION
   AD_CLICK
   COUPON_REDEMPTION
+  COUPON_CLICK
+  ISSUE_VIEW
+  WEBSITE_VISIT
   REVIEW_VIEW
   REVIEW_WEBSITE_CLICK
   REVIEW_SOCIAL_CLICK
@@ -221,6 +286,8 @@ model Advertiser {
   analyticsEvents AnalyticsEvent[]
   users           User[]
   adCampaigns     AdCampaign[]
+  adCreatives     AdCreative[]
+  invoices        AdvertiserInvoice[]
   payments        Payment[]
 
   @@unique([publisherId, slug])
@@ -237,6 +304,7 @@ model Venue {
   address            String
   venueType          String              @default("venue") @map("venue_type")
   isActive           Boolean             @default(true) @map("is_active")
+  directPublishingApproved Boolean        @default(false)
   status             AccountStatus       @default(ACTIVE)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -252,6 +320,7 @@ model Venue {
   toiletLocations    ToiletLocation[]
   adSlotInventories  AdSlotInventory[]
   venueContentDrafts VenueContentDraft[]
+  mediaAssets        VenueMediaAsset[]
   restaurantReviews  RestaurantReview[]
 }
 
@@ -671,18 +740,31 @@ model AdCampaign {
   businessName                String
   headline                    String
   body                        String
+  description                 String?
   creativeUrl                 String?
   targetUrl                   String                @default("#")
   ctaText                     String                @default("Learn More")
   months                      Int                   @default(1)
   locationCount               Int                   @default(1)
   priceCents                  Int                   @default(5000)
+  budgetCents                 Int                   @default(0)
+  remainingBudgetCents        Int                   @default(0)
   flightStartMonth            String                @default("2026-07")
   flightEndMonth              String                @default("2026-07")
   flightMonths                Int                   @default(1)
   pricePerPlacementMonthCents Int                   @default(5000)
   placementCount              Int                   @default(1)
   totalAmountCents            Int                   @default(5000)
+  targetType                  TargetType            @default(GLOBAL_NETWORK)
+  targetStates                String[]              @default([])
+  targetCities                String[]              @default([])
+  targetVenueIds              String[]              @default([])
+  targetVenueTypes            String[]              @default([])
+  impressionsServed           Int                   @default(0)
+  clicksServed                Int                   @default(0)
+  qrScans                     Int                   @default(0)
+  estimatedCpmCents           Int                   @default(0)
+  estimatedCpcCents           Int                   @default(0)
   status                      CampaignStatus        @default(DRAFT)
   approvalStatus              ApprovalStatus        @default(PENDING)
   adminApprovalNote           String?
@@ -704,6 +786,8 @@ model AdCampaign {
   ad                          Ad?                   @relation(fields: [adId], references: [id], onDelete: SetNull)
   payments                    Payment[]
   placements                  AdCampaignPlacement[]
+  creatives                   AdCreative[]
+  invoices                    AdvertiserInvoice[]
 
   @@index([advertiserId, status])
   @@index([inventoryId])
@@ -720,6 +804,45 @@ model AdCampaignPlacement {
 
   @@unique([campaignId, inventoryId])
   @@index([inventoryId])
+}
+
+model AdCreative {
+  id             String                 @id @default(cuid())
+  campaignId     String
+  advertiserId   String
+  kind           CreativeKind           @default(IMAGE)
+  imageUrl       String?
+  headline       String
+  body           String
+  callToAction   String                 @default("Learn More")
+  destinationUrl String                 @default("#")
+  approvalStatus CreativeApprovalStatus @default(SUBMITTED)
+  reviewNote     String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  campaign       AdCampaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  advertiser     Advertiser             @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
+  @@index([advertiserId, approvalStatus])
+  @@index([campaignId])
+}
+
+model AdvertiserInvoice {
+  id               String        @id @default(cuid())
+  advertiserId     String
+  campaignId       String?
+  invoiceNumber    String        @unique
+  amountCents      Int
+  currency         String        @default("usd")
+  status           InvoiceStatus @default(DRAFT)
+  stripeCustomerId String?
+  stripeInvoiceId  String?
+  createdAt        DateTime      @default(now())
+  paidAt           DateTime?
+  advertiser       Advertiser    @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  campaign         AdCampaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([advertiserId, status])
 }
 
 model Payment {
@@ -743,22 +866,48 @@ model Payment {
 model VenueContentDraft {
   id              String         @id @default(cuid())
   venueId         String
+  contentType     VenueContentType @default(ANNOUNCEMENT)
   title           String
   body            String
   imageUrl        String?
+  location        String?
+  websiteUrl      String?
+  category        String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  expiresAt       DateTime?
+  couponCode      String?
+  qrDestination   String?
   approvalStatus  ApprovalStatus @default(DRAFT)
   adminNote       String?
   rejectionReason String?
   submittedAt     DateTime?
   approvedAt      DateTime?
   rejectedAt      DateTime?
+  publishedAt     DateTime?
   approvedBy      String?
   rejectedBy      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   venue           Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
-  @@index([venueId, approvalStatus])
+  @@index([venueId, contentType, approvalStatus])
+  @@index([venueId, startsAt, endsAt])
+}
+
+model VenueMediaAsset {
+  id          String         @id @default(cuid())
+  venueId     String
+  assetType   MediaAssetType @default(IMAGE)
+  title       String
+  url         String
+  altText     String?
+  galleryName String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  venue       Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, assetType])
 }
 
 model CouponCampaign {
