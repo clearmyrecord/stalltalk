@@ -828,3 +828,53 @@ main,
     line-height: 1.35;
   }
 }
+
+/* Fix invisible Our Mission card on mobile/Vercel */
+.mission-card,
+.purpose-card,
+.potty-purpose,
+section.mission,
+section.purpose {
+  background: linear-gradient(135deg, #080b4f 0%, #160850 55%, #080526 100%) !important;
+  color: #ffffff !important;
+  border: 3px solid #f3d680 !important;
+  border-radius: 28px !important;
+  padding: 32px 22px !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.35) !important;
+  opacity: 1 !important;
+}
+
+.mission-card *,
+.purpose-card *,
+.potty-purpose *,
+section.mission *,
+section.purpose * {
+  opacity: 1 !important;
+}
+
+.mission-card h1,
+.mission-card h2,
+.purpose-card h1,
+.purpose-card h2,
+.potty-purpose h1,
+.potty-purpose h2 {
+  color: #ffffff !important;
+}
+
+.mission-card .eyebrow,
+.purpose-card .eyebrow,
+.potty-purpose .eyebrow {
+  color: #f3d680 !important;
+}
+
+@media (max-width: 768px) {
+  .mission-card,
+  .purpose-card,
+  .potty-purpose,
+  section.mission,
+  section.purpose {
+    margin: 24px auto !important;
+    width: calc(100% - 28px) !important;
+    max-width: 640px !important;
+  }
+}
