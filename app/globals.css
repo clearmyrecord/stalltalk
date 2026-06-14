@@ -549,10 +549,10 @@ body:has(.public-page) { background: #000; }
   }
 }
 
-/* Standardized Potty Favor sponsor system: one mobile-first 4:3 Mobile Sponsor Card ratio. */
+/* Standardized Potty Favor sponsor system: one mobile-first 1:1 Mobile Sponsor Card ratio. */
 :root {
-  --ad-width: min(100%, 760px);
-  --ad-aspect-ratio: 4 / 3;
+  --ad-width: min(100%, 360px);
+  --ad-aspect-ratio: 1 / 1;
   --ad-radius: 24px;
   --ad-spacing: 18px;
   --ad-background: #090717;

@@ -708,7 +708,7 @@ function creativeVenueAtmosphere(brief) {
 }
 
 function adFormatForSize(_adSize) {
-  return { label: "Mobile Sponsor Card", layout: "mobile-first 4:3 Mobile Sponsor Card, full-bleed, no mixed ad sizes", previewWidth: 1024, previewHeight: 768 };
+  return { label: "Mobile Sponsor Card", layout: "mobile-first 1:1 Mobile Sponsor Card, full-bleed, no mixed ad sizes", previewWidth: 1024, previewHeight: 1024 };
 }
 
 function buildEnhancedCreativePrompt(brief) {

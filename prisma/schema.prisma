@@ -566,8 +566,14 @@ model StalltalkCampaignHistory {
   subheadline   String?
   ctaText       String?
   couponCode    String?
-  adSize        String      @default("Banner")
+  adSize        String      @default("Mobile Sponsor Card")
+  logoBase64    String?
+  logoUrl       String?
+  targetUrl     String?
+  selectedSlot  Int?
   slotPublished Int?
+  publishStatus String      @default("GENERATED")
+  publishedAt   DateTime?
   createdAt     DateTime    @default(now())
   publisher     Publisher?  @relation(fields: [publisherId], references: [id], onDelete: SetNull)
   advertiser    Advertiser? @relation(fields: [advertiserId], references: [id], onDelete: SetNull)

@@ -8,6 +8,7 @@ type VenueOption = { id: string; name: string; city: string; state: string };
 type RestroomOption = { id: string; name: string; venueName: string };
 type IssueOption = { id: string; title: string; venueName: string; status: string };
 type RecentCampaign = { id: string; businessName: string; title: string; offer: string; ctaText: string; couponCode: string | null; createdAt: string };
+type SavedCampaign = { campaignId: string; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "Mobile Sponsor Card"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
 
 type Props = {
   createAd: (formData: FormData) => void | Promise<void>;
@@ -17,11 +18,12 @@ type Props = {
   restrooms: RestroomOption[];
   issues: IssueOption[];
   recentCampaigns: RecentCampaign[];
+  savedCampaigns: SavedCampaign[];
 };
 
 type AdSize = "Mobile Sponsor Card";
 type GeneratedCreative = {
-  adSize: AdSize;
+  adSize: "Mobile Sponsor Card";
   imageUrl: string;
   promptUsed: string;
   headline: string;
@@ -36,16 +38,18 @@ type GeneratedCreative = {
   historyError?: string;
   imageFallback?: boolean;
   imageError?: string;
+  targetUrl?: string | null;
+  selectedSlot?: number | null;
 };
 
-type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number };
+type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number | null };
 
 const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "Concert Goers", "Convention Attendees", "Custom Audience"];
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
 const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
 const sizes: Record<AdSize, { label: string; className: string }> = {
-  [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-[4/3]" }
+  [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-square" }
 };
 
 function safe(value: string | undefined, fallback: string) {
@@ -87,7 +91,7 @@ function diagnosticMessage(data: { error?: string; diagnostic?: ApiDiagnostic })
   ].filter(Boolean).join(" • ");
 }
 
-export function AdStudioAgency({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns }: Props) {
+export function AdStudioAgency({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns }: Props) {
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -121,14 +125,8 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   });
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("stalltalk-ad-studio-history") || window.localStorage.getItem("stalltalk-ai-creative-history");
-    if (!raw) return;
-    try {
-      setHistory(JSON.parse(raw) as CampaignHistoryItem[]);
-    } catch {
-      window.localStorage.removeItem("stalltalk-ad-studio-history");
-    }
-  }, []);
+    setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: MOBILE_SPONSOR_CARD, createdAt: item.createdAt })));
+  }, [savedCampaigns]);
 
   const selectedCreative = creatives[selectedCreativeIndex];
   const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
@@ -155,15 +153,15 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     const [baseImage, logoImage] = await Promise.all([loadCanvasImage(imageUrl), loadCanvasImage(form.logoBase64)]);
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
-    canvas.height = 768;
+    canvas.height = 1024;
     const context = canvas.getContext("2d");
     if (!context) return imageUrl;
     const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
     const drawnWidth = baseImage.width * scale;
     const drawnHeight = baseImage.height * scale;
     context.drawImage(baseImage, (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2, drawnWidth, drawnHeight);
-    const logoMaxWidth = canvas.width * 0.3;
-    const logoMaxHeight = canvas.height * 0.18;
+    const logoMaxWidth = canvas.width * 0.34;
+    const logoMaxHeight = canvas.height * 0.16;
     const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height, 1);
     const logoWidth = logoImage.width * logoScale;
     const logoHeight = logoImage.height * logoScale;
@@ -239,7 +237,9 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           diagnostic: data.diagnostic,
           campaignId: data.campaignId,
           historySaved: data.historySaved,
-          historyError: data.historyError
+          historyError: data.historyError,
+          targetUrl: form.website || null,
+          selectedSlot: Number(slotNumber)
           });
         }
     } catch (caught) {
@@ -248,7 +248,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       setError(`Image generation fallback active. ${message}`);
     }
 
-    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || crypto.randomUUID(), businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString() }));
+    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || campaignBatchId, businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString(), targetUrl: form.website || null, selectedSlot: Number(slotNumber) }));
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
     setCreatives(generated);
     setSelectedCreativeIndex(0);
@@ -262,7 +262,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   function publish() {
     if (!selectedCreative) return;
     const formData = new FormData();
-    const campaignId = crypto.randomUUID();
+    const campaignId = selectedCreative.campaignId || crypto.randomUUID();
     formData.set("campaignId", campaignId);
     formData.set("publisherId", form.publisherId);
     formData.set("advertiserId", form.advertiserId);
@@ -279,6 +279,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     formData.set("ctaText", selectedCreative.ctaText);
     formData.set("targetUrl", form.website || "#");
     formData.set("phone", form.phone);
+    formData.set("logoBase64", form.logoBase64);
     formData.set("couponCode", selectedCreative.couponCode);
     formData.set("status", "ACTIVE");
     formData.set("scope", form.scope);
@@ -388,7 +389,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <HistoryPanel title="Local AI Campaign History" items={history} onLoad={(item) => { setCreatives([item]); setSelectedCreativeIndex(0); setStep(5); }} />
+        <HistoryPanel title="Database Campaign History" items={history} onLoad={(item) => { setCreatives([item]); setSelectedCreativeIndex(0); if (item.selectedSlot) setSlotNumber(String(item.selectedSlot)); if (item.targetUrl) update("website", item.targetUrl); setStep(5); }} />
         <div className="rounded-2xl border-4 border-ink bg-white p-4">
           <h3 className="font-display text-4xl uppercase">Published Ad History</h3>
           <div className="mt-3 grid gap-2">{recentCampaigns.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleDateString()}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.title}</p><p className="text-xs font-black uppercase text-stallPurple">{item.ctaText} {item.couponCode ? `• ${item.couponCode}` : ""}</p></article>)}</div>
@@ -432,7 +433,24 @@ function PreviewCard({ creative }: { creative: GeneratedCreative }) {
 }
 
 function FallbackAd({ creative }: { creative: GeneratedCreative }) {
-  return <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-stallPurple via-stallRed to-stallYellow p-6 text-white"><p className="text-xs font-black uppercase tracking-[.35em]">AI copy generated</p><div><p className="text-sm font-black uppercase text-white/80">{creative.businessName || "Generated Sponsor"}</p><h3 className="font-display text-4xl uppercase leading-none drop-shadow md:text-6xl">{creative.headline}</h3><p className="mt-2 max-w-xl text-lg font-black drop-shadow">{creative.subheadline}</p></div><div className="flex flex-wrap items-center gap-3"><span className="rounded-full border-2 border-white bg-ink px-4 py-2 text-sm font-black uppercase">{creative.ctaText}</span>{creative.couponCode ? <span className="rounded-full border-2 border-white bg-white px-4 py-2 text-sm font-black uppercase text-stallRed">Code {creative.couponCode}</span> : null}</div></div>;
+  return (
+    <div className="relative flex h-full w-full flex-col justify-between overflow-hidden bg-[radial-gradient(circle_at_20%_10%,rgba(255,216,76,.95),transparent_28%),linear-gradient(135deg,#13091f_0%,#33206f_48%,#0f5a78_100%)] p-8 text-white">
+      <div className="absolute inset-5 rounded-[2rem] border border-white/25" aria-hidden="true" />
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="rounded-2xl bg-white px-4 py-3 text-sm font-black uppercase tracking-wide text-ink shadow-brutal">Logo</div>
+        <span className="rounded-full border border-white/40 bg-black/30 px-3 py-2 text-[10px] font-black uppercase tracking-[.22em]">Fallback Preview</span>
+      </div>
+      <div className="relative max-w-[78%]">
+        <p className="mb-3 text-sm font-black uppercase tracking-[.25em] text-stallYellow">{creative.businessName || "Generated Sponsor"}</p>
+        <h3 className="font-display text-5xl uppercase leading-[.86] drop-shadow md:text-7xl">{creative.headline}</h3>
+        <p className="mt-4 rounded-2xl bg-white/15 p-3 text-xl font-black leading-tight backdrop-blur">{creative.subheadline}</p>
+      </div>
+      <div className="relative flex flex-wrap items-center gap-3">
+        {creative.couponCode ? <span className="rounded-full border-2 border-dashed border-white bg-white px-5 py-3 text-sm font-black uppercase text-stallRed shadow-brutal">Code {creative.couponCode}</span> : null}
+        <span className="rounded-full bg-stallYellow px-6 py-3 text-sm font-black uppercase text-ink shadow-brutal">{creative.ctaText}</span>
+      </div>
+    </div>
+  );
 }
 
 function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
@@ -440,5 +458,5 @@ function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
 }
 
 function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {
-  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">{title}</h3><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <button key={item.campaignId} className="rounded-xl border-2 border-ink bg-paper p-3 text-left" onClick={() => onLoad(item)}><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleString()} • {item.adSize}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.headline}</p></button>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No local campaigns yet.</p>}</div></div>;
+  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">{title}</h3><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <button key={item.campaignId} className="rounded-xl border-2 border-ink bg-paper p-3 text-left" onClick={() => onLoad(item)}><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleString()} • {item.adSize}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.headline}</p><span className="mt-2 inline-block rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white">Use Again / Republish</span></button>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No saved database campaigns yet.</p>}</div></div>;
 }

@@ -21,9 +21,9 @@ const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1"]);
 const ALLOWED_ORIGINS = ["https://stalltalk.vercel.app", "https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
 
 const SPONSOR_CARD_SIZE = {
-  apiSize: "1024x768",
-  composition: "mobile-first full-bleed Potty Favor sponsor card with a short 4:3 landscape ratio, one clear hierarchy, and protected readable text areas",
-  cssSafeArea: "4:3 Mobile Sponsor Card"
+  apiSize: "1024x1024",
+  composition: "mobile-first square Potty Favor sponsor card with one clear visual hierarchy, premium branded composition, and protected readable text areas",
+  cssSafeArea: "1:1 Mobile Sponsor Card"
 };
 
 const sizeMap: Record<AdSize, typeof SPONSOR_CARD_SIZE> = {
@@ -125,8 +125,8 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
       `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
       `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
       `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
-      `Canvas: ${adSize}; generate at ${size.apiSize}; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and no important text at the outer edge.`,
-      `Use readable bold typography, high contrast, and an eye-catching mobile-friendly layout for restroom readers scanning quickly.`,
+      `Canvas: ${adSize}; generate exactly one square image at ${size.apiSize}; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and generous mobile safe margins.`,
+      `Professional local business ad: premium background, clear logo zone in the upper safe area, short readable typography, strong offer, visible CTA button, coupon chip, brand-consistent accents, and no more than 6 words per text block when possible.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
       logoInstruction,
       website ? `Include website ${website} only if it remains readable.` : "",
@@ -177,8 +177,26 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
   const campaignBaseId = safe(body.campaignId, crypto.randomUUID());
   const campaignId = campaignBaseId;
   try {
-    await prisma.stalltalkCampaignHistory.create({
-      data: {
+    await prisma.stalltalkCampaignHistory.upsert({
+      where: { campaignId },
+      update: {
+        publisherId: publisherId || null,
+        advertiserId: advertiserId || null,
+        business: creative.businessName,
+        image: imageUrl,
+        prompt: creative.promptUsed,
+        headline: creative.headline,
+        subheadline: creative.subheadline,
+        ctaText: creative.ctaText,
+        couponCode: creative.couponCode,
+        adSize,
+        logoBase64: safe(body.logoBase64, "") || null,
+        logoUrl: safe(body.logoUrl, "") || null,
+        targetUrl: safe(body.website || body.targetUrl, "") || null,
+        selectedSlot: Number(body.slot || body.slotNumber || 1),
+        publishStatus: "GENERATED"
+      },
+      create: {
         campaignId,
         publisherId: publisherId || null,
         advertiserId: advertiserId || null,
@@ -189,7 +207,12 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         subheadline: creative.subheadline,
         ctaText: creative.ctaText,
         couponCode: creative.couponCode,
-        adSize
+        adSize,
+        logoBase64: safe(body.logoBase64, "") || null,
+        logoUrl: safe(body.logoUrl, "") || null,
+        targetUrl: safe(body.website || body.targetUrl, "") || null,
+        selectedSlot: Number(body.slot || body.slotNumber || 1),
+        publishStatus: "GENERATED"
       }
     });
     return { campaignId, historySaved: true };
