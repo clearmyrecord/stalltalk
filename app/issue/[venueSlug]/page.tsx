@@ -13,21 +13,26 @@ type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; ven
 type ServedAds = Awaited<ReturnType<typeof getServedAds>>;
 type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 
-export default async function IssuePage({ params, searchParams }: { params: Promise<{ venueSlug: string }>; searchParams: Promise<{ qr?: string }> }) {
+export default async function IssuePage({ params, searchParams }: { params: Promise<{ venueSlug: string }>; searchParams: Promise<{ qr?: string; previewIssueId?: string }> }) {
   const { venueSlug } = await params;
-  const { qr } = await searchParams;
+  const { qr, previewIssueId } = await searchParams;
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
   if (!requestedVenue) notFound();
 
-  const directIssue = await prisma.issue.findFirst({
+  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } } satisfies Prisma.IssueInclude;
+  const previewIssue = previewIssueId ? await prisma.issue.findFirst({
+    where: { id: previewIssueId, OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
+    include: issueInclude
+  }) : null;
+  const directIssue = previewIssue || await prisma.issue.findFirst({
     where: { venueId: requestedVenue.id, status: "PUBLISHED", ...(qr ? { qrCode: { qrSlug: qr } } : {}) },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
-    include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
+    include: issueInclude
   });
   const issue = directIssue || await prisma.issue.findFirst({
     where: { status: "PUBLISHED", OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
-    include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } }
+    include: issueInclude
   });
   if (!issue) notFound();
   const renderIssue = issue as IssueWithContext & { venue: NonNullable<IssueWithContext["venue"]> };

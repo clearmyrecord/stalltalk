@@ -41,9 +41,12 @@ export default async function EditIssuePage({
 
   if (!issue) notFound();
 
+  const previewParams = new URLSearchParams({ previewIssueId: issue.id });
+  if (issue.qrCode) previewParams.set("qr", issue.qrCode.qrSlug);
+
   const previewHref = issue.venue
-    ? `/issue/${issue.venue.slug}${issue.qrCode ? `?qr=${issue.qrCode.qrSlug}` : ""}`
-    : `/issue${issue.qrCode ? `?qr=${issue.qrCode.qrSlug}` : ""}`;
+    ? `/issue/${issue.venue.slug}?${previewParams.toString()}`
+    : `/issue?${previewParams.toString()}`;
 
   return (
     <section>

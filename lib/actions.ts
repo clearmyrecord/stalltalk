@@ -193,43 +193,99 @@ export async function createArticle(formData: FormData) {
   revalidatePath("/admin/articles");
 }
 
+export type IssueSaveState = { ok: boolean; message: string; issueId?: string; editUrl?: string };
+
 export async function createIssue(formData: FormData) {
-  await requireAdmin();
-  const issue = await prisma.$transaction(async (tx) => {
-    const issue = await tx.issue.create({ data: issueData(formData) });
-    await saveContentBlocks(issue.id, formData, tx);
-    await saveAdSlots(issue.id, formData, tx);
-    return issue;
-  });
-  revalidatePath("/admin/issues");
-  redirect(`/admin/issues/${issue.id}/edit`);
+  const result = await saveNewIssue(formData);
+  if (!result.ok || !result.issueId) throw new Error(result.message);
+  redirect(`/admin/issues/${result.issueId}/edit?saved=${result.issueId}`);
+}
+
+export async function createIssueAction(_state: IssueSaveState, formData: FormData): Promise<IssueSaveState> {
+  return saveNewIssue(formData);
 }
 
 export async function updateIssue(id: string, formData: FormData) {
-  await requireAdmin();
-  const expectedUpdatedAt = nullableText(formData, "updatedAt");
-  const expectedDate = expectedUpdatedAt ? new Date(expectedUpdatedAt) : null;
-  await prisma.$transaction(async (tx) => {
-    const existing = await tx.issue.findUnique({ where: { id }, select: { status: true, publishedAt: true, updatedAt: true } });
-    if (!existing) throw new Error("Issue not found.");
-    if (expectedDate && existing.updatedAt.getTime() !== expectedDate.getTime()) throw new Error("This issue was changed by another editor. Refresh and try again.");
-    const data = issueData(formData, existing);
-    await tx.issue.update({ where: { id }, data });
-    await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
-    await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
-    await saveContentBlocks(id, formData, tx);
-    await saveAdSlots(id, formData, tx);
-  });
-  revalidatePath("/admin/issues");
-  revalidatePath(`/admin/issues/${id}/edit`);
+  const result = await saveExistingIssue(id, formData);
+  if (!result.ok) throw new Error(result.message);
 }
 
-function issueData(formData: FormData, existing?: { status: IssueStatus; publishedAt: Date | null }) {
+export async function updateIssueAction(id: string, _state: IssueSaveState, formData: FormData): Promise<IssueSaveState> {
+  return saveExistingIssue(id, formData);
+}
+
+async function saveNewIssue(formData: FormData): Promise<IssueSaveState> {
+  try {
+    await requireAdmin();
+    logIssueSavePayload("create", formData);
+    const issue = await prisma.$transaction(async (tx) => {
+      const issue = await tx.issue.create({ data: await issueData(formData) });
+      await saveContentBlocks(issue.id, formData, tx);
+      await saveAdSlots(issue.id, formData, tx);
+      return issue;
+    });
+    revalidateIssuePaths(issue.id);
+    const response = { ok: true, message: `Issue saved successfully. Saved issue ID: ${issue.id}`, issueId: issue.id, editUrl: `/admin/issues/${issue.id}/edit` };
+    console.log("[issue-save-response]", response);
+    return response;
+  } catch (error) {
+    return issueSaveError(error);
+  }
+}
+
+async function saveExistingIssue(id: string, formData: FormData): Promise<IssueSaveState> {
+  try {
+    await requireAdmin();
+    logIssueSavePayload("update", formData, id);
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.issue.findUnique({ where: { id }, select: { status: true, publishedAt: true, updatedAt: true } });
+      if (!existing) throw new Error("Issue not found.");
+      const data = await issueData(formData, existing);
+      await tx.issue.update({ where: { id }, data });
+      await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
+      await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
+      await saveContentBlocks(id, formData, tx);
+      await saveAdSlots(id, formData, tx);
+    });
+    revalidateIssuePaths(id);
+    const response = { ok: true, message: `Issue saved successfully. Saved issue ID: ${id}`, issueId: id, editUrl: `/admin/issues/${id}/edit` };
+    console.log("[issue-save-response]", response);
+    return response;
+  } catch (error) {
+    return issueSaveError(error);
+  }
+}
+
+function revalidateIssuePaths(id: string) {
+  revalidatePath("/admin/issues");
+  revalidatePath(`/admin/issues/${id}/edit`);
+  revalidatePath("/issue");
+}
+
+async function issueData(formData: FormData, existing?: { status: IssueStatus; publishedAt: Date | null }) {
   const status = text(formData, "status", "DRAFT") as IssueStatus;
+  const scheduledText = nullableText(formData, "scheduledAt");
+  if (status !== "DRAFT" && !scheduledText) throw new Error("Schedule ISO is required before scheduling or publishing an issue. Draft issues can be saved without it.");
+  const scheduledAt = scheduledText ? new Date(scheduledText) : null;
+  if (scheduledText && Number.isNaN(scheduledAt?.getTime())) throw new Error("Schedule ISO must be a valid date/time when provided.");
+  const publisherId = text(formData, "publisherId") || (await prisma.publisher.findFirst({ select: { id: true } }))?.id;
+  if (!publisherId) throw new Error("Create a publisher before saving an issue.");
   const now = new Date();
   const firstPublishedAt = existing?.publishedAt || (status === "PUBLISHED" ? now : null);
   const republishedAt = existing?.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : null;
-  return { publisherId: text(formData, "publisherId"), venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title"), month: text(formData, "month"), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt: nullableText(formData, "scheduledAt") ? new Date(text(formData, "scheduledAt")) : null, publishedAt: firstPublishedAt, republishedAt };
+  return { publisherId, venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title", "Untitled issue") || "Untitled issue", month: text(formData, "month", new Date().toLocaleString("en-US", { month: "long" })) || new Date().toLocaleString("en-US", { month: "long" }), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt, publishedAt: firstPublishedAt, republishedAt };
+}
+
+function logIssueSavePayload(mode: "create" | "update", formData: FormData, issueId?: string) {
+  if (process.env.NODE_ENV === "production") return;
+  console.log("[issue-save-payload]", { mode, issueId, values: Object.fromEntries(formData.entries()), multiValues: Array.from(formData.keys()).reduce<Record<string, string[]>>((acc, key) => ({ ...acc, [key]: formData.getAll(key).map(String) }), {}) });
+}
+
+function issueSaveError(error: unknown): IssueSaveState {
+  const message = error instanceof Error ? error.message : String(error || "Issue save failed.");
+  const response = { ok: false, message };
+  console.error("[issue-save-response]", response, error);
+  return response;
 }
 
 async function saveContentBlocks(issueId: string, formData: FormData, db: any = prisma) {
