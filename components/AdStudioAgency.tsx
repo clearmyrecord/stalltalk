@@ -19,7 +19,7 @@ type Props = {
   recentCampaigns: RecentCampaign[];
 };
 
-type AdSize = "Banner" | "Square" | "Tall" | "Footer";
+type AdSize = "Mobile Sponsor Card";
 type GeneratedCreative = {
   adSize: AdSize;
   imageUrl: string;
@@ -43,11 +43,9 @@ type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessNam
 const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "Concert Goers", "Convention Attendees", "Custom Audience"];
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
+const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
 const sizes: Record<AdSize, { label: string; className: string }> = {
-  Banner: { label: "Banner", className: "aspect-[16/5]" },
-  Square: { label: "Square", className: "aspect-square" },
-  Tall: { label: "Tall", className: "aspect-[4/5]" },
-  Footer: { label: "Footer", className: "aspect-[5/1]" }
+  [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-[4/3]" }
 };
 
 function safe(value: string | undefined, fallback: string) {
@@ -106,6 +104,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     website: "",
     phone: "",
     logoName: "",
+    logoBase64: "",
     offer: "",
     couponCode: "",
     ctaText: "Claim Offer",
@@ -135,8 +134,45 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
   const activeVenue = venues[0];
 
+  function readLogo(file: File | undefined) {
+    if (!file) {
+      update("logoName", "");
+      update("logoBase64", "");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setForm((current) => ({ ...current, logoName: file.name, logoBase64: String(reader.result || "") }));
+    reader.onerror = () => setError("Unable to read uploaded logo.");
+    reader.readAsDataURL(file);
+  }
+
   function update(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function overlayLogoOnImage(imageUrl: string) {
+    if (!form.logoBase64 || !imageUrl) return imageUrl;
+    const [baseImage, logoImage] = await Promise.all([loadCanvasImage(imageUrl), loadCanvasImage(form.logoBase64)]);
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 768;
+    const context = canvas.getContext("2d");
+    if (!context) return imageUrl;
+    const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
+    const drawnWidth = baseImage.width * scale;
+    const drawnHeight = baseImage.height * scale;
+    context.drawImage(baseImage, (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2, drawnWidth, drawnHeight);
+    const logoMaxWidth = canvas.width * 0.3;
+    const logoMaxHeight = canvas.height * 0.18;
+    const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height, 1);
+    const logoWidth = logoImage.width * logoScale;
+    const logoHeight = logoImage.height * logoScale;
+    const padding = 42;
+    context.fillStyle = "rgba(255,255,255,.92)";
+    roundRect(context, padding - 14, padding - 14, logoWidth + 28, logoHeight + 28, 22);
+    context.fill();
+    context.drawImage(logoImage, padding, padding, logoWidth, logoHeight);
+    return canvas.toDataURL("image/png");
   }
 
   function fallbackCreative(adSize: AdSize, message: string, data?: Partial<GeneratedCreative>): GeneratedCreative {
@@ -166,15 +202,15 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     setHasGenerated(false);
     setError("");
     const campaignBatchId = crypto.randomUUID();
-    const base = { ...form, audience: activeAudience, campaignId: campaignBatchId };
+    const adSize = MOBILE_SPONSOR_CARD;
+    const base = { ...form, audience: activeAudience, campaignId: campaignBatchId, adSize, slot: Number(slotNumber) };
     const generated: GeneratedCreative[] = [];
 
-    for (const adSize of Object.keys(sizes) as AdSize[]) {
-      try {
+    try {
         const response = await fetch("/api/generate-ad-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...base, adSize })
+          body: JSON.stringify(base)
         });
         const raw = await response.text();
         let data;
@@ -189,11 +225,10 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           const message = diagnosticMessage(data);
           generated.push(fallbackCreative(adSize, message, data));
           if (!error) setError(`Image generation fallback active. ${message}`);
-          continue;
-        }
-        generated.push({
+        } else {
+          generated.push({
           adSize,
-          imageUrl: data.imageUrl,
+          imageUrl: await overlayLogoOnImage(data.imageUrl),
           promptUsed: data.promptUsed,
           headline: data.headline,
           subheadline: data.subheadline,
@@ -205,12 +240,12 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           campaignId: data.campaignId,
           historySaved: data.historySaved,
           historyError: data.historyError
-        });
-      } catch (caught) {
-        const message = caught instanceof Error ? caught.message : "Image generation failed.";
-        generated.push(fallbackCreative(adSize, message));
-        setError(`Image generation fallback active. ${message}`);
-      }
+          });
+        }
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Image generation failed.";
+      generated.push(fallbackCreative(adSize, message));
+      setError(`Image generation fallback active. ${message}`);
     }
 
     const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || crypto.randomUUID(), businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString() }));
@@ -240,7 +275,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     formData.set("promptUsed", selectedCreative.promptUsed);
     formData.set("generatedHeadline", selectedCreative.headline);
     formData.set("generatedSubheadline", selectedCreative.subheadline);
-    formData.set("adSize", selectedCreative.adSize);
+    formData.set("adSize", MOBILE_SPONSOR_CARD);
     formData.set("ctaText", selectedCreative.ctaText);
     formData.set("targetUrl", form.website || "#");
     formData.set("phone", form.phone);
@@ -300,9 +335,9 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       {step === 1 ? <div className="grid gap-4 md:grid-cols-2">
         <Field label="Business Name" value={form.businessName} onChange={(value) => update("businessName", value)} />
         <Field label="Category" value={form.category} onChange={(value) => update("category", value)} placeholder="Restaurant, bar, attraction..." />
-        <Field label="Website" value={form.website} onChange={(value) => update("website", value)} />
+        <Field label="Advertiser Website URL" value={form.website} onChange={(value) => update("website", value)} type="url" placeholder="https://example.com" />
         <Field label="Phone" value={form.phone} onChange={(value) => update("phone", value)} />
-        <label className="rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase md:col-span-2">Logo Upload<span className="mt-2 block text-sm normal-case text-ink/70">Stored client-side for now; use the logo name as brand context.</span><input className="mt-3 w-full" type="file" accept="image/*" onChange={(event) => update("logoName", event.target.files?.[0]?.name || "")} /></label>
+        <label className="rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase md:col-span-2">Logo Upload<span className="mt-2 block text-sm normal-case text-ink/70">Persisted with the generated campaign and overlaid onto the final image before publishing.</span><input className="mt-3 w-full" type="file" accept="image/*" onChange={(event) => readLogo(event.target.files?.[0])} /></label>
       </div> : null}
 
       {step === 2 ? <div className="grid gap-4 md:grid-cols-2">
@@ -329,7 +364,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         </div>
         <div>
           <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.adSize} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>{creative.adSize}</button>)}</div>
-          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate a campaign to preview Banner, Square, Tall, and Footer image files.</p>}
+          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate one locked Mobile Sponsor Card image.</p>}
           {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
           {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">{error} Copy was still generated and a styled fallback ad preview is available.</p> : null}
         </div>
@@ -340,6 +375,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
             <Field label="Subheadline" value={selectedCreative.subheadline} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, subheadline: value } : item))} />
             <Field label="CTA" value={selectedCreative.ctaText} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, ctaText: value } : item))} />
             <Field label="Coupon" value={selectedCreative.couponCode} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, couponCode: value } : item))} />
+            {!form.website.trim() ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">Admin warning: no advertiser website URL entered. The published image will render without a click link.</p> : null}
             <button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : `Publish to Slot ${slotNumber}`}</button>
           </div> : null}
         </div>
@@ -370,6 +406,25 @@ function Field({ label, value, onChange, placeholder, type = "text" }: { label: 
 
 function ChoiceGroup({ title, options, value, onChange }: { title: string; options: string[]; value: string; onChange: (value: string) => void }) {
   return <div><h3 className="mb-2 font-display text-4xl uppercase">{title}</h3><div className="grid gap-2 sm:grid-cols-2">{options.map((option) => <button key={option} className={`rounded-2xl border-2 border-ink p-3 font-black uppercase ${value === option ? "bg-stallYellow" : "bg-paper"}`} onClick={() => onChange(option)}>{option}</button>)}</div></div>;
+}
+
+function loadCanvasImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load generated image or uploaded logo for compositing."));
+    image.src = src;
+  });
+}
+
+function roundRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + width, y, x + width, y + height, radius);
+  context.arcTo(x + width, y + height, x, y + height, radius);
+  context.arcTo(x, y + height, x, y, radius);
+  context.arcTo(x, y, x + width, y, radius);
+  context.closePath();
 }
 
 function PreviewCard({ creative }: { creative: GeneratedCreative }) {

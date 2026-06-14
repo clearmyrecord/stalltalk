@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type AdSize = "Sponsor card";
+type AdSize = "Mobile Sponsor Card";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -21,13 +21,13 @@ const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1"]);
 const ALLOWED_ORIGINS = ["https://stalltalk.vercel.app", "https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
 
 const SPONSOR_CARD_SIZE = {
-  apiSize: "1024x1536",
-  composition: "mobile-first full-bleed Potty Favor sponsor card with one clear vertical hierarchy and protected readable text areas",
-  cssSafeArea: "2:3 portrait sponsor card"
+  apiSize: "1024x768",
+  composition: "mobile-first full-bleed Potty Favor sponsor card with a short 4:3 landscape ratio, one clear hierarchy, and protected readable text areas",
+  cssSafeArea: "4:3 Mobile Sponsor Card"
 };
 
 const sizeMap: Record<AdSize, typeof SPONSOR_CARD_SIZE> = {
-  "Sponsor card": SPONSOR_CARD_SIZE
+  "Mobile Sponsor Card": SPONSOR_CARD_SIZE
 };
 
 function safe(value: unknown, fallback: string) {
@@ -40,7 +40,7 @@ function limitText(value: string, max: number) {
 }
 
 function normalizeSize(_value: unknown): AdSize {
-  return "Sponsor card";
+  return "Mobile Sponsor Card";
 }
 
 function currentModel(body: Record<string, unknown> = {}) {
@@ -175,7 +175,7 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
   const publisherId = safe(body.publisherId, "");
   const advertiserId = safe(body.advertiserId, "");
   const campaignBaseId = safe(body.campaignId, crypto.randomUUID());
-  const campaignId = `${campaignBaseId}-${adSize.toLowerCase()}`;
+  const campaignId = campaignBaseId;
   try {
     await prisma.stalltalkCampaignHistory.create({
       data: {

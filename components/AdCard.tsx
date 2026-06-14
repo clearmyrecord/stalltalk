@@ -62,11 +62,11 @@ export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number
 }
 
 function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: number; compact: boolean; chip: boolean }) {
-  const height = chip ? "h-16" : compact ? "h-36" : "h-64";
-  const frame = `ad-creative-frame relative overflow-hidden rounded-xl border-2 border-ink bg-ink ${height} shadow-inner`;
+  const frame = "ad-creative-frame relative aspect-[4/3] overflow-hidden rounded-xl border-2 border-ink bg-ink shadow-inner";
+  const linkedArtwork = ad.targetUrl && ad.targetUrl !== "#";
 
   if (ad.creativeType === "VIDEO" && ad.videoUrl) {
-    return <div className={frame}><video className="h-full w-full object-contain" src={ad.videoUrl} autoPlay muted loop playsInline /></div>;
+    return <div className={frame}><video className="h-full w-full object-cover" src={ad.videoUrl} autoPlay muted loop playsInline /></div>;
   }
 
   if (ad.creativeType === "HTML" && ad.htmlCreative) {
@@ -74,10 +74,10 @@ function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: 
   }
 
   if (ad.artworkUrl) {
-    return <div className={frame}><img className="h-full w-full object-contain" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
+    return linkedArtwork ? <a className={frame} href={ad.targetUrl} target="_blank" rel="noopener noreferrer"><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></a> : <div className={frame}><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
   }
 
-  return <div className={`ad-gradient-${slotNumber} grid ${height} place-items-center rounded-xl border-2 border-ink text-center text-3xl font-black text-white shadow-inner`}>{initials(ad.businessName)}</div>;
+  return <div className={`ad-gradient-${slotNumber} grid aspect-[4/3] place-items-center rounded-xl border-2 border-ink text-center text-3xl font-black text-white shadow-inner`}>{initials(ad.businessName)}</div>;
 }
 
 function TrackingButton({ label, type, ad, issueId, publisherId, venueId, restroomId, qrCodeId, slotNumber, dark = false }: { label: string; type: string; ad: Ad; issueId: string; publisherId?: string | null; venueId?: string | null; restroomId?: string | null; qrCodeId?: string | null; slotNumber: number; dark?: boolean }) {
