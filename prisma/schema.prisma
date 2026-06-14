@@ -554,11 +554,13 @@ model IssueAdSlot {
 }
 
 model StalltalkCampaignHistory {
-  id            String      @id @default(cuid())
-  publisherId   String?
-  advertiserId  String?
-  adId          String?
-  campaignId    String      @unique
+  id               String      @id @default(cuid())
+  publisherId      String?
+  advertiserId     String?
+  adId             String?
+  campaignId       String      @unique
+  parentCampaignId String?
+  versionNumber    Int         @default(1)
   business      String
   image         String?
   prompt        String
@@ -579,6 +581,7 @@ model StalltalkCampaignHistory {
   advertiser    Advertiser? @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
   ad            Ad?         @relation(fields: [adId], references: [id], onDelete: SetNull)
 
+  @@index([parentCampaignId, versionNumber])
   @@map("stalltalk_campaign_history")
 }
 

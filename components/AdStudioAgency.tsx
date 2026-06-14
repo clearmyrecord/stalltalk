@@ -8,10 +8,10 @@ type VenueOption = { id: string; name: string; city: string; state: string };
 type RestroomOption = { id: string; name: string; venueName: string };
 type IssueOption = { id: string; title: string; venueName: string; status: string };
 type RecentCampaign = { id: string; businessName: string; title: string; offer: string; ctaText: string; couponCode: string | null; createdAt: string };
-type SavedCampaign = { campaignId: string; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "Mobile Sponsor Card"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
+type SavedCampaign = { campaignId: string; parentCampaignId?: string | null; versionNumber?: number | null; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "Mobile Sponsor Card"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
 
 type Props = {
-  createAd: (formData: FormData) => void | Promise<void>;
+  createAd: (formData: FormData) => Promise<{ ok: boolean; adId?: string; message?: string }>;
   publishers: PublisherOption[];
   advertisers: AdvertiserOption[];
   venues: VenueOption[];
@@ -40,6 +40,9 @@ type GeneratedCreative = {
   imageError?: string;
   targetUrl?: string | null;
   selectedSlot?: number | null;
+  parentCampaignId?: string;
+  versionNumber?: number;
+  publishStatus?: string | null;
 };
 
 type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number | null };
@@ -96,6 +99,9 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [publishMessage, setPublishMessage] = useState("");
+  const [publishError, setPublishError] = useState("");
+  const [campaignRootId, setCampaignRootId] = useState("");
   const [apiStatus, setApiStatus] = useState<ApiDiagnostic | null>(null);
   const [selectedCreativeIndex, setSelectedCreativeIndex] = useState(0);
   const [slotNumber, setSlotNumber] = useState("1");
@@ -125,7 +131,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   });
 
   useEffect(() => {
-    setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: MOBILE_SPONSOR_CARD, createdAt: item.createdAt })));
+    setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: MOBILE_SPONSOR_CARD, createdAt: item.createdAt, parentCampaignId: item.parentCampaignId || item.campaignId, versionNumber: item.versionNumber || 1 })));
   }, [savedCampaigns]);
 
   const selectedCreative = creatives[selectedCreativeIndex];
@@ -194,14 +200,17 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     };
   }
 
-  async function generateCampaign() {
+  async function generateCampaign(regenerate = false) {
     if (!canGenerate) return;
     setIsGenerating(true);
     setHasGenerated(false);
     setError("");
-    const campaignBatchId = crypto.randomUUID();
+    const parentCampaignId = regenerate && campaignRootId ? campaignRootId : crypto.randomUUID();
+    if (!campaignRootId || !regenerate) setCampaignRootId(parentCampaignId);
+    const nextVersion = regenerate && creatives.length ? Math.max(...creatives.map((creative) => creative.versionNumber || 1)) + 1 : 1;
+    const campaignBatchId = `${parentCampaignId}-v${nextVersion}`;
     const adSize = MOBILE_SPONSOR_CARD;
-    const base = { ...form, audience: activeAudience, campaignId: campaignBatchId, adSize, slot: Number(slotNumber) };
+    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: Number(slotNumber) };
     const generated: GeneratedCreative[] = [];
 
     try {
@@ -221,7 +230,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         setApiStatus(data.diagnostic || { apiStatus: response.ok ? "ok" : "failed", model: data.model });
         if (!response.ok || data.error) {
           const message = diagnosticMessage(data);
-          generated.push(fallbackCreative(adSize, message, data));
+          generated.push({ ...fallbackCreative(adSize, message, data), campaignId: campaignBatchId, parentCampaignId, versionNumber: nextVersion, publishStatus: "GENERATED" });
           if (!error) setError(`Image generation fallback active. ${message}`);
         } else {
           generated.push({
@@ -239,19 +248,22 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           historySaved: data.historySaved,
           historyError: data.historyError,
           targetUrl: form.website || null,
-          selectedSlot: Number(slotNumber)
+          selectedSlot: Number(slotNumber),
+          parentCampaignId: data.parentCampaignId || parentCampaignId,
+          versionNumber: data.versionNumber || nextVersion,
+          publishStatus: "GENERATED"
           });
         }
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Image generation failed.";
-      generated.push(fallbackCreative(adSize, message));
+      generated.push({ ...fallbackCreative(adSize, message), campaignId: campaignBatchId, parentCampaignId, versionNumber: nextVersion, publishStatus: "GENERATED" });
       setError(`Image generation fallback active. ${message}`);
     }
 
     const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || campaignBatchId, businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString(), targetUrl: form.website || null, selectedSlot: Number(slotNumber) }));
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
-    setCreatives(generated);
-    setSelectedCreativeIndex(0);
+    setCreatives((current) => regenerate ? [...current, ...generated] : generated);
+    setSelectedCreativeIndex(regenerate ? creatives.length : 0);
     setHasGenerated(true);
     setHistory(mergedHistory);
     window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
@@ -260,10 +272,16 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   }
 
   function publish() {
+    setPublishError("");
+    setPublishMessage("");
+    if (!form.issueId) { setPublishError("Select an issue before publishing."); return; }
+    if (!slotNumber) { setPublishError("Select a slot before publishing."); return; }
     if (!selectedCreative) return;
     const formData = new FormData();
     const campaignId = selectedCreative.campaignId || crypto.randomUUID();
     formData.set("campaignId", campaignId);
+    formData.set("parentCampaignId", selectedCreative.parentCampaignId || campaignRootId || campaignId);
+    formData.set("versionNumber", String(selectedCreative.versionNumber || selectedCreativeIndex + 1));
     formData.set("publisherId", form.publisherId);
     formData.set("advertiserId", form.advertiserId);
     formData.set("businessName", safe(form.businessName, "Your Business"));
@@ -288,7 +306,12 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     formData.set("monthlyPriceDollars", "0");
 
     startTransition(() => {
-      void createAd(formData);
+      void Promise.resolve(createAd(formData))
+        .then((result) => {
+          setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to Issue ${issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`);
+          setCreatives((items) => items.map((item, index) => ({ ...item, publishStatus: index === selectedCreativeIndex ? "PUBLISHED" : item.parentCampaignId === (selectedCreative.parentCampaignId || campaignRootId) ? "SUPERSEDED" : item.publishStatus })));
+        })
+        .catch((caught) => setPublishError(caught instanceof Error ? caught.message : "Unable to publish generated ad."));
     });
   }
 
@@ -364,7 +387,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           <span>Button state: </span>{isGenerating ? "generating" : !canGenerate ? `missing required fields (${missingRequired.join(", ")})` : selectedCreative ? "publish ready" : hasGenerated ? "generated" : "ready to generate"}
         </div>
         <div>
-          <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.adSize} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>{creative.adSize}</button>)}</div>
+          <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.campaignId || `${creative.adSize}-${index}`} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>Version {creative.versionNumber || index + 1}</button>)}</div>
           {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate one locked Mobile Sponsor Card image.</p>}
           {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
           {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">{error} Copy was still generated and a styled fallback ad preview is available.</p> : null}
@@ -377,7 +400,9 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
             <Field label="CTA" value={selectedCreative.ctaText} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, ctaText: value } : item))} />
             <Field label="Coupon" value={selectedCreative.couponCode} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, couponCode: value } : item))} />
             {!form.website.trim() ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">Admin warning: no advertiser website URL entered. The published image will render without a click link.</p> : null}
-            <button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : `Publish to Slot ${slotNumber}`}</button>
+            <div className="grid gap-2 md:grid-cols-3"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={() => setSelectedCreativeIndex(selectedCreativeIndex)}>Use This Version</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : "Publish This Version"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button></div>
+            {publishMessage ? <p className="rounded-xl border-2 border-green-700 bg-green-50 p-3 text-sm font-black uppercase text-green-800">{publishMessage}</p> : null}
+            {publishError ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">{publishError}</p> : null}
           </div> : null}
         </div>
       </div> : null}
@@ -385,7 +410,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       <div className="mt-6 flex flex-wrap justify-between gap-3 border-t-4 border-ink pt-4">
         <button className="rounded-xl border-2 border-ink bg-paper px-4 py-2 font-black uppercase" onClick={() => setStep(Math.max(1, step - 1))}>Back</button>
         {step < 5 ? <button className="rounded-xl border-2 border-ink bg-stallYellow px-4 py-2 font-black uppercase" onClick={() => setStep(Math.min(5, step + 1))}>Next</button> : null}
-        <button title={!canGenerate ? `Complete required fields: ${missingRequired.join(", ")}` : selectedCreative ? "Campaign generated and ready to publish" : "Generate AI ad copy and image creative"} className={`rounded-xl border-4 border-ink px-5 py-3 font-black uppercase text-white shadow-brutal disabled:cursor-not-allowed disabled:opacity-60 ${selectedCreative ? "bg-green-700" : !canGenerate ? "bg-stallPurple/70" : "bg-stallPurple"}`} disabled={!canGenerate || isGenerating} onClick={generateCampaign}>{generateButtonLabel}</button>
+        <button title={!canGenerate ? `Complete required fields: ${missingRequired.join(", ")}` : selectedCreative ? "Campaign generated and ready to publish" : "Generate AI ad copy and image creative"} className={`rounded-xl border-4 border-ink px-5 py-3 font-black uppercase text-white shadow-brutal disabled:cursor-not-allowed disabled:opacity-60 ${selectedCreative ? "bg-green-700" : !canGenerate ? "bg-stallPurple/70" : "bg-stallPurple"}`} disabled={!canGenerate || isGenerating} onClick={() => void generateCampaign(false)}>{generateButtonLabel}</button>
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">

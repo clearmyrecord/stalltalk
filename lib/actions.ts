@@ -73,12 +73,15 @@ export async function createAdvertiser(formData: FormData) {
 
 export async function createAd(formData: FormData) {
   await requireAdmin();
+  const issueId = nullableText(formData, "issueId");
+  const slotNumber = intValue(formData, "slotNumber");
+  if (!issueId) throw new Error("Select an issue before publishing this generated ad.");
+  if (slotNumber < 1 || slotNumber > 8) throw new Error("Select a valid ad slot before publishing this generated ad.");
   const ad = await prisma.ad.create({ data: adData(formData) });
-  await publishAdToSlot(ad.id, formData);
+  const publication = await publishAdToSlot(ad.id, formData);
   revalidatePath("/admin/ads");
   revalidatePath("/admin/issue-builder");
-  revalidatePath("/");
-  redirect("/admin/ads");
+  return { ok: true, adId: ad.id, message: `Published campaign ${text(formData, "businessName", ad.businessName)} to Issue ${publication.issueTitle} Slot ${publication.slotNumber}` };
 }
 
 export async function updateAd(id: string, formData: FormData) {
@@ -125,16 +128,18 @@ function adData(formData: FormData) {
 async function publishAdToSlot(adId: string, formData: FormData) {
   const issueId = nullableText(formData, "issueId");
   const slotNumber = intValue(formData, "slotNumber");
-  if (slotNumber < 1 || slotNumber > 8) return;
+  if (!issueId) throw new Error("Issue ID is required before publishing an ad to a public issue slot.");
+  if (slotNumber < 1 || slotNumber > 8) throw new Error("Slot number is required and must be between 1 and 8.");
+
+  const issue = await prisma.issue.findUnique({ where: { id: issueId }, select: { id: true, title: true, venue: { select: { slug: true } } } });
+  if (!issue) throw new Error("Selected issue was not found.");
 
   const scope = text(formData, "scope", "GLOBAL") as AdScope;
-  if (issueId) {
-    await prisma.issueAdSlot.upsert({
-      where: { issueId_slotNumber: { issueId, slotNumber } },
-      update: { adId, source: scope },
-      create: { issueId, adId, slotNumber, source: scope }
-    });
-  }
+  await prisma.issueAdSlot.upsert({
+    where: { issueId_slotNumber: { issueId, slotNumber } },
+    update: { adId, source: scope },
+    create: { issueId, adId, slotNumber, source: scope }
+  });
 
   await prisma.stalltalkAdSlot.upsert({
     where: { slotNumber },
@@ -143,11 +148,22 @@ async function publishAdToSlot(adId: string, formData: FormData) {
   });
 
   const campaignId = text(formData, "campaignId", adId);
+  await prisma.stalltalkCampaignHistory.updateMany({
+    where: { parentCampaignId: text(formData, "parentCampaignId", campaignId), NOT: { campaignId } },
+    data: { publishStatus: "SUPERSEDED" }
+  });
   await prisma.stalltalkCampaignHistory.upsert({
     where: { campaignId },
     update: campaignHistoryData(adId, slotNumber, formData),
-    create: { campaignId, ...campaignHistoryData(adId, slotNumber, formData) }
+    create: { campaignId, parentCampaignId: text(formData, "parentCampaignId", campaignId), versionNumber: intValue(formData, "versionNumber", 1), ...campaignHistoryData(adId, slotNumber, formData) }
   });
+
+  revalidateIssuePaths(issueId);
+  revalidatePath("/issue");
+  if (issue.venue?.slug) revalidatePath(`/issue/${issue.venue.slug}`);
+  revalidatePath("/admin/ads/new");
+  revalidatePath(`/admin/issues/${issueId}/edit`);
+  return { issueTitle: issue.title, slotNumber };
 }
 
 function adSlotData(adId: string, formData: FormData) {
