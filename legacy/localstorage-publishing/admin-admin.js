@@ -653,7 +653,7 @@ async function collectCreativeBrief() {
     optionalDisclaimer: String(data.get("optionalDisclaimer") || ""),
     logoBase64,
     slot: Number(data.get("slot") || 1),
-    adSize: "Sponsor card",
+    adSize: "Mobile Sponsor Card",
   };
 }
 
@@ -708,7 +708,7 @@ function creativeVenueAtmosphere(brief) {
 }
 
 function adFormatForSize(_adSize) {
-  return { label: "Sponsor card", layout: "mobile-first 2:3 portrait sponsor card, full-bleed, no mixed ad sizes", previewWidth: 1024, previewHeight: 1536 };
+  return { label: "Mobile Sponsor Card", layout: "mobile-first 4:3 Mobile Sponsor Card, full-bleed, no mixed ad sizes", previewWidth: 1024, previewHeight: 768 };
 }
 
 function buildEnhancedCreativePrompt(brief) {
@@ -796,6 +796,32 @@ function canvasToDataUrl(canvas, mimeType, quality) {
   } catch (_) {
     return "";
   }
+}
+
+async function overlayLogoOnGeneratedImage(imageUrl, logoBase64) {
+  if (!imageUrl || !logoBase64) return imageUrl;
+  const [image, logo] = await Promise.all([loadImageForCompression(imageUrl), loadImageForCompression(logoBase64)]);
+  const format = adFormatForSize("Mobile Sponsor Card");
+  const canvas = document.createElement("canvas");
+  canvas.width = format.previewWidth;
+  canvas.height = format.previewHeight;
+  const context = canvas.getContext("2d");
+  if (!context) return imageUrl;
+  const scale = Math.max(canvas.width / image.width, canvas.height / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  context.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+  const logoScale = Math.min((canvas.width * 0.3) / logo.width, (canvas.height * 0.18) / logo.height, 1);
+  const logoWidth = logo.width * logoScale;
+  const logoHeight = logo.height * logoScale;
+  const padding = 42;
+  context.fillStyle = "rgba(255,255,255,.92)";
+  context.beginPath();
+  context.roundRect?.(padding - 14, padding - 14, logoWidth + 28, logoHeight + 28, 22);
+  if (!context.roundRect) context.rect(padding - 14, padding - 14, logoWidth + 28, logoHeight + 28);
+  context.fill();
+  context.drawImage(logo, padding, padding, logoWidth, logoHeight);
+  return canvas.toDataURL("image/png");
 }
 
 async function optimizeGeneratedImageForStorage(imageUrl, adSize) {
@@ -902,7 +928,7 @@ async function generatedAdFromPublishForm() {
   const publishData = new FormData(document.querySelector("#creative-publish-form"));
   const brief = generatedCreative.brief || {};
   const slot = Number(publishData.get("slot") || brief.slot || 1);
-  const optimized = await optimizeGeneratedImageForStorage(generatedCreative.imageUrl, "Sponsor card");
+  const optimized = await optimizeGeneratedImageForStorage(await overlayLogoOnGeneratedImage(generatedCreative.imageUrl, brief.logoBase64), "Mobile Sponsor Card");
 
   return {
     slot,
@@ -926,7 +952,7 @@ async function generatedAdFromPublishForm() {
     businessName: brief.businessName || generatedCreative.businessName || "Generated Sponsor",
     market: "",
     adMode: "image",
-    adSize: "Sponsor card",
+    adSize: "Mobile Sponsor Card",
     imageStorage: optimized.image.startsWith("data:") ? "single-data-url" : "url",
   };
 }
@@ -1167,7 +1193,7 @@ function bindActions() {
     }
   });
   document.querySelector("#test-api-endpoint").addEventListener("click", async () => {
-    const brief = { businessName: "Potty Favor Endpoint Test", businessCategory: "Local Service", offer: "Endpoint test", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "clean professional", tone: "clear", requiredText: "API TEST", adSize: "Square" };
+    const brief = { businessName: "Potty Favor Endpoint Test", businessCategory: "Local Service", offer: "Endpoint test", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "clean professional", tone: "clear", requiredText: "API TEST", adSize: "Mobile Sponsor Card" };
     try {
       const endpoint = endpointFromInput(document.querySelector('#settings-form [name="vercelApiBaseUrl"]')?.value || state().settings.vercelApiBaseUrl || DEMO.settings.vercelApiBaseUrl);
       setSettingsStatus(`Testing endpoint with POST: ${endpoint}`);
@@ -1179,7 +1205,7 @@ function bindActions() {
     }
   });
   document.querySelector("#test-openai-image").addEventListener("click", async () => {
-    const brief = { businessName: "Potty Favor API Test", businessCategory: "Local Service", offer: "API test graphic", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "simple clean professional", tone: "clear", requiredText: "API TEST", adSize: "Square" };
+    const brief = { businessName: "Potty Favor API Test", businessCategory: "Local Service", offer: "API test graphic", ctaText: "Test Now", targetAudience: "admin testers", brandColors: "blue, gold", visualStyle: "simple clean professional", tone: "clear", requiredText: "API TEST", adSize: "Mobile Sponsor Card" };
     setSettingsStatus("Testing OpenAI image generation…");
     try {
       const payload = await generateCreativeAd(brief);

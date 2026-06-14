@@ -41,7 +41,7 @@ export function AdvertiserCampaignForm({ advertisers, placements, selectedAdvert
       <input name="budgetDollars" type="number" min="1" placeholder="Campaign budget dollars" className="rounded border-2 border-ink p-3" />
       <textarea name="description" placeholder="Campaign description / approval notes" className="rounded border-2 border-ink p-3 md:col-span-2" />
       <input name="businessName" placeholder="Business name" required className="rounded border-2 border-ink p-3" />
-      <select name="creativeKind" className="rounded border-2 border-ink p-3"><option value="IMAGE">Image ad</option><option value="COUPON">Coupon ad</option><option value="BANNER">Banner ad</option><option value="SPONSORED_ARTICLE">Sponsored article</option><option value="RESTAURANT_PROMOTION">Restaurant promotion</option><option value="EVENT_PROMOTION">Event promotion</option></select>
+      <select name="creativeKind" className="rounded border-2 border-ink p-3"><option value="IMAGE">Image ad</option><option value="COUPON">Coupon ad</option><option value="SPONSORED_ARTICLE">Sponsored article</option><option value="RESTAURANT_PROMOTION">Restaurant promotion</option><option value="EVENT_PROMOTION">Event promotion</option></select>
       <input name="headline" placeholder="Ad headline" required className="rounded border-2 border-ink p-3" />
       <input name="creativeUrl" placeholder="Uploaded/generated creative image URL" className="rounded border-2 border-ink p-3" />
       <input name="targetUrl" placeholder="Website" className="rounded border-2 border-ink p-3" />

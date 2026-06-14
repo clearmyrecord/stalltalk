@@ -312,6 +312,19 @@ body:has(.public-page) {
   .publication { width: 100%; border-inline: 0; }
 }
 
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
+
 @media (max-width: 760px) {
   :root { --card-pad: 16px; }
   .masthead { padding: 12px 10px 14px; }
@@ -384,6 +397,19 @@ body:has(.public-page) {
 .directory-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .directory-grid span { border: 2px solid #111827; border-radius: 14px; padding: 10px; background: #fff6d7; font-weight: 900; }
 .ad-card { max-width: none; }
+
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
 
 @media (max-width: 760px) {
   .humor-card, .quotes-card, .did-card, .word-card, .calendar-card, .restaurant-review, .wide, .double { grid-column: 1 / -1; }
@@ -489,6 +515,19 @@ body:has(.public-page) { background: #000; }
 .submit-event-card button { justify-self: center; border: 0; border-radius: 999px; padding: 12px 18px; background: #10106b; color: #fff; font-weight: 900; text-transform: uppercase; }
 .sponsor-directory { display: none; }
 
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
+
 @media (max-width: 760px) {
   .public-page { padding: 0 0 48px; }
   .publication { box-shadow: none; }
@@ -510,10 +549,10 @@ body:has(.public-page) { background: #000; }
   }
 }
 
-/* Standardized Potty Favor sponsor system: one mobile-first 2:3 ad card ratio. */
+/* Standardized Potty Favor sponsor system: one mobile-first 4:3 Mobile Sponsor Card ratio. */
 :root {
   --ad-width: min(100%, 760px);
-  --ad-aspect-ratio: 2 / 3;
+  --ad-aspect-ratio: 4 / 3;
   --ad-radius: 24px;
   --ad-spacing: 18px;
   --ad-background: #090717;
@@ -562,6 +601,19 @@ body:has(.public-page) { background: #000; }
   background:
     repeating-linear-gradient(-45deg, rgba(16, 16, 107, .055), rgba(16, 16, 107, .055) 12px, rgba(255,255,255,.78) 12px, rgba(255,255,255,.78) 24px),
     #fffdf5 !important;
+}
+
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
 }
 
 @media (max-width: 760px) {

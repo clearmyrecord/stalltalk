@@ -778,7 +778,7 @@ function normalizeAd(ad) {
     tone: ad.tone || "bold, premium, clean, high-converting",
     active: ad.active !== false,
     adMode: ad.adMode || (image ? "image" : "copy"),
-    adSize: "Sponsor card",
+    adSize: "Mobile Sponsor Card",
   };
 }
 
@@ -987,14 +987,12 @@ function renderAdElement(element, ad, slot) {
   element.classList.remove("is-empty");
 
   const image = ad.image || "";
-  const safeTargetUrl = ad.targetUrl || "#";
+  const safeTargetUrl = ad.targetUrl && ad.targetUrl !== "#" ? ad.targetUrl : "";
 
   if (image) {
     const sizeClass = adSizeClass(ad.adSize);
     element.innerHTML = `
-      <a class="generated-ad-link" href="${safeTargetUrl}" target="_blank" rel="noopener" data-ad-click aria-label="${escapeAttribute(`${ad.advertiserName} advertisement`)}">
-        <img class="generated-ad generated-ad-image ${sizeClass}" src="${escapeAttribute(image)}" alt="${escapeAttribute(`${ad.advertiserName} advertisement`)}" />
-      </a>
+      ${safeTargetUrl ? `<a class="generated-ad-link" href="${safeTargetUrl}" target="_blank" rel="noopener noreferrer" data-ad-click aria-label="${escapeAttribute(`${ad.advertiserName} advertisement`)}"><img class="generated-ad generated-ad-image ${sizeClass}" src="${escapeAttribute(image)}" alt="${escapeAttribute(`${ad.advertiserName} advertisement`)}" /></a>` : `<img class="generated-ad generated-ad-image ${sizeClass}" src="${escapeAttribute(image)}" alt="${escapeAttribute(`${ad.advertiserName} advertisement`)}" />`}
     `;
   } else {
     element.innerHTML = `
@@ -1010,7 +1008,7 @@ function renderAdElement(element, ad, slot) {
             ? `<button class="coupon" type="button" data-coupon="${ad.couponCode}">Code: ${ad.couponCode}</button>`
             : ""
         }
-        <a href="${safeTargetUrl}" target="_blank" rel="noopener" data-ad-click>
+        <a href="${safeTargetUrl}" target="_blank" rel="noopener noreferrer" data-ad-click>
           ${ad.cta}
         </a>
       </div>

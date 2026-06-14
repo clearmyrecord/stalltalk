@@ -34,19 +34,28 @@ export function PublicationAdFallback({ ad, slotNumber, primary = false }: { ad?
   const href = displayAd.targetUrl || "/signin";
   const image = displayAd.artworkUrl || displayAd.image;
 
+  const linkedImage = image && href && href !== "#";
+
   return (
-    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""}`} id={`ad-${slotNumber}`}>
-      <span className="slot">Sponsor / Ad {slotNumber}</span>
-      {image ? <img className="generated-ad-image" src={image} alt={`${sponsor} advertisement`} /> : <div className="ad-mark" aria-hidden="true">{sponsor.slice(0, 2).toUpperCase()}</div>}
-      <p className="ad-sponsor">{sponsor}</p>
-      <h3>{headline}</h3>
-      <div className="ad-copy">
-        <p>{body}</p>
-      </div>
-      <div className="ad-actions">
-        <a href={href}>{cta}</a>
-        {displayAd.couponCode ? <span className="coupon">{displayAd.couponCode}</span> : null}
-      </div>
+    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`} id={`ad-${slotNumber}`} data-ad-slot={slotNumber}>
+      {image ? (
+        linkedImage ? (
+          <a className="published-ad-link generated-ad-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor} advertisement`}>
+            <img className="generated-ad-image" src={image} alt={`${sponsor} advertisement`} />
+          </a>
+        ) : (
+          <img className="generated-ad-image" src={image} alt={`${sponsor} advertisement`} />
+        )
+      ) : (
+        <>
+          <span className="slot">Sponsor / Ad {slotNumber}</span>
+          <div className="ad-mark" aria-hidden="true">{sponsor.slice(0, 2).toUpperCase()}</div>
+          <p className="ad-sponsor">{sponsor}</p>
+          <h3>{headline}</h3>
+          <div className="ad-copy"><p>{body}</p></div>
+          <div className="ad-actions"><a href={href}>{cta}</a>{displayAd.couponCode ? <span className="coupon">{displayAd.couponCode}</span> : null}</div>
+        </>
+      )}
     </article>
   );
 }

@@ -356,6 +356,19 @@ button, input, textarea, select { font: inherit; }
   .publication { border-inline: 0; }
 }
 
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
+
 @media (max-width: 760px) {
   :root { --card-pad: 16px; }
   .masthead { padding: 12px 10px 14px; }
@@ -422,6 +435,19 @@ textarea { min-height: 92px; resize: vertical; }
 .preview-frame iframe { width: 100%; height: 720px; border: 0; }
 .import-box textarea { min-height: 260px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
+
 @media (max-width: 760px) {
   .form-grid, .venue-editor, .ad-editor, .settings-grid, .ads-layout { grid-template-columns: 1fr; }
   .admin-page { padding: 12px; }
@@ -470,6 +496,19 @@ textarea { min-height: 92px; resize: vertical; }
 .event-actions button { border: 0; border-radius: 999px; padding: 8px 11px; background: #12126d; color: #fff; font-weight: 900; cursor: pointer; }
 .event-actions .secondary { background: #eee0c7; color: #24180e; }
 .event-actions .danger { background: #9d1728; }
+
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
 
 @media (max-width: 760px) {
   .calendar-layout, .event-form, .event-admin-layout { grid-template-columns: 1fr; }
@@ -650,6 +689,19 @@ main,
   color: #111;
   font-weight: 900;
   text-decoration: none;
+}
+
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
 }
 
 @media (max-width: 760px) {
@@ -879,10 +931,10 @@ section.purpose * {
   }
 }
 
-/* Standardized Potty Favor sponsor system: one mobile-first 2:3 ad card ratio. */
+/* Standardized Potty Favor sponsor system: one mobile-first 4:3 Mobile Sponsor Card ratio. */
 :root {
   --ad-width: min(100%, 760px);
-  --ad-aspect-ratio: 2 / 3;
+  --ad-aspect-ratio: 4 / 3;
   --ad-radius: 24px;
   --ad-spacing: 18px;
   --ad-background: #090717;
@@ -944,6 +996,19 @@ section.purpose * {
   background:
     repeating-linear-gradient(-45deg, rgba(16, 16, 107, .055), rgba(16, 16, 107, .055) 12px, rgba(255,255,255,.78) 12px, rgba(255,255,255,.78) 24px),
     #fffdf5 !important;
+}
+
+
+.ad-card > a.generated-ad-link,
+.ad-card > a.published-ad-link,
+.inline-ad > a.generated-ad-link,
+.inline-ad > a.published-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: var(--ad-aspect-ratio) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
 }
 
 @media (max-width: 760px) {
