@@ -7,16 +7,33 @@ import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks } fro
 
 export const dynamic = "force-dynamic";
 
-type IssueSearchParams = { venue?: string; qr?: string };
+type IssueSearchParams = { venue?: string; qr?: string; previewIssueId?: string };
 
 export default async function IssueQueryPage({
   searchParams
 }: {
   searchParams: Promise<IssueSearchParams>;
 }) {
-  const { venue, qr } = await searchParams;
+  const { venue, qr, previewIssueId } = await searchParams;
 
   try {
+    if (previewIssueId) {
+      const previewIssue = await prisma.issue.findUnique({
+        where: { id: previewIssueId },
+        include: { venue: true }
+      });
+      const previewVenueSlug = previewIssue?.venue?.slug || (await prisma.venue.findFirst({ where: { isActive: true }, select: { slug: true } }))?.slug;
+
+      if (previewVenueSlug) {
+        return (
+          <IssueByVenuePage
+            params={Promise.resolve({ venueSlug: previewVenueSlug })}
+            searchParams={Promise.resolve({ qr, previewIssueId })}
+          />
+        );
+      }
+    }
+
     if (venue) {
       const match = await prisma.venue.findFirst({
         where: { slug: venue, isActive: true },
