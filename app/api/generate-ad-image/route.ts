@@ -174,8 +174,15 @@ async function parseJsonResponse(response: Response) {
 async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSize, creative: ReturnType<typeof buildPrompt>, imageUrl: string) {
   const publisherId = safe(body.publisherId, "");
   const advertiserId = safe(body.advertiserId, "");
-  const campaignBaseId = safe(body.campaignId, crypto.randomUUID());
-  const campaignId = campaignBaseId;
+  const parentCampaignId = safe(body.parentCampaignId || body.campaignId, crypto.randomUUID());
+  const requestedVersion = Number(body.versionNumber || 0);
+  const latest = await prisma.stalltalkCampaignHistory.findFirst({
+    where: { parentCampaignId },
+    orderBy: { versionNumber: "desc" },
+    select: { versionNumber: true }
+  });
+  const versionNumber = requestedVersion > 0 ? requestedVersion : (latest?.versionNumber || 0) + 1;
+  const campaignId = safe(body.campaignId, `${parentCampaignId}-v${versionNumber}`);
   try {
     await prisma.stalltalkCampaignHistory.upsert({
       where: { campaignId },
@@ -194,6 +201,8 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         logoUrl: safe(body.logoUrl, "") || null,
         targetUrl: safe(body.website || body.targetUrl, "") || null,
         selectedSlot: Number(body.slot || body.slotNumber || 1),
+        parentCampaignId,
+        versionNumber,
         publishStatus: "GENERATED"
       },
       create: {
@@ -212,14 +221,16 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         logoUrl: safe(body.logoUrl, "") || null,
         targetUrl: safe(body.website || body.targetUrl, "") || null,
         selectedSlot: Number(body.slot || body.slotNumber || 1),
+        parentCampaignId,
+        versionNumber,
         publishStatus: "GENERATED"
       }
     });
-    return { campaignId, historySaved: true };
+    return { campaignId, parentCampaignId, versionNumber, historySaved: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to save campaign history.";
     console.error("[generate-ad-image] Campaign history save failed", { message, campaignId, adSize });
-    return { campaignId, historySaved: false, historyError: message };
+    return { campaignId, parentCampaignId, versionNumber, historySaved: false, historyError: message };
   }
 }
 
