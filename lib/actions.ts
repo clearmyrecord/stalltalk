@@ -142,7 +142,7 @@ async function publishAdToSlot(adId: string, formData: FormData) {
     create: { slotNumber, ...adSlotData(adId, formData) }
   });
 
-  const campaignId = text(formData, "campaignId", `${adId}-${slotNumber}`);
+  const campaignId = text(formData, "campaignId", adId);
   await prisma.stalltalkCampaignHistory.upsert({
     where: { campaignId },
     update: campaignHistoryData(adId, slotNumber, formData),
@@ -181,7 +181,13 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
     subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
     ctaText: text(formData, "ctaText", "Claim Offer"),
     couponCode: nullableText(formData, "couponCode"),
-    adSize: text(formData, "adSize", "Banner"),
+    adSize: text(formData, "adSize", "Mobile Sponsor Card"),
+    logoBase64: nullableText(formData, "logoBase64"),
+    logoUrl: nullableText(formData, "logoUrl"),
+    targetUrl: text(formData, "targetUrl", "#"),
+    selectedSlot: slotPublished,
+    publishStatus: "PUBLISHED",
+    publishedAt: new Date(),
     slotPublished
   };
 }
