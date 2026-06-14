@@ -221,7 +221,15 @@ The seed creates:
 npm run vercel-build
 ```
 
-The repository-level Vercel build command runs `prisma migrate deploy` before `prisma generate` and `next build`, so committed Prisma migrations are applied to the target database before production pages and auth flows are built. Do not use `prisma db push` for normal deployments; reserve it for documented emergency-only database repair when migrations cannot be used.
+The repository-level Vercel build command runs `prisma generate` and `next build` only. Prisma migrations are intentionally not part of the Vercel build because concurrent Production/Preview deployments can otherwise compete for Postgres advisory locks on Neon/Postgres and fail with Prisma `P1002` while running `prisma migrate deploy`.
+
+Run committed migrations as a separate, serialized release step before deploying when schema changes are included:
+
+```bash
+npm run migrate:deploy
+```
+
+The migration helper runs `prisma migrate deploy` with retry/timeout handling for transient advisory-lock contention. Run only one migration job per target database at a time. Do not use `prisma db push` for normal deployments; reserve it for documented emergency-only database repair when migrations cannot be used.
 
 After the first migration deploy, create seed users with `npx prisma db seed` against the production database or use the guarded bootstrap admin flow on `/signin`. The bootstrap flow only creates `admin@pottyfavor.com` when no admin user exists, then the password should be changed immediately.
 
@@ -376,11 +384,12 @@ npm run smoke:site
 
 1. Connect the repository to Vercel.
 2. Set `DATABASE_URL` and `AUTH_SECRET` for both Production and Preview in Vercel Project Settings, plus any live API keys.
-3. Confirm Vercel's build command is `npm run vercel-build`; `vercel.json` pins that command for this repo.
-4. Deploy the Next.js app. The build runs `prisma migrate deploy` before `prisma generate` and `next build`, while Prisma-backed routes remain dynamic and guard database reads.
-5. Seed production with `npx prisma db seed` when demo users are desired, or let `/signin` create the guarded emergency `admin@pottyfavor.com` bootstrap account if no admin exists.
-6. Do not use `prisma db push` for normal deployments; use it only as an explicitly documented emergency-only database repair step.
-7. Visit `/api/system-health`, `/admin/startup-diagnostics`, and `/admin/settings` → **Test OpenAI Connection** to confirm database, seed/bootstrap admin, OpenAI, and publish-engine diagnostics.
+3. Confirm Vercel's build command is `npm run vercel-build`; `vercel.json` pins that command for this repo. This command delegates to the safe production build (`prisma generate && next build`) and does not acquire Prisma migration locks.
+4. If the deploy includes committed Prisma migrations, run `npm run migrate:deploy` once against the target database before the Vercel deployment, or from a single serialized CI/release job. Do not let multiple Vercel builds run migrations against the same Neon/Postgres database concurrently.
+5. Deploy the Next.js app. The build runs `prisma generate` before `next build`, while Prisma-backed routes remain dynamic and guard database reads.
+6. Seed production with `npx prisma db seed` when demo users are desired, or let `/signin` create the guarded emergency `admin@pottyfavor.com` bootstrap account if no admin exists.
+7. Do not use `prisma db push` for normal deployments; use it only as an explicitly documented emergency-only database repair step.
+8. Visit `/api/system-health`, `/admin/startup-diagnostics`, and `/admin/settings` → **Test OpenAI Connection** to confirm database, seed/bootstrap admin, OpenAI, and publish-engine diagnostics.
 
 ## GitHub Pages / Static Mode
 
