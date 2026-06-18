@@ -485,8 +485,13 @@ textarea { min-height: 92px; resize: vertical; }
 .event-card p { margin: 0; width: auto; }
 .event-card .event-meta { font-size: .9rem; font-weight: 900; color: #5a4126; }
 .event-card a { justify-self: start; border-radius: 999px; padding: 8px 11px; background: #10106b; color: #fff; font-weight: 900; text-decoration: none; }
-.event-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.event-form { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .event-form label { display: grid; gap: 6px; font-weight: 900; }
+.event-form button { width: 100%; }
+@media (min-width: 761px) {
+  .event-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .event-form button { width: fit-content; }
+}
 .status-line.error { color: #b00020; }
 .issue-line a { color: inherit; font-weight: 900; }
 .event-admin-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
@@ -511,7 +516,7 @@ textarea { min-height: 92px; resize: vertical; }
 }
 
 @media (max-width: 760px) {
-  .calendar-layout, .event-form, .event-admin-layout { grid-template-columns: 1fr; }
+  .calendar-layout, .event-admin-layout { grid-template-columns: 1fr; }
   .calendar-grid span, .calendar-grid button { min-height: 36px; padding: 4px; font-size: .78rem; }
 }
 

@@ -117,7 +117,7 @@
 
       .event-form {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         gap: 14px;
       }
 
@@ -144,7 +144,7 @@
       }
 
       .event-form button {
-        width: fit-content;
+        width: 100%;
         padding: 12px 18px;
         border: 0;
         border-radius: 999px;
@@ -152,6 +152,16 @@
         color: white;
         font-weight: 900;
         cursor: pointer;
+      }
+
+      @media (min-width: 761px) {
+        .event-form {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .event-form button {
+          width: fit-content;
+        }
       }
 
       @media (max-width: 760px) {
@@ -170,10 +180,6 @@
 
         .review-photo {
           width: 100%;
-        }
-
-        .event-form {
-          grid-template-columns: 1fr;
         }
       }
     </style>
@@ -335,9 +341,8 @@
             <h2>Submit a Local Event</h2>
 
             <p>
-              Got something happening nearby? Send it to Potty Favor for admin
-              review. Static MVP submissions stay pending in this browser until
-              a future backend hook is connected.
+              Got something happening nearby? Submit your event for Potty Favor
+              review.
             </p>
 
             <form id="public-event-form" class="event-form">
@@ -357,21 +362,6 @@
               </label>
 
               <label>
-                Address
-                <input name="address" />
-              </label>
-
-              <label>
-                City
-                <input name="city" required />
-              </label>
-
-              <label>
-                State
-                <input name="state" maxlength="2" required />
-              </label>
-
-              <label>
                 Date
                 <input name="eventDate" type="date" required />
               </label>
@@ -379,11 +369,6 @@
               <label>
                 Start time
                 <input name="startTime" type="time" />
-              </label>
-
-              <label>
-                End time
-                <input name="endTime" type="time" />
               </label>
 
               <label>
@@ -401,18 +386,8 @@
               </label>
 
               <label>
-                Website
+                Website or ticket link
                 <input name="website" type="url" />
-              </label>
-
-              <label>
-                Phone
-                <input name="phone" type="tel" />
-              </label>
-
-              <label>
-                Contact name
-                <input name="submittedByName" />
               </label>
 
               <label>
