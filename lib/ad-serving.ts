@@ -8,13 +8,14 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
   const now = new Date();
   const activeManualSlots = new Map(
     (issue.adSlots || [])
-      .filter((slot) => isActive(slot.ad, now) && matchesScope(slot.ad, issue, slot.ad.scope))
+      .filter((slot) => isActive(slot.ad, now) && isPublishedCampaignAd(slot.ad) && matchesScope(slot.ad, issue, slot.ad.scope))
       .map((slot) => [slot.slotNumber, { ...slot.ad, source: slot.source || slot.ad.scope, slotNumber: slot.slotNumber }])
   );
   const ads = await prisma.ad.findMany({
     where: {
       publisherId: issue.publisherId,
       status: "ACTIVE",
+      campaignHistory: { some: { publishStatus: "PUBLISHED" } },
       OR: [{ campaignStartsAt: null }, { campaignStartsAt: { lte: now } }],
       AND: [{ OR: [{ campaignEndsAt: null }, { campaignEndsAt: { gte: now } }] }]
     },
@@ -47,4 +48,9 @@ function matchesScope(ad: Ad, issue: Context, scope: AdScope) {
   if (scope === "VENUE") return ad.venueId === issue.venueId || Boolean(issue.venueId && ad.venueIds.includes(issue.venueId));
   if (scope === "CITY") return Boolean(issue.venue && ad.city === issue.venue.city && ad.state === issue.venue.state);
   return scope === "GLOBAL";
+}
+
+function isPublishedCampaignAd(ad: Ad) {
+  const history = (ad as Ad & { campaignHistory?: Array<{ publishStatus: string }> }).campaignHistory;
+  return !history || history.some((item) => item.publishStatus === "PUBLISHED");
 }

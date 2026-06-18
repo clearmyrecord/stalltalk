@@ -527,6 +527,10 @@ model Ad {
   stripePriceId        String?
   campaignStartsAt     DateTime?
   campaignEndsAt       DateTime?
+  viewCount            Int                        @default(0)
+  clickCount           Int                        @default(0)
+  lastViewedAt         DateTime?
+  lastClickedAt        DateTime?
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
   publisher            Publisher                  @relation(fields: [publisherId], references: [id], onDelete: Cascade)
@@ -574,8 +578,12 @@ model StalltalkCampaignHistory {
   targetUrl     String?
   selectedSlot  Int?
   slotPublished Int?
-  publishStatus String      @default("GENERATED")
+  publishStatus String      @default("DRAFT")
   publishedAt   DateTime?
+  viewCount     Int         @default(0)
+  clickCount    Int         @default(0)
+  lastViewedAt  DateTime?
+  lastClickedAt DateTime?
   createdAt     DateTime    @default(now())
   publisher     Publisher?  @relation(fields: [publisherId], references: [id], onDelete: SetNull)
   advertiser    Advertiser? @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
