@@ -1,8 +1,8 @@
-const env = import.meta.env || {};
+const nextPublicEnv = typeof process !== "undefined" ? process.env : {};
 const runtimeConfig = typeof window !== "undefined" ? window : {};
 
-export const SUPABASE_URL = env.VITE_SUPABASE_URL || runtimeConfig.STALLTALK_SUPABASE_URL || "";
-export const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || runtimeConfig.STALLTALK_SUPABASE_ANON_KEY || "";
+export const SUPABASE_URL = nextPublicEnv.NEXT_PUBLIC_SUPABASE_URL || runtimeConfig.STALLTALK_SUPABASE_URL || "";
+export const SUPABASE_ANON_KEY = nextPublicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || runtimeConfig.STALLTALK_SUPABASE_ANON_KEY || "";
 
 export function isSupabaseConfigured() {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_"));
@@ -10,7 +10,7 @@ export function isSupabaseConfigured() {
 
 export async function supabaseFetch(path, options = {}) {
   if (!isSupabaseConfigured()) {
-    throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+    throw new Error("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
   }
 
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {

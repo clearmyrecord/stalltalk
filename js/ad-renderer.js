@@ -26,11 +26,13 @@ export function renderCampaign(container, campaign) {
   container.append(link);
 }
 
-export async function renderPublishedAds({ venueId = new URLSearchParams(window.location.search).get("venue_id") || "" } = {}) {
+export async function renderPublishedAds({ venueId } = {}) {
+  if (typeof document === "undefined") return [];
+  const resolvedVenueId = venueId ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("venue_id") || "" : "");
   const containers = reserveAdSlots();
   if (!isSupabaseConfigured()) return [];
 
-  const campaigns = await fetchPublishedCampaigns({ venueId });
+  const campaigns = await fetchPublishedCampaigns({ venueId: resolvedVenueId });
   containers.forEach((container) => {
     const slotId = container.dataset.adSlot;
     const placement = normalizePlacement(container.dataset.placement);
@@ -52,6 +54,8 @@ function reserveAdSlots() {
   return containers;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  renderPublishedAds().catch((error) => console.warn("Published ads could not be loaded", error));
-});
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", () => {
+    renderPublishedAds().catch((error) => console.warn("Published ads could not be loaded", error));
+  });
+}
