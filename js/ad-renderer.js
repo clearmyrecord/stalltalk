@@ -1,36 +1,35 @@
-(function () {
-  "use strict";
+import { CONTENT_AD_SLOT, getPlacementSlots } from "./ad-slots.js";
+import { getPublishedCampaigns } from "./campaign-service.js";
 
-  function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
+function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
 
-  function renderCampaign(campaign) {
-    const link = document.createElement("a");
-    link.className = "ad-slot-link";
-    link.href = campaign.clickUrl || "#";
-    if (/^https?:/i.test(link.href)) { link.target = "_blank"; link.rel = "noopener sponsored"; }
-    const img = document.createElement("img");
-    img.src = campaign.imageUrl;
-    img.alt = campaign.name || campaign.businessName || "Advertisement";
-    img.width = campaign.width;
-    img.height = campaign.height;
-    link.append(img);
-    return link;
-  }
+export function renderCampaign(campaign) {
+  const link = document.createElement("a");
+  link.className = "ad-slot-link";
+  link.href = campaign.click_url || "#";
+  if (/^https?:/i.test(link.href)) { link.target = "_blank"; link.rel = "noopener sponsored"; }
+  const img = document.createElement("img");
+  img.src = campaign.image_url;
+  img.alt = campaign.name || campaign.business_name || "Advertisement";
+  img.width = CONTENT_AD_SLOT.width;
+  img.height = CONTENT_AD_SLOT.height;
+  link.append(img);
+  return link;
+}
 
-  function renderPublishedCampaigns() {
-    const slots = window.StallTalkAdSlots?.list || [];
-    const campaigns = window.StallTalkCampaignStore?.listPublished?.() || [];
-    slots.forEach((slot) => {
-      document.querySelectorAll(slot.selector).forEach((container) => {
-        container.style.setProperty("--ad-slot-width", slot.width);
-        container.style.setProperty("--ad-slot-height", slot.height);
-        clear(container);
-        const campaign = campaigns.find((item) => item.slotId === slot.id && item.imageUrl);
-        if (campaign) container.append(renderCampaign(campaign));
-      });
-    });
-  }
+export async function renderPublishedCampaigns() {
+  const containers = getPlacementSlots();
+  containers.forEach(clear);
+  const campaigns = await getPublishedCampaigns();
+  containers.forEach((container) => {
+    const placement = Number(container.dataset.placement || 0);
+    const campaign = campaigns.find((item) => item.slot_id === CONTENT_AD_SLOT.id && Number(item.placement) === placement && item.status === "published" && item.image_url);
+    if (campaign) container.append(renderCampaign(campaign));
+  });
+}
 
-  document.addEventListener("DOMContentLoaded", renderPublishedCampaigns);
-  window.StallTalkAdRenderer = { renderPublishedCampaigns, renderCampaign };
-})();
+document.addEventListener("DOMContentLoaded", () => {
+  renderPublishedCampaigns().catch((error) => console.error("Unable to render Stall Talk ads", error));
+});
+
+window.StallTalkAdRenderer = { renderPublishedCampaigns, renderCampaign };

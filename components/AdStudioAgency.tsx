@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -22,9 +22,8 @@ type Props = {
 };
 
 type AdSize = "Mobile Sponsor Card";
-type AdSlotId = "hero-ad" | "sidebar-ad" | "inline-ad" | "footer-ad";
-type CampaignStatus = "draft" | "published";
-type LocalCampaign = { id: string; name: string; businessName: string; headline: string; offer: string; cta: string; slotId: AdSlotId; width: number; height: number; imageUrl: string; clickUrl: string; status: CampaignStatus; createdAt: string; updatedAt: string };
+type CampaignStatus = "draft" | "published" | "archived";
+type SupabaseCampaign = { id: string; name: string; business_name: string; headline: string; offer: string; cta: string; slot_id: "content-ad"; placement: number; width: 320; height: 100; image_url: string; click_url: string; status: CampaignStatus; venue_id: string | null; created_at: string; updated_at: string; published_at: string | null };
 type GeneratedCreative = {
   adSize: "Mobile Sponsor Card";
   imageUrl: string;
@@ -54,14 +53,8 @@ const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
 const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
-const AD_SLOTS: Record<AdSlotId, { id: AdSlotId; label: string; width: number; height: number; selector: string }> = {
-  "hero-ad": { id: "hero-ad", label: "Hero Ad", width: 728, height: 90, selector: '[data-ad-slot="hero-ad"]' },
-  "sidebar-ad": { id: "sidebar-ad", label: "Sidebar Ad", width: 300, height: 250, selector: '[data-ad-slot="sidebar-ad"]' },
-  "inline-ad": { id: "inline-ad", label: "Inline Ad", width: 320, height: 100, selector: '[data-ad-slot="inline-ad"]' },
-  "footer-ad": { id: "footer-ad", label: "Footer Ad", width: 728, height: 90, selector: '[data-ad-slot="footer-ad"]' }
-};
-const LOCAL_CAMPAIGNS_KEY = "stalltalk_campaigns_v1";
-const LOCAL_ACTIVE_KEY = "stalltalk_active_campaigns_v1";
+const CONTENT_AD_SLOT = { id: "content-ad" as const, label: "Content Sponsor Card", width: 320 as const, height: 100 as const, selector: '[data-ad-slot="content-ad"]' };
+const SUPABASE_CAMPAIGN_TABLE = "campaigns";
 const sizes: Record<AdSize, { label: string; className: string }> = {
   [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-square" }
 };
@@ -105,18 +98,61 @@ function diagnosticMessage(data: { error?: string; diagnostic?: ApiDiagnostic })
   ].filter(Boolean).join(" • ");
 }
 
-export function AdStudioAgency({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns }: Props) {
+function getClientEnv(key: string) {
+  const globalConfig = (globalThis as typeof globalThis & { STALLTALK_CONFIG?: Record<string, string> }).STALLTALK_CONFIG || {};
+  return globalConfig[key] || "";
+}
+
+function supabaseConfig() {
+  const url = getClientEnv("VITE_SUPABASE_URL");
+  const anonKey = getClientEnv("VITE_SUPABASE_ANON_KEY");
+  if (!url || !anonKey) throw new Error("Missing Supabase public configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for the admin.");
+  return { url: url.replace(/\/$/, ""), anonKey };
+}
+
+async function supabaseRest<T>(path: string, init: RequestInit & { prefer?: string } = {}): Promise<T> {
+  const { url, anonKey } = supabaseConfig();
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      "Content-Type": "application/json",
+      Prefer: init.prefer || "return=representation",
+      ...(init.headers || {})
+    }
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(data?.message || data?.hint || `Supabase request failed: ${response.status}`);
+  return data as T;
+}
+
+function supabaseSelectCampaigns() {
+  return supabaseRest<SupabaseCampaign[]>(`${SUPABASE_CAMPAIGN_TABLE}?slot_id=eq.content-ad&status=neq.archived&order=updated_at.desc`, { method: "GET" });
+}
+
+async function upsertSupabaseCampaign(campaign: Partial<SupabaseCampaign> & { id: string }) {
+  const [saved] = await supabaseRest<SupabaseCampaign[]>(SUPABASE_CAMPAIGN_TABLE, { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(campaign) });
+  return saved;
+}
+
+function patchSupabaseCampaign(id: string, updates: Partial<SupabaseCampaign>) {
+  return supabaseRest<SupabaseCampaign[]>(`${SUPABASE_CAMPAIGN_TABLE}?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ ...updates, updated_at: new Date().toISOString() }) });
+}
+
+export function AdStudioAgency({ publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns }: Props) {
   const [step, setStep] = useState(1);
-  const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState("");
   const [publishMessage, setPublishMessage] = useState("");
   const [publishError, setPublishError] = useState("");
   const [campaignRootId, setCampaignRootId] = useState("");
   const [apiStatus, setApiStatus] = useState<ApiDiagnostic | null>(null);
   const [selectedCreativeIndex, setSelectedCreativeIndex] = useState(0);
-  const [slotId, setSlotId] = useState<AdSlotId>("hero-ad");
-  const [localCampaigns, setLocalCampaigns] = useState<LocalCampaign[]>([]);
+  const [placement, setPlacement] = useState("1");
+  const [campaignLibrary, setCampaignLibrary] = useState<SupabaseCampaign[]>([]);
   const [history, setHistory] = useState<CampaignHistoryItem[]>([]);
   const [creatives, setCreatives] = useState<GeneratedCreative[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -143,12 +179,12 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   });
 
   useEffect(() => {
-    try { setLocalCampaigns(JSON.parse(window.localStorage.getItem(LOCAL_CAMPAIGNS_KEY) || "[]")); } catch { setLocalCampaigns([]); }
+    void refreshCampaignLibrary();
     setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: MOBILE_SPONSOR_CARD, createdAt: item.createdAt, parentCampaignId: item.parentCampaignId || item.campaignId, versionNumber: item.versionNumber || 1 })));
   }, [savedCampaigns]);
 
   const selectedCreative = creatives[selectedCreativeIndex];
-  const selectedSlot = AD_SLOTS[slotId];
+  const selectedSlot = CONTENT_AD_SLOT;
   const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
   const activeVenue = venues[0];
 
@@ -187,9 +223,8 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     if (!dataUrl) return "";
     const response = await fetch(dataUrl);
     const blob = await response.blob();
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !uploadPreset) return dataUrl;
+    const cloudName = getClientEnv("VITE_CLOUDINARY_CLOUD_NAME") || "ddp2yv3k3";
+    const uploadPreset = getClientEnv("VITE_CLOUDINARY_UPLOAD_PRESET") || "stalltalk_ads";
     const formData = new FormData();
     formData.set("file", blob);
     formData.set("upload_preset", uploadPreset);
@@ -256,7 +291,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     const nextVersion = regenerate && creatives.length ? Math.max(...creatives.map((creative) => creative.versionNumber || 1)) + 1 : 1;
     const campaignBatchId = `${parentCampaignId}-v${nextVersion}`;
     const adSize = MOBILE_SPONSOR_CARD;
-    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: slotId, width: selectedSlot.width, height: selectedSlot.height };
+    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: CONTENT_AD_SLOT.id, placement: Number(placement), width: selectedSlot.width, height: selectedSlot.height };
     const generated: GeneratedCreative[] = [];
 
     try {
@@ -294,7 +329,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           historySaved: data.historySaved,
           historyError: data.historyError,
           targetUrl: form.website || null,
-          selectedSlot: 1,
+          selectedSlot: Number(placement),
           parentCampaignId: data.parentCampaignId || parentCampaignId,
           versionNumber: data.versionNumber || nextVersion,
           publishStatus: "GENERATED"
@@ -306,135 +341,122 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       setError(`Image generation fallback active. ${message}`);
     }
 
-    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || campaignBatchId, businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString(), targetUrl: form.website || null, selectedSlot: 1 }));
+    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || campaignBatchId, businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString(), targetUrl: form.website || null, selectedSlot: Number(placement) }));
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
     setCreatives((current) => regenerate ? [...current, ...generated] : generated);
     setSelectedCreativeIndex(regenerate ? creatives.length : 0);
     setHasGenerated(true);
     setHistory(mergedHistory);
-    window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
     setStep(5);
     setIsGenerating(false);
   }
 
-  function publish() {
-    setPublishError("");
-    setPublishMessage("");
-    if (!form.issueId) { setPublishError("Select an issue before publishing."); return; }
-    if (!slotId) { setPublishError("Select an ad slot before publishing."); return; }
-    if (!selectedCreative) return;
-    const formData = new FormData();
-    const campaignId = selectedCreative.campaignId || crypto.randomUUID();
-    formData.set("campaignId", campaignId);
-    formData.set("parentCampaignId", selectedCreative.parentCampaignId || campaignRootId || campaignId);
-    formData.set("versionNumber", String(selectedCreative.versionNumber || selectedCreativeIndex + 1));
-    formData.set("publisherId", form.publisherId);
-    formData.set("advertiserId", form.advertiserId);
-    formData.set("businessName", safe(form.businessName, "Your Business"));
-    formData.set("title", selectedCreative.headline);
-    formData.set("offer", selectedCreative.subheadline);
-    formData.set("artworkUrl", selectedCreative.imageUrl);
-    formData.set("creativeType", "IMAGE");
-    formData.set("htmlCreative", "");
-    formData.set("promptUsed", selectedCreative.promptUsed);
-    formData.set("generatedHeadline", selectedCreative.headline);
-    formData.set("generatedSubheadline", selectedCreative.subheadline);
-    formData.set("adSize", MOBILE_SPONSOR_CARD);
-    formData.set("ctaText", selectedCreative.ctaText);
-    formData.set("targetUrl", form.website || "#");
-    formData.set("phone", form.phone);
-    formData.set("logoBase64", form.logoBase64);
-    formData.set("couponCode", selectedCreative.couponCode);
-    formData.set("status", "ACTIVE");
-    formData.set("scope", form.scope);
-    formData.set("issueId", form.issueId);
-    formData.set("slotNumber", "1");
-    formData.set("slotId", slotId);
-    formData.set("monthlyPriceDollars", "0");
-
-    startTransition(() => {
-      void Promise.resolve(createAd(formData))
-        .then((result) => {
-          setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to Issue ${issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${selectedSlot.label}`);
-          setCreatives((items) => items.map((item, index) => ({ ...item, publishStatus: index === selectedCreativeIndex ? "PUBLISHED" : item.parentCampaignId === (selectedCreative.parentCampaignId || campaignRootId) ? "SUPERSEDED" : item.publishStatus })));
-        })
-        .catch((caught) => setPublishError(caught instanceof Error ? caught.message : "Unable to publish generated ad."));
-    });
-  }
 
   const missingRequired = [
     form.businessName.trim() ? "" : "business name",
     form.offer.trim() ? "" : "offer",
     form.audience === "Custom Audience" && !form.customAudience.trim() ? "custom audience" : "",
-    slotId.trim() ? "" : "ad slot"
+    Number(placement) > 0 ? "" : "placement"
   ].filter(Boolean);
   const canGenerate = missingRequired.length === 0;
 
-  function persistLocalCampaigns(campaigns: LocalCampaign[]) {
-    setLocalCampaigns(campaigns);
-    window.localStorage.setItem(LOCAL_CAMPAIGNS_KEY, JSON.stringify(campaigns));
+  async function refreshCampaignLibrary() {
+    try { setCampaignLibrary(await supabaseSelectCampaigns()); }
+    catch (caught) { setPublishError(caught instanceof Error ? caught.message : "Unable to load campaign library from Supabase."); }
   }
 
-  function buildLocalCampaign(status: CampaignStatus): LocalCampaign | null {
+  function buildCampaignPayload(status: CampaignStatus): Omit<SupabaseCampaign, "created_at" | "updated_at" | "published_at"> & { created_at?: string; updated_at?: string; published_at?: string | null } | null {
     if (!selectedCreative) return null;
     const existingId = selectedCreative.campaignId || crypto.randomUUID();
     const now = new Date().toISOString();
     return {
       id: existingId,
       name: safe(selectedCreative.headline || form.businessName, "Campaign"),
-      businessName: safe(form.businessName || selectedCreative.businessName, "Your Business"),
+      business_name: safe(form.businessName || selectedCreative.businessName, "Your Business"),
       headline: selectedCreative.headline,
       offer: selectedCreative.subheadline || form.offer,
       cta: selectedCreative.ctaText,
-      slotId,
-      width: selectedSlot.width,
-      height: selectedSlot.height,
-      imageUrl: selectedCreative.imageUrl,
-      clickUrl: form.website || "#",
+      slot_id: CONTENT_AD_SLOT.id,
+      placement: Number(placement),
+      width: CONTENT_AD_SLOT.width,
+      height: CONTENT_AD_SLOT.height,
+      image_url: selectedCreative.imageUrl,
+      click_url: form.website || "#",
+      venue_id: null,
       status,
-      createdAt: localCampaigns.find((item) => item.id === existingId)?.createdAt || now,
-      updatedAt: now
+      created_at: campaignLibrary.find((item) => item.id === existingId)?.created_at || now,
+      updated_at: now,
+      published_at: status === "published" ? now : null
     };
   }
 
-  function saveLocalCampaign() {
-    const campaign = buildLocalCampaign("draft");
+  async function saveCampaign() {
+    const campaign = buildCampaignPayload("draft");
     if (!campaign) return;
-    const next = [campaign, ...localCampaigns.filter((item) => item.id !== campaign.id)];
-    persistLocalCampaigns(next);
-    setPublishMessage(`Saved campaign ${campaign.name} for ${selectedSlot.label}.`);
+    setIsPublishing(true);
+    try {
+      await upsertSupabaseCampaign(campaign);
+      await refreshCampaignLibrary();
+      setPublishMessage(`Saved campaign ${campaign.name} to Supabase.`);
+    } catch (caught) {
+      setPublishError(caught instanceof Error ? caught.message : "Unable to save campaign to Supabase.");
+    } finally {
+      setIsPublishing(false);
+    }
   }
 
-  function publishToSlot() {
-    const campaign = buildLocalCampaign("published");
+  async function publishCampaignToPlacement() {
+    const campaign = buildCampaignPayload("published");
     if (!campaign) return;
-    const next = [campaign, ...localCampaigns.filter((item) => item.id !== campaign.id)];
-    persistLocalCampaigns(next);
-    const active = JSON.parse(window.localStorage.getItem(LOCAL_ACTIVE_KEY) || "{}");
-    active[campaign.slotId] = campaign;
-    window.localStorage.setItem(LOCAL_ACTIVE_KEY, JSON.stringify(active));
-    setPublishMessage(`Published ${campaign.name} to ${selectedSlot.label}. Open index.html in this browser to see it rendered without repository uploads.`);
+    if (campaign.width !== 320 || campaign.height !== 100) { setPublishError("Final image must be exactly 320x100 before publishing."); return; }
+    setIsPublishing(true);
+    try {
+      await upsertSupabaseCampaign({ ...campaign, status: "published", published_at: new Date().toISOString() });
+      await refreshCampaignLibrary();
+      setPublishMessage(`Published ${campaign.name} to Placement ${placement}. QR visitors will see it from Supabase without repository uploads.`);
+    } catch (caught) {
+      setPublishError(caught instanceof Error ? caught.message : "Unable to publish campaign to Supabase.");
+    } finally {
+      setIsPublishing(false);
+    }
   }
 
-  function duplicateLocalCampaign(campaign: LocalCampaign) {
-    const copy = { ...campaign, id: crypto.randomUUID(), name: `${campaign.name} Copy`, status: "draft" as CampaignStatus, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    persistLocalCampaigns([copy, ...localCampaigns]);
+  async function duplicateCampaign(campaign: SupabaseCampaign) {
+    const now = new Date().toISOString();
+    await upsertSupabaseCampaign({ ...campaign, id: crypto.randomUUID(), name: `${campaign.name} Copy`, status: "draft", published_at: null, created_at: now, updated_at: now });
+    await refreshCampaignLibrary();
   }
 
-  function reuseLocalCampaign(campaign: LocalCampaign) {
-    setSlotId(campaign.slotId);
-    update("businessName", campaign.businessName);
+
+  async function archiveCampaignById(id: string) {
+    await patchSupabaseCampaign(id, { status: "archived" });
+    await refreshCampaignLibrary();
+  }
+
+  async function unpublishCampaignById(id: string) {
+    await patchSupabaseCampaign(id, { status: "draft", published_at: null });
+    await refreshCampaignLibrary();
+  }
+
+  async function republishCampaign(campaign: SupabaseCampaign) {
+    await patchSupabaseCampaign(campaign.id, { status: "published", published_at: new Date().toISOString(), slot_id: CONTENT_AD_SLOT.id, width: 320, height: 100 });
+    await refreshCampaignLibrary();
+  }
+
+  function reuseCampaign(campaign: SupabaseCampaign) {
+    setPlacement(String(campaign.placement));
+    update("businessName", campaign.business_name);
     update("offer", campaign.offer);
     update("ctaText", campaign.cta);
-    update("website", campaign.clickUrl === "#" ? "" : campaign.clickUrl);
-    setCreatives([{ adSize: MOBILE_SPONSOR_CARD, imageUrl: campaign.imageUrl, promptUsed: "Reused saved localStorage campaign.", headline: campaign.headline, subheadline: campaign.offer, ctaText: campaign.cta, couponCode: "", businessName: campaign.businessName, campaignId: campaign.id, publishStatus: campaign.status.toUpperCase() }]);
+    update("website", campaign.click_url === "#" ? "" : campaign.click_url);
+    setCreatives([{ adSize: MOBILE_SPONSOR_CARD, imageUrl: campaign.image_url, promptUsed: "Reused Supabase campaign.", headline: campaign.headline, subheadline: campaign.offer, ctaText: campaign.cta, couponCode: "", businessName: campaign.business_name, campaignId: campaign.id, publishStatus: campaign.status.toUpperCase() }]);
     setSelectedCreativeIndex(0);
     setStep(5);
   }
 
   function downloadSelectedImage() {
     if (!selectedCreative?.imageUrl) return;
-    const filename = `pottyfavor-${slotId}-${safe(selectedCreative.headline || form.businessName, "campaign").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`;
+    const filename = `pottyfavor-content-ad-placement-${placement}-${safe(selectedCreative.headline || form.businessName, "campaign").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`;
     const link = document.createElement("a");
     link.href = selectedCreative.imageUrl;
     link.download = filename;
@@ -457,15 +479,15 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         <div>
           <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">AI Creative Studio</p>
           <h1 className="font-display text-6xl uppercase leading-none text-stallRed md:text-8xl">Campaign Builder</h1>
-          <p className="mt-2 max-w-3xl text-lg font-bold">AI ad generator from a creative brief: select a target slot first, generate a creative, then the canvas finalizer crops it to the exact placement dimensions before saving, downloading, or publishing.</p>
+          <p className="mt-2 max-w-3xl text-lg font-bold">AI ad generator from a creative brief: select a numbered content placement first, generate a creative, then the canvas finalizer crops it to the exact placement dimensions before saving, downloading, or publishing.</p>
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <p className="text-xs font-black uppercase tracking-widest text-stallRed">Publish Target</p>
           <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={form.issueId} onChange={(event) => update("issueId", event.target.value)}>
             {issues.map((issue) => <option key={issue.id} value={issue.id}>{issue.title} • {issue.venueName}</option>)}
           </select>
-          <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={slotId} onChange={(event) => setSlotId(event.target.value as AdSlotId)}>
-            {Object.values(AD_SLOTS).map((slot) => <option key={slot.id} value={slot.id}>{slot.label} • {slot.width}x{slot.height}</option>)}
+          <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={placement} onChange={(event) => setPlacement(event.target.value)}>
+            {Array.from({ length: 8 }, (_, index) => <option key={index + 1} value={index + 1}>Placement {index + 1} • content-ad • 320x100</option>)}
           </select>
         </div>
       </div>
@@ -520,7 +542,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
             <Field label="CTA" value={selectedCreative.ctaText} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, ctaText: value } : item))} />
             <Field label="Coupon" value={selectedCreative.couponCode} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, couponCode: value } : item))} />
             {!form.website.trim() ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">Admin warning: no advertiser website URL entered. The published image will render without a click link.</p> : null}
-            <div className="grid gap-2 md:grid-cols-2"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={saveLocalCampaign}>Save Campaign</button><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={downloadSelectedImage}>Download Image</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publishToSlot}>{isPending ? "Publishing..." : "Publish to Slot"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button></div>
+            <div className="grid gap-2 md:grid-cols-2"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={() => void saveCampaign()}>Save Campaign</button><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={downloadSelectedImage}>Download Image</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPublishing} onClick={() => void publishCampaignToPlacement()}>{isPublishing ? "Publishing..." : "Publish Campaign"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button></div>
             {publishMessage ? <p className="rounded-xl border-2 border-green-700 bg-green-50 p-3 text-sm font-black uppercase text-green-800">{publishMessage}</p> : null}
             {publishError ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">{publishError}</p> : null}
           </div> : null}
@@ -534,7 +556,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <LocalCampaignPanel items={localCampaigns} onReuse={reuseLocalCampaign} onDuplicate={duplicateLocalCampaign} />
+        <CampaignLibraryPanel items={campaignLibrary} onReuse={reuseCampaign} onDuplicate={(campaign) => void duplicateCampaign(campaign)} onArchive={(campaign) => void archiveCampaignById(campaign.id)} onUnpublish={(campaign) => void unpublishCampaignById(campaign.id)} onRepublish={(campaign) => void republishCampaign(campaign)} />
         <div className="rounded-2xl border-4 border-ink bg-white p-4">
           <h3 className="font-display text-4xl uppercase">Published Ad History</h3>
           <div className="mt-3 grid gap-2">{recentCampaigns.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleDateString()}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.title}</p><p className="text-xs font-black uppercase text-stallPurple">{item.ctaText} {item.couponCode ? `• ${item.couponCode}` : ""}</p></article>)}</div>
@@ -602,8 +624,8 @@ function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
   return <div className="mt-3 grid gap-2 rounded-xl border-2 border-ink bg-paper p-3 text-xs font-black uppercase md:grid-cols-4"><span>API: {diagnostic.apiStatus || "unknown"}</span><span>OpenAI: {diagnostic.openAiStatus || "unknown"}</span><span>Model: {diagnostic.model || "server default"}</span><span>{diagnostic.errorType ? `Error: ${diagnostic.errorType}` : "Image API ready"}</span></div>;
 }
 
-function LocalCampaignPanel({ items, onReuse, onDuplicate }: { items: LocalCampaign[]; onReuse: (campaign: LocalCampaign) => void; onDuplicate: (campaign: LocalCampaign) => void }) {
-  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">Saved Campaigns</h3><p className="text-sm font-bold text-ink/70">Development storage uses localStorage; this adapter can later be replaced by Supabase for multi-user publishing.</p><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{item.status} • {item.slotId} • {item.width}x{item.height}</p><h4 className="font-black uppercase">{item.name}</h4><p className="text-sm font-bold">{item.businessName} — {item.headline}</p><div className="mt-2 flex flex-wrap gap-2"><button className="rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onReuse(item)}>Reuse Campaign</button><button className="rounded-full bg-stallPurple px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onDuplicate(item)}>Duplicate</button></div></article>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No saved local campaigns yet.</p>}</div></div>;
+function CampaignLibraryPanel({ items, onReuse, onDuplicate, onArchive, onUnpublish, onRepublish }: { items: SupabaseCampaign[]; onReuse: (campaign: SupabaseCampaign) => void; onDuplicate: (campaign: SupabaseCampaign) => void; onArchive: (campaign: SupabaseCampaign) => void; onUnpublish: (campaign: SupabaseCampaign) => void; onRepublish: (campaign: SupabaseCampaign) => void }) {
+  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">Campaign Library</h3><p className="text-sm font-bold text-ink/70">Campaigns are loaded from Supabase and rendered live to GitHub Pages by placement.</p><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{item.status} • content-ad • Placement {item.placement} • 320x100</p><h4 className="font-black uppercase">{item.name}</h4><p className="text-sm font-bold">{item.business_name} — {item.headline}</p><div className="mt-2 flex flex-wrap gap-2"><button className="rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onReuse(item)}>Reuse</button><button className="rounded-full bg-stallPurple px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onDuplicate(item)}>Duplicate</button><button className="rounded-full bg-stallRed px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onArchive(item)}>Archive</button><button className="rounded-full bg-paper px-3 py-1 text-xs font-black uppercase text-ink" onClick={() => onUnpublish(item)}>Unpublish</button><button className="rounded-full bg-green-700 px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onRepublish(item)}>Republish</button></div></article>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No Supabase campaigns found.</p>}</div></div>;
 }
 
 function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {
