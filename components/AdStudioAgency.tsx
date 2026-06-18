@@ -19,6 +19,7 @@ type Props = {
   issues: IssueOption[];
   recentCampaigns: RecentCampaign[];
   savedCampaigns: SavedCampaign[];
+  serverWarning?: string;
 };
 
 type AdSize = "Mobile Sponsor Card";
@@ -111,7 +112,7 @@ export function AdStudioAgency(props: Props) {
   );
 }
 
-function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns }: Props) {
+function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns, serverWarning }: Props) {
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -172,7 +173,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
   }
 
   async function overlayLogoOnImage(imageUrl: string) {
-    if (!form.logoBase64 || !imageUrl || typeof document === "undefined") return imageUrl;
+    if (!form.logoBase64 || !imageUrl || typeof window === "undefined" || typeof document === "undefined") return imageUrl;
     const [baseImage, logoImage] = await Promise.all([loadCanvasImage(imageUrl), loadCanvasImage(form.logoBase64)]);
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
@@ -283,7 +284,13 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     setSelectedCreativeIndex(regenerate ? creatives.length : 0);
     setHasGenerated(true);
     setHistory(mergedHistory);
-    window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
+      } catch {
+        setError("Generated campaign is available, but browser history could not be saved.");
+      }
+    }
     setStep(5);
     setIsGenerating(false);
   }
@@ -350,6 +357,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
 
   return (
     <section className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal md:p-6">
+      {serverWarning ? <WarningCard message={serverWarning} /> : null}
       {!isPublishingConfigured ? <PublishingConfigWarning /> : null}
       <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_320px]">
         <div>
@@ -445,7 +453,11 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
 }
 
 function PublishingConfigWarning() {
-  return <div className="mb-6 rounded-2xl border-4 border-stallRed bg-red-50 p-4 font-black uppercase text-stallRed shadow-brutal" role="alert">{ENV_WARNING_MESSAGE}</div>;
+  return <WarningCard message={ENV_WARNING_MESSAGE} />;
+}
+
+function WarningCard({ message }: { message: string }) {
+  return <div className="mb-6 rounded-2xl border-4 border-stallRed bg-red-50 p-4 font-black uppercase text-stallRed shadow-brutal" role="alert">{message}</div>;
 }
 
 type ErrorBoundaryProps = { children: ReactNode };
@@ -483,7 +495,7 @@ function ChoiceGroup({ title, options, value, onChange }: { title: string; optio
 
 function loadCanvasImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    if (typeof Image === "undefined") {
+    if (typeof window === "undefined" || typeof Image === "undefined") {
       reject(new Error("Browser image APIs are unavailable."));
       return;
     }
