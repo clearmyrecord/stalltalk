@@ -1,19 +1,19 @@
-import { supabaseFetch } from "./supabase-client.js";
 import { getAdSlot, normalizePlacement } from "./ad-slots.js";
 
-const CAMPAIGN_COLUMNS = "id,name,business_name,headline,offer,cta,slot_id,placement,width,height,image_url,click_url,status,venue_id,created_at,updated_at,published_at";
 const CONTENT_AD_SLOT_ID = "content-ad";
 
 export async function fetchPublishedCampaigns({ venueId = "" } = {}) {
-  const filters = ["status=eq.published", `slot_id=eq.${CONTENT_AD_SLOT_ID}`, "select=" + CAMPAIGN_COLUMNS, "order=published_at.desc"];
-  if (venueId) filters.push(`venue_id=eq.${encodeURIComponent(venueId)}`);
-  return supabaseFetch(`campaigns?${filters.join("&")}`);
+  const params = new URLSearchParams();
+  if (venueId) params.set("venue_id", venueId);
+  const response = await fetch(`/api/published-ads${params.toString() ? `?${params}` : ""}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Published ads request failed (${response.status})`);
+  return response.json();
 }
 
 export async function fetchCampaignLibrary({ venueId = "" } = {}) {
-  const filters = ["select=" + CAMPAIGN_COLUMNS, "order=updated_at.desc"];
-  if (venueId) filters.push(`venue_id=eq.${encodeURIComponent(venueId)}`);
-  return supabaseFetch(`campaigns?${filters.join("&")}`);
+  const response = await fetch("/api/ad-studio/campaigns", { cache: "no-store" });
+  if (!response.ok) throw new Error(`Campaign library request failed (${response.status})`);
+  return response.json();
 }
 
 export async function saveCampaign(campaign) {
@@ -34,10 +34,14 @@ export async function saveCampaign(campaign) {
   };
 
   if (campaign.id) {
-    return supabaseFetch(`campaigns?id=eq.${encodeURIComponent(campaign.id)}`, { method: "PATCH", body: JSON.stringify(payload) });
+    const response = await fetch("/api/ad-studio/campaigns", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, campaignId: campaign.id }) });
+    if (!response.ok) throw new Error(`Campaign update failed (${response.status})`);
+    return response.json();
   }
 
-  return supabaseFetch("campaigns", { method: "POST", body: JSON.stringify(payload) });
+  const response = await fetch("/api/ad-studio/campaigns", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  if (!response.ok) throw new Error(`Campaign save failed (${response.status})`);
+  return response.json();
 }
 
 export async function publishCampaign(campaignId, placement) {
@@ -54,7 +58,9 @@ export async function publishCampaign(campaignId, placement) {
     published_at: publishedAt,
     updated_at: publishedAt
   };
-  return supabaseFetch(`campaigns?id=eq.${encodeURIComponent(campaignId)}`, { method: "PATCH", body: JSON.stringify(payload) });
+  const response = await fetch("/api/ad-studio/campaigns", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, action: "publish", campaignId }) });
+  if (!response.ok) throw new Error(`Campaign publish failed (${response.status})`);
+  return response.json();
 }
 
 export async function unpublishCampaign(campaignId) {
@@ -76,5 +82,8 @@ export function reuseCampaign(campaign, overrides = {}) {
 
 async function updateCampaignStatus(campaignId, status, extra = {}) {
   const payload = { status, updated_at: new Date().toISOString(), ...extra };
-  return supabaseFetch(`campaigns?id=eq.${encodeURIComponent(campaignId)}`, { method: "PATCH", body: JSON.stringify(payload) });
+  const action = status === "draft" ? "unpublish" : "archive";
+  const response = await fetch("/api/ad-studio/campaigns", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, action, campaignId }) });
+  if (!response.ok) throw new Error(`Campaign status update failed (${response.status})`);
+  return response.json();
 }

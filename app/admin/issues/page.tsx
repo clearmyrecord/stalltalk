@@ -48,8 +48,8 @@ export default async function IssuesPage() {
   className="rounded-lg bg-stallYellow px-4 py-2 font-black uppercase"
   href={
     issue.venue?.slug
-      ? `/issue/${issue.venue.slug}${issue.qrCode ? `?qr=${issue.qrCode.qrSlug}` : ""}`
-      : "/issue"
+      ? `/issue/${issue.venue.slug}?previewIssueId=${issue.id}${issue.qrCode ? `&qr=${issue.qrCode.qrSlug}` : ""}`
+      : `/issue?previewIssueId=${issue.id}`
   }
 >
   Preview

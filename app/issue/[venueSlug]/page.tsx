@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { ImpressionRecorder } from "@/components/ImpressionRecorder";
 import { ScanRecorder } from "@/components/ScanRecorder";
@@ -7,6 +6,7 @@ import { getServedAds } from "@/lib/ad-serving";
 import { prisma } from "@/lib/prisma";
 import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChrome";
 import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
+import { IssueNotFound } from "@/components/IssueNotFound";
 
 export const dynamic = "force-dynamic";
 type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: true } } } }>;
@@ -17,7 +17,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   const { venueSlug } = await params;
   const { qr, previewIssueId } = await searchParams;
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
-  if (!requestedVenue) notFound();
+  if (!requestedVenue) return <IssueNotFound title="Venue issue not found" message="This venue is not active or does not have a public issue route yet." />;
 
   const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } } satisfies Prisma.IssueInclude;
   const previewIssue = previewIssueId ? await prisma.issue.findFirst({
@@ -34,7 +34,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
     include: issueInclude
   });
-  if (!issue) notFound();
+  if (!issue) return <IssueNotFound message={`No published issue is available for ${requestedVenue.name} yet.`} />;
   const renderIssue = issue as IssueWithContext & { venue: NonNullable<IssueWithContext["venue"]> };
   renderIssue.venue = requestedVenue;
   renderIssue.venueId = requestedVenue.id;
