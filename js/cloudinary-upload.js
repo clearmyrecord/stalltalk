@@ -1,52 +1,58 @@
-const nextPublicEnv = typeof process !== "undefined" ? process.env : {};
-const runtimeConfig = typeof window !== "undefined" ? window : {};
+function readCloudinaryConfig() {
+  try {
+    const nextPublicEnv = typeof process !== "undefined" ? process.env || {} : {};
+    const runtimeConfig = typeof window !== "undefined" ? window : {};
+    return {
+      cloudName: nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || runtimeConfig.STALLTALK_CLOUDINARY_CLOUD_NAME || "",
+      uploadPreset: nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || runtimeConfig.STALLTALK_CLOUDINARY_UPLOAD_PRESET || ""
+    };
+  } catch (error) {
+    console.error("Cloudinary initialization failed", error);
+    return { cloudName: "", uploadPreset: "" };
+  }
+}
 
-export const CLOUDINARY_CLOUD_NAME =
-  nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
-  runtimeConfig.STALLTALK_CLOUDINARY_CLOUD_NAME ||
-  "";
+const cloudinaryConfig = readCloudinaryConfig();
 
-export const CLOUDINARY_UPLOAD_PRESET =
-  nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
-  runtimeConfig.STALLTALK_CLOUDINARY_UPLOAD_PRESET ||
-  "";
+export const CLOUDINARY_CLOUD_NAME = cloudinaryConfig.cloudName;
+export const CLOUDINARY_UPLOAD_PRESET = cloudinaryConfig.uploadPreset;
 
 export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
+  try {
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+      throw new Error("Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.");
+    }
+
+    const form = new FormData();
+    form.append("file", blob, `${campaignName}.png`);
+    form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    form.append("folder", "stalltalk/ads");
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: form
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.secure_url) {
+      throw new Error(data.error?.message || "Cloudinary upload failed.");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Cloudinary upload failed", error);
+    throw error;
   }
-export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error("Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.");
-  }
-
-  const form = new FormData();
-  form.append("file", blob, `${campaignName}.png`);
-  form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  form.append("folder", "stalltalk/ads");
-
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-    method: "POST",
-    body: form
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.secure_url) {
-    throw new Error(data.error?.message || "Cloudinary upload failed.");
-  }
-
-  return data;
 }
 
 export async function resizeImageToSlot(source, slot) {
-  if (typeof document === "undefined") throw new Error("Browser canvas APIs are unavailable.");
+  if (typeof window === "undefined" || typeof document === "undefined") throw new Error("Browser canvas APIs are unavailable.");
   const image = await loadImage(source);
   const canvas = document.createElement("canvas");
   canvas.width = slot.width;
   canvas.height = slot.height;
   const context = canvas.getContext("2d");
+  if (!context) throw new Error("Browser canvas context is unavailable.");
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, slot.width, slot.height);
 
@@ -60,7 +66,7 @@ export async function resizeImageToSlot(source, slot) {
 
 function loadImage(source) {
   return new Promise((resolve, reject) => {
-    if (typeof Image === "undefined") {
+    if (typeof window === "undefined" || typeof Image === "undefined") {
       reject(new Error("Browser image APIs are unavailable."));
       return;
     }
