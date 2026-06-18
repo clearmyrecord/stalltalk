@@ -101,4 +101,23 @@ function DidYouKnowBlock() { return <section className="publication-content-bloc
 function WordOfDayBlock() { return <section className="publication-content-block word-card panel"><h2>Word-of-the-Day</h2><strong>{publishedIssue.wordOfTheDay}</strong><p>{publishedIssue.wordDefinition}</p></section>; }
 function StaticRestaurantBlock() { return <section className="publication-content-block restaurant-review panel"><div className="card-label">Restaurant Review</div><div className="review-box"><div className="review-content"><h2>Worth the Stop</h2><h3>Featured Local Restaurant</h3><p>This month’s pick is a local spot with strong atmosphere, good service, and food that makes it worth coming back for. Perfect for a casual lunch, date night, or a quick bite before heading back out.</p><p className="review-rating">★★★★☆ 4/5</p><a href="#ad-5" className="review-button">Read Full Review</a></div></div></section>; }
 function CalendarBlock() { const days = Array.from({ length: 35 }, (_, index) => index + 1); return <section className="publication-content-block calendar-card panel" id="calendar"><h2>Calendar / Event Spotlight</h2><div className="calendar-layout"><div><div className="calendar-grid" aria-label="Published event calendar">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span className="calendar-weekday" key={day}>{day}</span>)}{days.map((day) => <span key={day}>{day <= 30 ? day : ""}</span>)}</div><p>{publishedIssue.calendarText}</p></div><aside className="event-spotlight"><strong>Event Spotlight</strong><p>Submit local happenings to keep the monthly calendar moving.</p></aside></div></section>; }
-function SubmitEventForm() { return <section className="publication-content-block submit-event-card panel" id="submit-event"><p className="directory-kicker">Community Calendar</p><h2>Submit a Local Event</h2><form><label>Event name<input name="eventName" placeholder="Friday Night Market" /></label><label>Date<input name="eventDate" type="date" /></label><label>Details<textarea name="details" placeholder="Tell readers what to know." /></label><button type="submit">Submit Event</button></form></section>; }
+function SubmitEventForm() {
+  return (
+    <section className="publication-content-block submit-event-card panel" id="submit-event">
+      <p className="directory-kicker">Community Calendar</p>
+      <h2>Submit a Local Event</h2>
+      <p>Got something happening nearby? Submit your event for Potty Favor review.</p>
+      <form className="event-form">
+        <label>Event Title<input name="title" required /></label>
+        <label className="full">Event Description<textarea name="description" /></label>
+        <label>Venue Name<input name="venueName" required /></label>
+        <label>Date<input name="eventDate" type="date" required /></label>
+        <label>Start Time<input name="startTime" type="time" /></label>
+        <label>Category<select name="category"><option>Nightlife</option><option>Concert</option><option>Sports</option><option>Restaurant / Bar</option><option>Community</option><option>Convention</option><option>Local Deal</option><option>Other</option></select></label>
+        <label>Website or Ticket Link<input name="website" type="url" /></label>
+        <label>Contact Email<input name="submittedByEmail" type="email" required /></label>
+        <div className="full actions"><button type="submit">Submit Event</button></div>
+      </form>
+    </section>
+  );
+}

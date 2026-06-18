@@ -614,16 +614,16 @@ function collectPublicEvent(form) {
     title: data.get("title"),
     description: data.get("description"),
     venueName: data.get("venueName"),
-    address: data.get("address"),
-    city: data.get("city"),
-    state: data.get("state"),
+    address: "",
+    city: "",
+    state: "",
     eventDate: data.get("eventDate"),
     startTime: data.get("startTime"),
-    endTime: data.get("endTime"),
+    endTime: "",
     category: data.get("category"),
     website: data.get("website"),
-    phone: data.get("phone"),
-    submittedByName: data.get("submittedByName"),
+    phone: "",
+    submittedByName: "",
     submittedByEmail: data.get("submittedByEmail"),
     status: "pending",
     featured: false,
@@ -633,14 +633,9 @@ function collectPublicEvent(form) {
 }
 
 function validateEvent(event) {
-  return [
-    "title",
-    "venueName",
-    "city",
-    "state",
-    "eventDate",
-    "submittedByEmail",
-  ].filter((key) => !normalizeText(event[key]));
+  return ["title", "venueName", "eventDate", "submittedByEmail"].filter(
+    (key) => !normalizeText(event[key])
+  );
 }
 
 function bindEventSubmission() {
