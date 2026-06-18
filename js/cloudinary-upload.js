@@ -1,7 +1,27 @@
-export const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "ddp2yv3k3";
-export const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "stalltalk_ads";
+const nextPublicEnv = typeof process !== "undefined" ? process.env : {};
+const runtimeConfig = typeof window !== "undefined" ? window : {};
+
+export const CLOUDINARY_CLOUD_NAME =
+  nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  runtimeConfig.STALLTALK_CLOUDINARY_CLOUD_NAME ||
+  "";
+
+export const CLOUDINARY_UPLOAD_PRESET =
+  nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
+  runtimeConfig.STALLTALK_CLOUDINARY_UPLOAD_PRESET ||
+  "";
 
 export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error(
+      "Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
+    );
+  }
+export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error("Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.");
+  }
+
   const form = new FormData();
   form.append("file", blob, `${campaignName}.png`);
   form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -21,6 +41,7 @@ export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") 
 }
 
 export async function resizeImageToSlot(source, slot) {
+  if (typeof document === "undefined") throw new Error("Browser canvas APIs are unavailable.");
   const image = await loadImage(source);
   const canvas = document.createElement("canvas");
   canvas.width = slot.width;
@@ -39,6 +60,10 @@ export async function resizeImageToSlot(source, slot) {
 
 function loadImage(source) {
   return new Promise((resolve, reject) => {
+    if (typeof Image === "undefined") {
+      reject(new Error("Browser image APIs are unavailable."));
+      return;
+    }
     const image = new Image();
     image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);

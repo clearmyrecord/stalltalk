@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { Component, type ReactNode, useEffect, useState, useTransition } from "react";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -51,6 +51,15 @@ const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
 const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
+const ENV_WARNING_MESSAGE = "Publishing is not fully configured. Add Supabase and Cloudinary environment variables in Vercel.";
+
+const isPublishingConfigured = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME &&
+  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+);
+
 const sizes: Record<AdSize, { label: string; className: string }> = {
   [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-square" }
 };
@@ -94,7 +103,15 @@ function diagnosticMessage(data: { error?: string; diagnostic?: ApiDiagnostic })
   ].filter(Boolean).join(" • ");
 }
 
-export function AdStudioAgency({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns }: Props) {
+export function AdStudioAgency(props: Props) {
+  return (
+    <AdStudioErrorBoundary>
+      <AdStudioPanel {...props} />
+    </AdStudioErrorBoundary>
+  );
+}
+
+function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, issues, recentCampaigns, savedCampaigns }: Props) {
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -155,7 +172,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   }
 
   async function overlayLogoOnImage(imageUrl: string) {
-    if (!form.logoBase64 || !imageUrl) return imageUrl;
+    if (!form.logoBase64 || !imageUrl || typeof document === "undefined") return imageUrl;
     const [baseImage, logoImage] = await Promise.all([loadCanvasImage(imageUrl), loadCanvasImage(form.logoBase64)]);
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
@@ -333,6 +350,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
 
   return (
     <section className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal md:p-6">
+      {!isPublishingConfigured ? <PublishingConfigWarning /> : null}
       <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_320px]">
         <div>
           <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">AI Creative Studio</p>
@@ -426,6 +444,35 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   );
 }
 
+function PublishingConfigWarning() {
+  return <div className="mb-6 rounded-2xl border-4 border-stallRed bg-red-50 p-4 font-black uppercase text-stallRed shadow-brutal" role="alert">{ENV_WARNING_MESSAGE}</div>;
+}
+
+type ErrorBoundaryProps = { children: ReactNode };
+type ErrorBoundaryState = { error: Error | null };
+
+class AdStudioErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <section className="rounded-[2rem] border-4 border-stallRed bg-red-50 p-6 shadow-brutal" role="alert">
+          <h1 className="font-display text-5xl uppercase text-stallRed">Ad Studio failed to render</h1>
+          <p className="mt-2 font-black uppercase text-stallRed">The admin page is still available. Reload Ad Studio or check the browser console for the upload/render error.</p>
+          {!isPublishingConfigured ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-white p-3 font-black uppercase text-stallRed">{ENV_WARNING_MESSAGE}</p> : null}
+        </section>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
   return <label className="block font-black uppercase">{label}<input className="mt-2 w-full rounded-xl border-2 border-ink bg-white p-3 font-bold normal-case" type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
 }
@@ -436,6 +483,10 @@ function ChoiceGroup({ title, options, value, onChange }: { title: string; optio
 
 function loadCanvasImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
+    if (typeof Image === "undefined") {
+      reject(new Error("Browser image APIs are unavailable."));
+      return;
+    }
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Unable to load generated image or uploaded logo for compositing."));
