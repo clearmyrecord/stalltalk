@@ -326,6 +326,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     formData.set("issueId", form.issueId);
     formData.set("slotNumber", slotNumber);
     formData.set("monthlyPriceDollars", "0");
+    formData.set("action", "publish");
 
     startTransition(() => {
       void fetch("/api/ad-studio/campaigns", { method: "POST", body: JSON.stringify(Object.fromEntries(formData.entries())), headers: { "Content-Type": "application/json" } })
