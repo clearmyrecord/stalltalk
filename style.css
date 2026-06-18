@@ -1015,3 +1015,84 @@ section.purpose * {
   :root { --ad-width: 100%; --ad-radius: 22px; --ad-spacing: 16px; }
 }
 .generated-ad-link { display: block; width: 100%; height: 100%; }
+
+.ad-slot {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: var(--ad-aspect-ratio, 728 / 90);
+  min-height: 80px;
+  border: 3px dashed rgba(16, 16, 107, .35);
+  border-radius: 18px;
+  background: rgba(255, 253, 245, .7);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.ad-slot::before {
+  content: attr(data-ad-slot);
+  color: rgba(23, 17, 15, .55);
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.ad-slot.has-published-ad {
+  border: 0;
+  background: transparent;
+  place-items: stretch;
+}
+
+.ad-slot.has-published-ad::before { content: none; }
+
+.ad-slot--hero,
+.ad-slot--footer { --ad-aspect-ratio: 728 / 90; }
+.ad-slot--sidebar { --ad-aspect-ratio: 300 / 250; max-width: 360px; justify-self: center; }
+.ad-slot--inline { --ad-aspect-ratio: 320 / 100; max-width: 520px; justify-self: center; }
+
+.ad-slot a.published-ad-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: var(--ad-aspect-ratio);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.ad-slot img {
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.campaign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.campaign-actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: #12126d;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.campaign-library-card {
+  border: 2px solid #111;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fffdf5;
+}
+
+@media (max-width: 760px) {
+  .ad-slot { min-height: 64px; border-radius: 14px; }
+  .ad-slot--sidebar,
+  .ad-slot--inline { max-width: 100%; }
+}
