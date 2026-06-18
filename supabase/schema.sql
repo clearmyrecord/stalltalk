@@ -19,19 +19,21 @@ create table if not exists public.campaigns (
   headline text,
   offer text,
   cta text,
-  slot_id text not null,
-  width integer not null,
-  height integer not null,
+  slot_id text not null default 'content-ad',
+  placement integer not null,
+  width integer not null default 320,
+  height integer not null default 100,
   image_url text not null,
   click_url text,
   status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
+  constraint campaigns_content_ad_size check (slot_id = 'content-ad' and width = 320 and height = 100),
   venue_id text,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   published_at timestamp with time zone
 );
 
-create index if not exists campaigns_status_slot_idx on public.campaigns (status, slot_id, published_at desc);
+create index if not exists campaigns_status_slot_placement_idx on public.campaigns (status, slot_id, placement, published_at desc);
 create index if not exists campaigns_venue_status_idx on public.campaigns (venue_id, status, published_at desc);
 create index if not exists venues_slug_idx on public.venues (slug);
 

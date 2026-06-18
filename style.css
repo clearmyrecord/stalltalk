@@ -1018,23 +1018,23 @@ section.purpose * {
 
 .ad-slot {
   grid-column: 1 / -1;
-  width: 100%;
-  max-width: 100%;
-  aspect-ratio: var(--ad-aspect-ratio, 728 / 90);
-  min-height: 80px;
+  width: min(100%, 520px);
+  aspect-ratio: var(--ad-aspect-ratio, 320 / 100);
+  min-height: 100px;
   border: 3px dashed rgba(16, 16, 107, .35);
   border-radius: 18px;
   background: rgba(255, 253, 245, .7);
   overflow: hidden;
   display: grid;
   place-items: center;
+  justify-self: center;
 }
 
 .ad-slot::before {
-  content: attr(data-ad-slot);
+  content: "Placement " attr(data-placement) " · Content sponsor";
   color: rgba(23, 17, 15, .55);
   font-weight: 900;
-  letter-spacing: .12em;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 
@@ -1045,11 +1045,6 @@ section.purpose * {
 }
 
 .ad-slot.has-published-ad::before { content: none; }
-
-.ad-slot--hero,
-.ad-slot--footer { --ad-aspect-ratio: 728 / 90; }
-.ad-slot--sidebar { --ad-aspect-ratio: 300 / 250; max-width: 360px; justify-self: center; }
-.ad-slot--inline { --ad-aspect-ratio: 320 / 100; max-width: 520px; justify-self: center; }
 
 .ad-slot a.published-ad-link {
   display: block;
@@ -1092,7 +1087,9 @@ section.purpose * {
 }
 
 @media (max-width: 760px) {
-  .ad-slot { min-height: 64px; border-radius: 14px; }
-  .ad-slot--sidebar,
-  .ad-slot--inline { max-width: 100%; }
+  .ad-slot {
+    width: 100%;
+    min-height: 100px;
+    border-radius: 14px;
+  }
 }

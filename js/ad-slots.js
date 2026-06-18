@@ -1,17 +1,19 @@
 export const AD_SLOTS = [
-  { id: "hero-ad", label: "Hero Ad", width: 728, height: 90, selector: '[data-ad-slot="hero-ad"]' },
-  { id: "sidebar-ad", label: "Sidebar Ad", width: 300, height: 250, selector: '[data-ad-slot="sidebar-ad"]' },
-  { id: "inline-ad", label: "Inline Ad", width: 320, height: 100, selector: '[data-ad-slot="inline-ad"]' },
-  { id: "footer-ad", label: "Footer Ad", width: 728, height: 90, selector: '[data-ad-slot="footer-ad"]' }
+  { id: "content-ad", label: "Content Ad", width: 320, height: 100, selector: '[data-ad-slot="content-ad"]' }
 ];
 
 export const AD_SLOT_MAP = Object.freeze(Object.fromEntries(AD_SLOTS.map((slot) => [slot.id, slot])));
 
-export function getAdSlot(slotId) {
+export function getAdSlot(slotId = "content-ad") {
   return AD_SLOT_MAP[slotId] || null;
 }
 
-export function getSlotAspectRatio(slotId) {
+export function getSlotAspectRatio(slotId = "content-ad") {
   const slot = getAdSlot(slotId);
-  return slot ? `${slot.width} / ${slot.height}` : "16 / 9";
+  return slot ? `${slot.width} / ${slot.height}` : "320 / 100";
+}
+
+export function normalizePlacement(placement) {
+  const value = Number.parseInt(String(placement || ""), 10);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }

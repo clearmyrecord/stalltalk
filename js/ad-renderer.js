@@ -1,10 +1,9 @@
-import { AD_SLOTS, getSlotAspectRatio } from "./ad-slots.js";
+import { AD_SLOTS, getSlotAspectRatio, normalizePlacement } from "./ad-slots.js";
 import { fetchPublishedCampaigns } from "./campaign-service.js";
 import { isSupabaseConfigured } from "./supabase-client.js";
 
-export function renderCampaign(campaign) {
-  const container = document.querySelector(`[data-ad-slot="${campaign.slot_id}"]`);
-  if (!container || !campaign.image_url) return;
+export function renderCampaign(container, campaign) {
+  if (!container || !campaign?.image_url) return;
 
   container.innerHTML = "";
   container.style.setProperty("--ad-aspect-ratio", getSlotAspectRatio(campaign.slot_id));
@@ -20,32 +19,37 @@ export function renderCampaign(campaign) {
   image.src = campaign.image_url;
   image.alt = campaign.name || campaign.business_name || "Published advertisement";
   image.loading = "eager";
-  image.width = campaign.width || undefined;
-  image.height = campaign.height || undefined;
+  image.width = campaign.width || 320;
+  image.height = campaign.height || 100;
 
   link.append(image);
   container.append(link);
 }
 
 export async function renderPublishedAds({ venueId = new URLSearchParams(window.location.search).get("venue_id") || "" } = {}) {
-  reserveAdSlots();
+  const containers = reserveAdSlots();
   if (!isSupabaseConfigured()) return [];
+
   const campaigns = await fetchPublishedCampaigns({ venueId });
-  const latestBySlot = new Map();
-  campaigns.forEach((campaign) => {
-    if (!latestBySlot.has(campaign.slot_id)) latestBySlot.set(campaign.slot_id, campaign);
+  containers.forEach((container) => {
+    const slotId = container.dataset.adSlot;
+    const placement = normalizePlacement(container.dataset.placement);
+    const campaign = campaigns.find((candidate) => candidate.slot_id === slotId && normalizePlacement(candidate.placement) === placement);
+    if (campaign) renderCampaign(container, campaign);
   });
-  latestBySlot.forEach(renderCampaign);
   return campaigns;
 }
 
 function reserveAdSlots() {
+  const containers = [];
   AD_SLOTS.forEach((slot) => {
     document.querySelectorAll(slot.selector).forEach((container) => {
       container.style.setProperty("--ad-aspect-ratio", `${slot.width} / ${slot.height}`);
       container.setAttribute("aria-label", container.getAttribute("aria-label") || slot.label);
+      containers.push(container);
     });
   });
+  return containers;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
