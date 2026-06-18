@@ -217,7 +217,7 @@
             </p>
           </section>
 
-          <article class="ad-card inline-ad inline-ad-primary" id="ad-1" data-ad-slot="1"></article>
+          <div class="ad-slot ad-slot-hero" data-ad-slot="hero-ad" aria-label="Hero advertisement"></div>
 
           <section class="humor-card panel wide">
             <p class="laughs">HA HA HA</p>
@@ -229,21 +229,21 @@
             </p>
           </section>
 
-          <article class="ad-card inline-ad" id="ad-2" data-ad-slot="2"></article>
+          <div class="ad-slot ad-slot-sidebar" data-ad-slot="sidebar-ad" aria-label="Sidebar advertisement"></div>
 
           <section class="feature-card panel double">
             <h2 data-field="mainFeatureTitle">How It All Started</h2>
             <div class="article-copy" data-field="mainFeatureBody"></div>
           </section>
 
-          <article class="ad-card inline-ad" id="ad-3" data-ad-slot="3"></article>
+          <div class="ad-slot ad-slot-inline" data-ad-slot="inline-ad" aria-label="Inline advertisement"></div>
 
           <section class="quotes-card panel">
             <h2>Inspirational <strong>Quotes</strong></h2>
             <ul data-list="quotes"></ul>
           </section>
 
-          <article class="ad-card inline-ad" id="ad-4" data-ad-slot="4"></article>
+          <div class="ad-slot ad-slot-footer" data-ad-slot="footer-ad" aria-label="Footer advertisement"></div>
 
           <section class="restaurant-review panel">
             <div class="card-label">Restaurant Review</div>
@@ -273,14 +273,10 @@
             </div>
           </section>
 
-          <article class="ad-card inline-ad" id="ad-5" data-ad-slot="5"></article>
-
           <section class="did-card panel">
             <h2>Did you know?</h2>
             <ol data-list="didYouKnow"></ol>
           </section>
-
-          <article class="ad-card inline-ad" id="ad-6" data-ad-slot="6"></article>
 
           <section class="word-card panel">
             <h2>Word-of-the-Day</h2>
@@ -294,8 +290,6 @@
             <h2 data-field="secondaryFeatureTitle">The History of Box Chairs</h2>
             <div class="article-copy" data-field="secondaryFeatureBody"></div>
           </section>
-
-          <article class="ad-card inline-ad" id="ad-7" data-ad-slot="7"></article>
 
           <section class="calendar-card panel double" id="calendar">
             <h2>Calendar / Event Spotlight</h2>
@@ -326,8 +320,6 @@
               aria-live="polite"
             ></div>
           </section>
-
-          <article class="ad-card inline-ad" id="ad-8" data-ad-slot="8"></article>
 
           <section class="submit-event-card panel double" id="submit-event">
             <h2>Submit a Local Event</h2>
@@ -459,6 +451,8 @@
       </article>
     </main>
 
-    <script src="script.js"></script>
+    <script src="js/ad-slots.js"></script>
+    <script src="js/campaign-store.js"></script>
+    <script src="js/ad-renderer.js"></script>
   </body>
 </html>

@@ -22,6 +22,9 @@ type Props = {
 };
 
 type AdSize = "Mobile Sponsor Card";
+type AdSlotId = "hero-ad" | "sidebar-ad" | "inline-ad" | "footer-ad";
+type CampaignStatus = "draft" | "published";
+type LocalCampaign = { id: string; name: string; businessName: string; headline: string; offer: string; cta: string; slotId: AdSlotId; width: number; height: number; imageUrl: string; clickUrl: string; status: CampaignStatus; createdAt: string; updatedAt: string };
 type GeneratedCreative = {
   adSize: "Mobile Sponsor Card";
   imageUrl: string;
@@ -51,6 +54,14 @@ const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
 const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
+const AD_SLOTS: Record<AdSlotId, { id: AdSlotId; label: string; width: number; height: number; selector: string }> = {
+  "hero-ad": { id: "hero-ad", label: "Hero Ad", width: 728, height: 90, selector: '[data-ad-slot="hero-ad"]' },
+  "sidebar-ad": { id: "sidebar-ad", label: "Sidebar Ad", width: 300, height: 250, selector: '[data-ad-slot="sidebar-ad"]' },
+  "inline-ad": { id: "inline-ad", label: "Inline Ad", width: 320, height: 100, selector: '[data-ad-slot="inline-ad"]' },
+  "footer-ad": { id: "footer-ad", label: "Footer Ad", width: 728, height: 90, selector: '[data-ad-slot="footer-ad"]' }
+};
+const LOCAL_CAMPAIGNS_KEY = "stalltalk_campaigns_v1";
+const LOCAL_ACTIVE_KEY = "stalltalk_active_campaigns_v1";
 const sizes: Record<AdSize, { label: string; className: string }> = {
   [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-square" }
 };
@@ -104,7 +115,8 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   const [campaignRootId, setCampaignRootId] = useState("");
   const [apiStatus, setApiStatus] = useState<ApiDiagnostic | null>(null);
   const [selectedCreativeIndex, setSelectedCreativeIndex] = useState(0);
-  const [slotNumber, setSlotNumber] = useState("1");
+  const [slotId, setSlotId] = useState<AdSlotId>("hero-ad");
+  const [localCampaigns, setLocalCampaigns] = useState<LocalCampaign[]>([]);
   const [history, setHistory] = useState<CampaignHistoryItem[]>([]);
   const [creatives, setCreatives] = useState<GeneratedCreative[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -131,10 +143,12 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   });
 
   useEffect(() => {
+    try { setLocalCampaigns(JSON.parse(window.localStorage.getItem(LOCAL_CAMPAIGNS_KEY) || "[]")); } catch { setLocalCampaigns([]); }
     setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: MOBILE_SPONSOR_CARD, createdAt: item.createdAt, parentCampaignId: item.parentCampaignId || item.campaignId, versionNumber: item.versionNumber || 1 })));
   }, [savedCampaigns]);
 
   const selectedCreative = creatives[selectedCreativeIndex];
+  const selectedSlot = AD_SLOTS[slotId];
   const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
   const activeVenue = venues[0];
 
@@ -154,24 +168,56 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  async function finalizeImageForSlot(imageUrl: string, targetSlot = selectedSlot) {
+    if (!imageUrl) return "";
+    const source = await loadCanvasImage(imageUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = targetSlot.width;
+    canvas.height = targetSlot.height;
+    const context = canvas.getContext("2d");
+    if (!context) return imageUrl;
+    const scale = Math.max(canvas.width / source.width, canvas.height / source.height);
+    const drawnWidth = source.width * scale;
+    const drawnHeight = source.height * scale;
+    context.drawImage(source, (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2, drawnWidth, drawnHeight);
+    return canvas.toDataURL("image/png");
+  }
+
+  async function uploadFinalImage(dataUrl: string) {
+    if (!dataUrl) return "";
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) return dataUrl;
+    const formData = new FormData();
+    formData.set("file", blob);
+    formData.set("upload_preset", uploadPreset);
+    formData.set("folder", "stalltalk-ads");
+    const upload = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, { method: "POST", body: formData });
+    const result = await upload.json();
+    if (!upload.ok || !result.secure_url) throw new Error(result.error?.message || "Cloudinary upload failed.");
+    return String(result.secure_url);
+  }
+
   async function overlayLogoOnImage(imageUrl: string) {
     if (!form.logoBase64 || !imageUrl) return imageUrl;
     const [baseImage, logoImage] = await Promise.all([loadCanvasImage(imageUrl), loadCanvasImage(form.logoBase64)]);
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 1024;
+    canvas.width = selectedSlot.width;
+    canvas.height = selectedSlot.height;
     const context = canvas.getContext("2d");
     if (!context) return imageUrl;
     const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
     const drawnWidth = baseImage.width * scale;
     const drawnHeight = baseImage.height * scale;
     context.drawImage(baseImage, (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2, drawnWidth, drawnHeight);
-    const logoMaxWidth = canvas.width * 0.34;
-    const logoMaxHeight = canvas.height * 0.16;
+    const logoMaxWidth = canvas.width * 0.24;
+    const logoMaxHeight = canvas.height * 0.22;
     const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height, 1);
     const logoWidth = logoImage.width * logoScale;
     const logoHeight = logoImage.height * logoScale;
-    const padding = 42;
+    const padding = Math.max(8, Math.round(canvas.width * 0.03));
     context.fillStyle = "rgba(255,255,255,.92)";
     roundRect(context, padding - 14, padding - 14, logoWidth + 28, logoHeight + 28, 22);
     context.fill();
@@ -210,7 +256,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     const nextVersion = regenerate && creatives.length ? Math.max(...creatives.map((creative) => creative.versionNumber || 1)) + 1 : 1;
     const campaignBatchId = `${parentCampaignId}-v${nextVersion}`;
     const adSize = MOBILE_SPONSOR_CARD;
-    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: Number(slotNumber) };
+    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: slotId, width: selectedSlot.width, height: selectedSlot.height };
     const generated: GeneratedCreative[] = [];
 
     try {
@@ -235,7 +281,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         } else {
           generated.push({
           adSize,
-          imageUrl: await overlayLogoOnImage(data.imageUrl),
+          imageUrl: await uploadFinalImage(await finalizeImageForSlot(await overlayLogoOnImage(data.imageUrl))),
           promptUsed: data.promptUsed,
           headline: data.headline,
           subheadline: data.subheadline,
@@ -248,7 +294,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
           historySaved: data.historySaved,
           historyError: data.historyError,
           targetUrl: form.website || null,
-          selectedSlot: Number(slotNumber),
+          selectedSlot: 1,
           parentCampaignId: data.parentCampaignId || parentCampaignId,
           versionNumber: data.versionNumber || nextVersion,
           publishStatus: "GENERATED"
@@ -260,7 +306,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       setError(`Image generation fallback active. ${message}`);
     }
 
-    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || campaignBatchId, businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString(), targetUrl: form.website || null, selectedSlot: Number(slotNumber) }));
+    const nextHistory = generated.map((creative) => ({ ...creative, campaignId: creative.campaignId || campaignBatchId, businessName: safe(form.businessName, "Your Business"), createdAt: new Date().toISOString(), targetUrl: form.website || null, selectedSlot: 1 }));
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
     setCreatives((current) => regenerate ? [...current, ...generated] : generated);
     setSelectedCreativeIndex(regenerate ? creatives.length : 0);
@@ -275,7 +321,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     setPublishError("");
     setPublishMessage("");
     if (!form.issueId) { setPublishError("Select an issue before publishing."); return; }
-    if (!slotNumber) { setPublishError("Select a slot before publishing."); return; }
+    if (!slotId) { setPublishError("Select an ad slot before publishing."); return; }
     if (!selectedCreative) return;
     const formData = new FormData();
     const campaignId = selectedCreative.campaignId || crypto.randomUUID();
@@ -302,13 +348,14 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
     formData.set("status", "ACTIVE");
     formData.set("scope", form.scope);
     formData.set("issueId", form.issueId);
-    formData.set("slotNumber", slotNumber);
+    formData.set("slotNumber", "1");
+    formData.set("slotId", slotId);
     formData.set("monthlyPriceDollars", "0");
 
     startTransition(() => {
       void Promise.resolve(createAd(formData))
         .then((result) => {
-          setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to Issue ${issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`);
+          setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to Issue ${issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${selectedSlot.label}`);
           setCreatives((items) => items.map((item, index) => ({ ...item, publishStatus: index === selectedCreativeIndex ? "PUBLISHED" : item.parentCampaignId === (selectedCreative.parentCampaignId || campaignRootId) ? "SUPERSEDED" : item.publishStatus })));
         })
         .catch((caught) => setPublishError(caught instanceof Error ? caught.message : "Unable to publish generated ad."));
@@ -318,9 +365,82 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
   const missingRequired = [
     form.businessName.trim() ? "" : "business name",
     form.offer.trim() ? "" : "offer",
-    form.audience === "Custom Audience" && !form.customAudience.trim() ? "custom audience" : ""
+    form.audience === "Custom Audience" && !form.customAudience.trim() ? "custom audience" : "",
+    slotId.trim() ? "" : "ad slot"
   ].filter(Boolean);
   const canGenerate = missingRequired.length === 0;
+
+  function persistLocalCampaigns(campaigns: LocalCampaign[]) {
+    setLocalCampaigns(campaigns);
+    window.localStorage.setItem(LOCAL_CAMPAIGNS_KEY, JSON.stringify(campaigns));
+  }
+
+  function buildLocalCampaign(status: CampaignStatus): LocalCampaign | null {
+    if (!selectedCreative) return null;
+    const existingId = selectedCreative.campaignId || crypto.randomUUID();
+    const now = new Date().toISOString();
+    return {
+      id: existingId,
+      name: safe(selectedCreative.headline || form.businessName, "Campaign"),
+      businessName: safe(form.businessName || selectedCreative.businessName, "Your Business"),
+      headline: selectedCreative.headline,
+      offer: selectedCreative.subheadline || form.offer,
+      cta: selectedCreative.ctaText,
+      slotId,
+      width: selectedSlot.width,
+      height: selectedSlot.height,
+      imageUrl: selectedCreative.imageUrl,
+      clickUrl: form.website || "#",
+      status,
+      createdAt: localCampaigns.find((item) => item.id === existingId)?.createdAt || now,
+      updatedAt: now
+    };
+  }
+
+  function saveLocalCampaign() {
+    const campaign = buildLocalCampaign("draft");
+    if (!campaign) return;
+    const next = [campaign, ...localCampaigns.filter((item) => item.id !== campaign.id)];
+    persistLocalCampaigns(next);
+    setPublishMessage(`Saved campaign ${campaign.name} for ${selectedSlot.label}.`);
+  }
+
+  function publishToSlot() {
+    const campaign = buildLocalCampaign("published");
+    if (!campaign) return;
+    const next = [campaign, ...localCampaigns.filter((item) => item.id !== campaign.id)];
+    persistLocalCampaigns(next);
+    const active = JSON.parse(window.localStorage.getItem(LOCAL_ACTIVE_KEY) || "{}");
+    active[campaign.slotId] = campaign;
+    window.localStorage.setItem(LOCAL_ACTIVE_KEY, JSON.stringify(active));
+    setPublishMessage(`Published ${campaign.name} to ${selectedSlot.label}. Open index.html in this browser to see it rendered without repository uploads.`);
+  }
+
+  function duplicateLocalCampaign(campaign: LocalCampaign) {
+    const copy = { ...campaign, id: crypto.randomUUID(), name: `${campaign.name} Copy`, status: "draft" as CampaignStatus, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    persistLocalCampaigns([copy, ...localCampaigns]);
+  }
+
+  function reuseLocalCampaign(campaign: LocalCampaign) {
+    setSlotId(campaign.slotId);
+    update("businessName", campaign.businessName);
+    update("offer", campaign.offer);
+    update("ctaText", campaign.cta);
+    update("website", campaign.clickUrl === "#" ? "" : campaign.clickUrl);
+    setCreatives([{ adSize: MOBILE_SPONSOR_CARD, imageUrl: campaign.imageUrl, promptUsed: "Reused saved localStorage campaign.", headline: campaign.headline, subheadline: campaign.offer, ctaText: campaign.cta, couponCode: "", businessName: campaign.businessName, campaignId: campaign.id, publishStatus: campaign.status.toUpperCase() }]);
+    setSelectedCreativeIndex(0);
+    setStep(5);
+  }
+
+  function downloadSelectedImage() {
+    if (!selectedCreative?.imageUrl) return;
+    const filename = `pottyfavor-${slotId}-${safe(selectedCreative.headline || form.businessName, "campaign").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`;
+    const link = document.createElement("a");
+    link.href = selectedCreative.imageUrl;
+    link.download = filename;
+    link.click();
+  }
+
   const generateButtonLabel = isGenerating
     ? "Generating AI Campaign…"
     : !canGenerate
@@ -337,15 +457,15 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         <div>
           <p className="text-xs font-black uppercase tracking-[.3em] text-stallPurple">AI Creative Studio</p>
           <h1 className="font-display text-6xl uppercase leading-none text-stallRed md:text-8xl">Campaign Builder</h1>
-          <p className="mt-2 max-w-3xl text-lg font-bold">AI ad generator from a creative brief: enter business info, offer, audience, and creative direction, then generate ad copy plus a graphic through the existing /api/generate-ad-image route before publishing to a Stall Talk ad slot.</p>
+          <p className="mt-2 max-w-3xl text-lg font-bold">AI ad generator from a creative brief: select a target slot first, generate a creative, then the canvas finalizer crops it to the exact placement dimensions before saving, downloading, or publishing.</p>
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <p className="text-xs font-black uppercase tracking-widest text-stallRed">Publish Target</p>
           <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={form.issueId} onChange={(event) => update("issueId", event.target.value)}>
             {issues.map((issue) => <option key={issue.id} value={issue.id}>{issue.title} • {issue.venueName}</option>)}
           </select>
-          <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={slotNumber} onChange={(event) => setSlotNumber(event.target.value)}>
-            {Array.from({ length: 8 }, (_, index) => <option key={index + 1} value={index + 1}>Slot {index + 1}</option>)}
+          <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={slotId} onChange={(event) => setSlotId(event.target.value as AdSlotId)}>
+            {Object.values(AD_SLOTS).map((slot) => <option key={slot.id} value={slot.id}>{slot.label} • {slot.width}x{slot.height}</option>)}
           </select>
         </div>
       </div>
@@ -388,7 +508,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
         </div>
         <div>
           <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.campaignId || `${creative.adSize}-${index}`} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>Version {creative.versionNumber || index + 1}</button>)}</div>
-          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate one locked Mobile Sponsor Card image.</p>}
+          {selectedCreative ? <PreviewCard creative={selectedCreative} slot={selectedSlot} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate one locked Mobile Sponsor Card image.</p>}
           {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
           {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">{error} Copy was still generated and a styled fallback ad preview is available.</p> : null}
         </div>
@@ -400,7 +520,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
             <Field label="CTA" value={selectedCreative.ctaText} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, ctaText: value } : item))} />
             <Field label="Coupon" value={selectedCreative.couponCode} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, couponCode: value } : item))} />
             {!form.website.trim() ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">Admin warning: no advertiser website URL entered. The published image will render without a click link.</p> : null}
-            <div className="grid gap-2 md:grid-cols-3"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={() => setSelectedCreativeIndex(selectedCreativeIndex)}>Use This Version</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : "Publish This Version"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button></div>
+            <div className="grid gap-2 md:grid-cols-2"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={saveLocalCampaign}>Save Campaign</button><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={downloadSelectedImage}>Download Image</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publishToSlot}>{isPending ? "Publishing..." : "Publish to Slot"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button></div>
             {publishMessage ? <p className="rounded-xl border-2 border-green-700 bg-green-50 p-3 text-sm font-black uppercase text-green-800">{publishMessage}</p> : null}
             {publishError ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">{publishError}</p> : null}
           </div> : null}
@@ -414,7 +534,7 @@ export function AdStudioAgency({ createAd, publishers, advertisers, venues, rest
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <HistoryPanel title="Database Campaign History" items={history} onLoad={(item) => { setCreatives([item]); setSelectedCreativeIndex(0); if (item.selectedSlot) setSlotNumber(String(item.selectedSlot)); if (item.targetUrl) update("website", item.targetUrl); setStep(5); }} />
+        <LocalCampaignPanel items={localCampaigns} onReuse={reuseLocalCampaign} onDuplicate={duplicateLocalCampaign} />
         <div className="rounded-2xl border-4 border-ink bg-white p-4">
           <h3 className="font-display text-4xl uppercase">Published Ad History</h3>
           <div className="mt-3 grid gap-2">{recentCampaigns.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleDateString()}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.title}</p><p className="text-xs font-black uppercase text-stallPurple">{item.ctaText} {item.couponCode ? `• ${item.couponCode}` : ""}</p></article>)}</div>
@@ -453,8 +573,8 @@ function roundRect(context: CanvasRenderingContext2D, x: number, y: number, widt
   context.closePath();
 }
 
-function PreviewCard({ creative }: { creative: GeneratedCreative }) {
-  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}>{creative.imageUrl ? <img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /> : <FallbackAd creative={creative} />}</div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.imageFallback ? <p className="mt-2 text-xs font-black uppercase text-stallPurple">Styled fallback preview: {creative.imageError}</p> : null}{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
+function PreviewCard({ creative, slot }: { creative: GeneratedCreative; slot: { label: string; width: number; height: number } }) {
+  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><p className="mb-2 rounded-xl border-2 border-ink bg-stallYellow p-2 text-sm font-black uppercase">Final dimensions: {slot.width}x{slot.height} • {slot.label}</p><div className={`overflow-hidden rounded-2xl border-4 border-ink bg-ink`}>{creative.imageUrl ? <img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /> : <FallbackAd creative={creative} />}</div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.imageFallback ? <p className="mt-2 text-xs font-black uppercase text-stallPurple">Styled fallback preview: {creative.imageError}</p> : null}{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
 }
 
 function FallbackAd({ creative }: { creative: GeneratedCreative }) {
@@ -480,6 +600,10 @@ function FallbackAd({ creative }: { creative: GeneratedCreative }) {
 
 function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
   return <div className="mt-3 grid gap-2 rounded-xl border-2 border-ink bg-paper p-3 text-xs font-black uppercase md:grid-cols-4"><span>API: {diagnostic.apiStatus || "unknown"}</span><span>OpenAI: {diagnostic.openAiStatus || "unknown"}</span><span>Model: {diagnostic.model || "server default"}</span><span>{diagnostic.errorType ? `Error: ${diagnostic.errorType}` : "Image API ready"}</span></div>;
+}
+
+function LocalCampaignPanel({ items, onReuse, onDuplicate }: { items: LocalCampaign[]; onReuse: (campaign: LocalCampaign) => void; onDuplicate: (campaign: LocalCampaign) => void }) {
+  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">Saved Campaigns</h3><p className="text-sm font-bold text-ink/70">Development storage uses localStorage; this adapter can later be replaced by Supabase for multi-user publishing.</p><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{item.status} • {item.slotId} • {item.width}x{item.height}</p><h4 className="font-black uppercase">{item.name}</h4><p className="text-sm font-bold">{item.businessName} — {item.headline}</p><div className="mt-2 flex flex-wrap gap-2"><button className="rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onReuse(item)}>Reuse Campaign</button><button className="rounded-full bg-stallPurple px-3 py-1 text-xs font-black uppercase text-white" onClick={() => onDuplicate(item)}>Duplicate</button></div></article>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No saved local campaigns yet.</p>}</div></div>;
 }
 
 function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {
