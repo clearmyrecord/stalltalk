@@ -52,11 +52,9 @@ const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
 const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
-const ENV_WARNING_MESSAGE = "Publishing is not fully configured. Add Supabase and Cloudinary environment variables in Vercel.";
+const ENV_WARNING_MESSAGE = "Publishing is not fully configured. Add Cloudinary environment variables in Vercel.";
 
 const isPublishingConfigured = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME &&
   process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
 );
@@ -330,7 +328,12 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     formData.set("monthlyPriceDollars", "0");
 
     startTransition(() => {
-      void Promise.resolve(createAd(formData))
+      void fetch("/api/ad-studio/campaigns", { method: "POST", body: JSON.stringify(Object.fromEntries(formData.entries())), headers: { "Content-Type": "application/json" } })
+        .then(async (response) => {
+          const result = await response.json();
+          if (!response.ok || result?.error) throw new Error(result?.error || `Publish failed (${response.status})`);
+          return result;
+        })
         .then((result) => {
           setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to Issue ${issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`);
           setCreatives((items) => items.map((item, index) => ({ ...item, publishStatus: index === selectedCreativeIndex ? "PUBLISHED" : item.parentCampaignId === (selectedCreative.parentCampaignId || campaignRootId) ? "SUPERSEDED" : item.publishStatus })));
@@ -546,5 +549,12 @@ function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
 }
 
 function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {
-  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">{title}</h3><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <button key={item.campaignId} className="rounded-xl border-2 border-ink bg-paper p-3 text-left" onClick={() => onLoad(item)}><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleString()} • {item.adSize}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.headline}</p><span className="mt-2 inline-block rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white">Use Again / Republish</span></button>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No saved database campaigns yet.</p>}</div></div>;
+  async function campaignAction(campaignId: string, action: "unpublish" | "archive" | "duplicate") {
+    const method = action === "duplicate" ? "POST" : "PATCH";
+    const response = await fetch("/api/ad-studio/campaigns", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId, action }) });
+    if (!response.ok) throw new Error(`Campaign ${action} failed (${response.status})`);
+    window.location.reload();
+  }
+
+  return <div className="rounded-2xl border-4 border-ink bg-white p-4"><h3 className="font-display text-4xl uppercase">{title}</h3><div className="mt-3 grid gap-2">{items.length ? items.map((item) => <article key={item.campaignId} className="rounded-xl border-2 border-ink bg-paper p-3 text-left"><button className="w-full text-left" onClick={() => onLoad(item)}><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleString()} • {item.adSize} • {item.publishStatus || "GENERATED"}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.headline}</p><span className="mt-2 inline-block rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white">Reuse / Republish</span></button><div className="mt-2 flex flex-wrap gap-2"><button className="rounded bg-white px-2 py-1 text-xs font-black uppercase" onClick={() => campaignAction(item.campaignId, "duplicate")}>Duplicate</button><button className="rounded bg-white px-2 py-1 text-xs font-black uppercase" onClick={() => campaignAction(item.campaignId, "unpublish")}>Unpublish</button><button className="rounded bg-white px-2 py-1 text-xs font-black uppercase" onClick={() => campaignAction(item.campaignId, "archive")}>Archive</button></div></article>) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No saved database campaigns yet.</p>}</div></div>;
 }

@@ -1,6 +1,5 @@
 import { AD_SLOTS, getSlotAspectRatio, normalizePlacement } from "./ad-slots.js";
 import { fetchPublishedCampaigns } from "./campaign-service.js";
-import { isSupabaseConfigured } from "./supabase-client.js";
 
 export function renderCampaign(container, campaign) {
   if (!container || !campaign?.image_url) return;
@@ -30,8 +29,6 @@ export async function renderPublishedAds({ venueId } = {}) {
   if (typeof document === "undefined") return [];
   const resolvedVenueId = venueId ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("venue_id") || "" : "");
   const containers = reserveAdSlots();
-  if (!isSupabaseConfigured()) return [];
-
   const campaigns = await fetchPublishedCampaigns({ venueId: resolvedVenueId });
   containers.forEach((container) => {
     const slotId = container.dataset.adSlot;
