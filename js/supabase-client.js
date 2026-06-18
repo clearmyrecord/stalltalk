@@ -1,8 +1,15 @@
 const nextPublicEnv = typeof process !== "undefined" ? process.env : {};
 const runtimeConfig = typeof window !== "undefined" ? window : {};
 
-export const SUPABASE_URL = nextPublicEnv.NEXT_PUBLIC_SUPABASE_URL || runtimeConfig.STALLTALK_SUPABASE_URL || "";
-export const SUPABASE_ANON_KEY = nextPublicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || runtimeConfig.STALLTALK_SUPABASE_ANON_KEY || "";
+export const SUPABASE_URL =
+  nextPublicEnv.NEXT_PUBLIC_SUPABASE_URL ||
+  runtimeConfig.STALLTALK_SUPABASE_URL ||
+  "";
+
+export const SUPABASE_ANON_KEY =
+  nextPublicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  runtimeConfig.STALLTALK_SUPABASE_ANON_KEY ||
+  "";
 
 export function isSupabaseConfigured() {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_"));

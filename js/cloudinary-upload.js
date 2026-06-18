@@ -1,9 +1,22 @@
 const nextPublicEnv = typeof process !== "undefined" ? process.env : {};
 const runtimeConfig = typeof window !== "undefined" ? window : {};
 
-export const CLOUDINARY_CLOUD_NAME = nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || runtimeConfig.STALLTALK_CLOUDINARY_CLOUD_NAME || "";
-export const CLOUDINARY_UPLOAD_PRESET = nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || runtimeConfig.STALLTALK_CLOUDINARY_UPLOAD_PRESET || "";
+export const CLOUDINARY_CLOUD_NAME =
+  nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  runtimeConfig.STALLTALK_CLOUDINARY_CLOUD_NAME ||
+  "";
 
+export const CLOUDINARY_UPLOAD_PRESET =
+  nextPublicEnv.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
+  runtimeConfig.STALLTALK_CLOUDINARY_UPLOAD_PRESET ||
+  "";
+
+export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error(
+      "Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
+    );
+  }
 export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
     throw new Error("Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET.");
