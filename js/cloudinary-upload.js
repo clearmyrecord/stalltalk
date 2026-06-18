@@ -1,8 +1,5 @@
-const env = import.meta.env || {};
-const runtimeConfig = typeof window !== "undefined" ? window : {};
-
-export const CLOUDINARY_CLOUD_NAME = env.VITE_CLOUDINARY_CLOUD_NAME || runtimeConfig.STALLTALK_CLOUDINARY_CLOUD_NAME || "ddp2yv3k3";
-export const CLOUDINARY_UPLOAD_PRESET = env.VITE_CLOUDINARY_UPLOAD_PRESET || runtimeConfig.STALLTALK_CLOUDINARY_UPLOAD_PRESET || "stalltalk_ads";
+export const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "ddp2yv3k3";
+export const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "stalltalk_ads";
 
 export async function uploadAdToCloudinary(blob, campaignName = "stalltalk-ad") {
   const form = new FormData();
