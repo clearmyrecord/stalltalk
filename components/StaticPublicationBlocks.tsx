@@ -37,14 +37,14 @@ export function PublicationAdFallback({ ad, slotNumber, primary = false }: { ad?
   const linkedImage = image && href && href !== "#";
 
   return (
-    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`} id={`ad-${slotNumber}`} data-ad-slot={slotNumber}>
+    <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`} id={`ad-${slotNumber}`} data-ad-slot="content-ad" data-placement={slotNumber}>
       {image ? (
         linkedImage ? (
           <a className="published-ad-link generated-ad-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor} advertisement`}>
-            <img className="generated-ad-image" src={image} alt={`${sponsor} advertisement`} />
+            <img className="generated-ad-image" width={320} height={100} src={image} alt={`${sponsor} advertisement`} />
           </a>
         ) : (
-          <img className="generated-ad-image" src={image} alt={`${sponsor} advertisement`} />
+          <img className="generated-ad-image" width={320} height={100} src={image} alt={`${sponsor} advertisement`} />
         )
       ) : (
         <>

@@ -10,7 +10,7 @@ import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type
 export const dynamic = "force-dynamic";
 
 type IssueSearchParams = { venue?: string; qr?: string; previewIssueId?: string };
-type IssueWithAds = Prisma.IssueGetPayload<{ include: { venue: true; restroom: true; adSlots: { include: { ad: true } }; contentBlocks: { include: { article: true } } } }>;
+type IssueWithAds = Prisma.IssueGetPayload<{ include: { venue: true; restroom: true; adSlots: { include: { ad: { include: { campaignHistory: true } } } }; contentBlocks: { include: { article: true } } } }>;
 
 export default async function IssueQueryPage({
   searchParams
@@ -56,7 +56,7 @@ export default async function IssueQueryPage({
     const latestPublishedIssue = await prisma.issue.findFirst({
       where: { status: "PUBLISHED" },
       orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
-      include: { venue: true, restroom: true, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } }, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } } }
+      include: { venue: true, restroom: true, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } }, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } } }
     });
 
     if (latestPublishedIssue?.venue?.slug) {

@@ -203,7 +203,7 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         selectedSlot: Number(body.slot || body.slotNumber || 1),
         parentCampaignId,
         versionNumber,
-        publishStatus: "GENERATED"
+        publishStatus: "DRAFT"
       },
       create: {
         campaignId,
@@ -223,7 +223,7 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         selectedSlot: Number(body.slot || body.slotNumber || 1),
         parentCampaignId,
         versionNumber,
-        publishStatus: "GENERATED"
+        publishStatus: "DRAFT"
       }
     });
     return { campaignId, parentCampaignId, versionNumber, historySaved: true };

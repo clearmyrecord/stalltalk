@@ -9,7 +9,7 @@ import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type
 import { IssueNotFound } from "@/components/IssueNotFound";
 
 export const dynamic = "force-dynamic";
-type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: true } } } }>;
+type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } } } }>;
 type ServedAds = Awaited<ReturnType<typeof getServedAds>>;
 type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 
@@ -19,7 +19,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
   if (!requestedVenue) return <IssueNotFound title="Venue issue not found" message="This venue is not active or does not have a public issue route yet." />;
 
-  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } } satisfies Prisma.IssueInclude;
+  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } } } satisfies Prisma.IssueInclude;
   const previewIssue = previewIssueId ? await prisma.issue.findFirst({
     where: { id: previewIssueId, OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     include: issueInclude
