@@ -77,6 +77,29 @@ function shortenLabel(value: string, max = 28) {
   return normalized.length <= max ? normalized : `${normalized.slice(0, max - 1).trim()}…`;
 }
 
+function fileSafe(value: string | undefined, fallback = "business") {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback;
+}
+
+async function downloadImageUrl(imageUrl: string, filename: string) {
+  if (!imageUrl || typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error(`Image download failed (${response.status})`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch {
+    window.open(imageUrl, "_blank", "noopener,noreferrer");
+  }
+}
+
 type ApiDiagnostic = {
   apiStatus?: string;
   openAiStatus?: string;
@@ -293,6 +316,13 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     setIsGenerating(false);
   }
 
+  function downloadSelectedCreative() {
+    if (!selectedCreative?.imageUrl) return;
+    const campaignId = selectedCreative.campaignId || campaignRootId || "draft";
+    const businessName = fileSafe(selectedCreative.businessName || form.businessName);
+    void downloadImageUrl(selectedCreative.imageUrl, `pottyfavor-generated-ad-${businessName}-${campaignId}.png`);
+  }
+
   function publish() {
     setPublishError("");
     setPublishMessage("");
@@ -430,7 +460,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
             <Field label="CTA" value={selectedCreative.ctaText} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, ctaText: value } : item))} />
             <Field label="Coupon" value={selectedCreative.couponCode} onChange={(value) => setCreatives((items) => items.map((item, index) => index === selectedCreativeIndex ? { ...item, couponCode: value } : item))} />
             {!form.website.trim() ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">Admin warning: no advertiser website URL entered. The published image will render without a click link.</p> : null}
-            <div className="grid gap-2 md:grid-cols-3"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={() => setSelectedCreativeIndex(selectedCreativeIndex)}>Use This Version</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : "Publish This Version"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button></div>
+            <div className="grid gap-2 md:grid-cols-4"><button className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase" onClick={() => setSelectedCreativeIndex(selectedCreativeIndex)}>Use This Version</button><button className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isPending} onClick={publish}>{isPending ? "Publishing..." : "Publish This Version"}</button><button className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50" disabled={isGenerating} onClick={() => void generateCampaign(true)}>Regenerate</button><button className="rounded-xl border-4 border-ink bg-paper px-4 py-3 font-black uppercase shadow-brutal disabled:opacity-50" disabled={!selectedCreative.imageUrl} onClick={downloadSelectedCreative}>Download Image</button></div>
             {publishMessage ? <p className="rounded-xl border-2 border-green-700 bg-green-50 p-3 text-sm font-black uppercase text-green-800">{publishMessage}</p> : null}
             {publishError ? <p className="rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black uppercase text-stallRed">{publishError}</p> : null}
           </div> : null}

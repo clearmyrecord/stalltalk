@@ -88,7 +88,7 @@ function TrackingButton({ label, type, ad, issueId, publisherId, venueId, restro
       <input type="hidden" name="restroomId" value={restroomId || ""} />
       <input type="hidden" name="qrCodeId" value={qrCodeId || ""} />
       <input type="hidden" name="issueId" value={issueId} />
-      <input type="hidden" name="advertiserId" value={ad.advertiserId} />
+      <input type="hidden" name="advertiserId" value={ad.advertiserId || ""} />
       <input type="hidden" name="adId" value={ad.id} />
       <input type="hidden" name="slotNumber" value={slotNumber} />
       <input type="hidden" name="type" value={type} />

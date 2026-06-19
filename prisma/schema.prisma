@@ -499,8 +499,8 @@ model IssueContentBlock {
 
 model Ad {
   id                   String                     @id @default(cuid())
-  publisherId          String
-  advertiserId         String
+  publisherId          String?
+  advertiserId         String?
   businessName         String
   title                String
   offer                String
@@ -533,8 +533,8 @@ model Ad {
   lastClickedAt        DateTime?
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
-  publisher            Publisher                  @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  advertiser           Advertiser                 @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  publisher            Publisher?                 @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  advertiser           Advertiser?                @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
   venue                Venue?                     @relation(fields: [venueId], references: [id], onDelete: SetNull)
   restroom             Restroom?                  @relation(fields: [restroomId], references: [id], onDelete: SetNull)
   issueSlots           IssueAdSlot[]
