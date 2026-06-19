@@ -549,7 +549,7 @@ body:has(.public-page) { background: #000; }
   }
 }
 
-/* Standardized Potty Favor sponsor system: one mobile-first 1:1 Mobile Sponsor Card ratio. */
+/* Standardized Potty Favor sponsor system. */
 :root {
   --ad-width: min(100%, 360px);
   --ad-aspect-ratio: 1 / 1;
@@ -620,7 +620,7 @@ body:has(.public-page) { background: #000; }
   :root { --ad-width: 100%; --ad-radius: 22px; --ad-spacing: 16px; }
 }
 
-/* Homepage publication readability and 320x100 ad rendering refresh. */
+/* Homepage publication readability and sponsor banner rendering refresh. */
 :root { --ad-width: min(100%, 320px); --ad-aspect-ratio: 320 / 100; --ad-radius: 14px; }
 .publication-content-block.panel,
 .humor-card.panel,
@@ -661,7 +661,7 @@ body:has(.public-page) { background: #000; }
 .ad-placeholder-link strong { color: #17110f; font-size: 1.25rem; text-transform: uppercase; }
 @media (max-width: 760px) { .publication-content-block.panel { padding: 22px 18px; } .review-box { grid-template-columns: 1fr; } .review-photo { height: 210px; } .article-copy { line-height: 1.72; } }
 
-/* Canonical homepage/content ad slot sizing: fixed 320x100 generated creative frame. */
+/* Canonical homepage/content ad slot sponsor banner sizing. */
 [data-ad-slot="content-ad"] {
   width: 320px !important;
   max-width: 100% !important;
@@ -754,4 +754,102 @@ body:has(.public-page) { background: #000; }
 [data-ad-slot="content-ad"].is-empty::before {
   content: none !important;
   display: none !important;
+}
+
+/* Potty Favor canonical 3:1 sponsor banner sizing. */
+:root { --ad-width: min(100%, 600px); --ad-aspect-ratio: 3 / 1; --ad-radius: 18px; }
+[data-ad-slot="content-ad"],
+.ad-card[data-ad-slot="content-ad"],
+.inline-ad[data-ad-slot="content-ad"] {
+  width: min(100%, 600px) !important;
+  max-width: 600px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 3 / 1 !important;
+  margin: 32px auto !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: block !important;
+}
+[data-ad-slot="content-ad"] img,
+[data-ad-slot="content-ad"] .generated-ad-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 18px !important;
+  margin: 0 !important;
+}
+[data-ad-slot="content-ad"] .generated-ad-link,
+[data-ad-slot="content-ad"] .published-ad-link,
+[data-ad-slot="content-ad"] .ad-placeholder-link {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  aspect-ratio: 3 / 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+}
+[data-ad-slot="content-ad"] .ad-placeholder-link {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  border: 2px solid rgba(16,16,107,.2) !important;
+  background: linear-gradient(135deg, #fffdf5 0%, #fff6d9 52%, #f3eeff 100%) !important;
+  color: #10106b !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  line-height: 1.1 !important;
+}
+[data-ad-slot="content-ad"] .ad-placeholder-link .slot,
+[data-ad-slot="content-ad"] .ad-placeholder-link span {
+  position: static !important;
+  width: auto !important;
+  max-width: 90% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #10106b !important;
+  font-size: clamp(.7rem, 2vw, .9rem) !important;
+  font-weight: 1000 !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  transform: none !important;
+}
+[data-ad-slot="content-ad"] .ad-placeholder-link strong {
+  color: #17110f !important;
+  font-size: clamp(1.45rem, 4vw, 2.4rem) !important;
+  line-height: .95 !important;
+  text-transform: uppercase !important;
+}
+[data-ad-slot="content-ad"] .ad-placeholder-link em {
+  border-radius: 999px !important;
+  background: #17110f !important;
+  color: #fff !important;
+  padding: 8px 16px !important;
+  font-size: clamp(.72rem, 1.8vw, .9rem) !important;
+  font-style: normal !important;
+  font-weight: 1000 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+@media (max-width: 640px) {
+  :root { --ad-width: min(100%, 320px); }
+  [data-ad-slot="content-ad"],
+  .ad-card[data-ad-slot="content-ad"],
+  .inline-ad[data-ad-slot="content-ad"] {
+    width: min(100%, 320px) !important;
+    max-width: 320px !important;
+    aspect-ratio: 3 / 1 !important;
+  }
+  [data-ad-slot="content-ad"] .ad-placeholder-link { gap: 4px !important; }
 }

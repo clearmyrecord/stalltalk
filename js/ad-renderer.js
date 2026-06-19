@@ -18,8 +18,8 @@ export function renderCampaign(container, campaign) {
   image.src = campaign.image_url;
   image.alt = campaign.name || campaign.business_name || "Published advertisement";
   image.loading = "eager";
-  image.width = campaign.width || 320;
-  image.height = campaign.height || 100;
+  image.width = campaign.width || 600;
+  image.height = campaign.height || 180;
 
   link.append(image);
   container.append(link);
