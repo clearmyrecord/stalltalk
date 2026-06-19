@@ -109,7 +109,16 @@ async function publishCampaign(body: Record<string, unknown>) {
   const issue = await prisma.issue.findUnique({ where: { id: issueId }, include: { venue: true } });
   if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
   const scope = str(body, "scope", "GLOBAL") as AdScope;
-  const ad = await prisma.ad.create({ data: { publisherId: str(body, "publisherId"), advertiserId: str(body, "advertiserId"), businessName: str(body, "businessName"), title: str(body, "title"), offer: str(body, "offer"), artworkUrl: nullable(body, "artworkUrl"), creativeType: "IMAGE", promptUsed: nullable(body, "promptUsed"), generatedHeadline: nullable(body, "generatedHeadline"), generatedSubheadline: nullable(body, "generatedSubheadline"), adSize: "320x100", ctaText: str(body, "ctaText", "Claim Offer"), targetUrl: str(body, "targetUrl", "#"), phone: nullable(body, "phone"), couponCode: nullable(body, "couponCode"), status: "ACTIVE" as AdStatus, scope, venueId: scope === "VENUE" ? nullable(body, "venueId") : null, restroomId: scope === "RESTROOM" ? nullable(body, "restroomId") : null } });
+  const advertiserId = body.advertiserId ? str(body, "advertiserId") || null : null;
+  const publisherId = body.publisherId ? str(body, "publisherId") || null : null;
+  const advertiser = advertiserId
+    ? await prisma.advertiser.findUnique({ where: { id: advertiserId } })
+    : null;
+  const publisher = publisherId
+    ? await prisma.publisher.findUnique({ where: { id: publisherId } })
+    : null;
+  const resolvedBody = { ...body, advertiserId: advertiser?.id ?? null, publisherId: publisher?.id ?? null };
+  const ad = await prisma.ad.create({ data: { publisherId: publisher?.id ?? null, advertiserId: advertiser?.id ?? null, businessName: str(body, "businessName"), title: str(body, "title"), offer: str(body, "offer"), artworkUrl: nullable(body, "artworkUrl"), creativeType: "IMAGE", promptUsed: nullable(body, "promptUsed"), generatedHeadline: nullable(body, "generatedHeadline"), generatedSubheadline: nullable(body, "generatedSubheadline"), adSize: "320x100", ctaText: str(body, "ctaText", "Claim Offer"), targetUrl: str(body, "targetUrl", "#"), phone: nullable(body, "phone"), couponCode: nullable(body, "couponCode"), status: "ACTIVE" as AdStatus, scope, venueId: scope === "VENUE" ? nullable(body, "venueId") : null, restroomId: scope === "RESTROOM" ? nullable(body, "restroomId") : null } });
   const previousSlot = await prisma.issueAdSlot.findUnique({ where: { issueId_slotNumber: { issueId, slotNumber } }, include: { ad: true } });
   if (previousSlot?.adId) {
     await prisma.ad.update({ where: { id: previousSlot.adId }, data: { status: "PAUSED" } });
@@ -120,12 +129,12 @@ async function publishCampaign(body: Record<string, unknown>) {
   const campaignId = str(body, "campaignId", ad.id);
   const parentCampaignId = str(body, "parentCampaignId", campaignId);
   await prisma.stalltalkCampaignHistory.updateMany({ where: { parentCampaignId, NOT: { campaignId } }, data: { publishStatus: "SUPERSEDED" } });
-  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(body, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(body, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
+  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
   revalidatePath("/");
   revalidatePath("/issue");
   if (issue.venue?.slug) revalidatePath(`/issue/${issue.venue.slug}`);
   revalidatePath("/admin/ad-studio");
-  return NextResponse.json({ ok: true, adId: ad.id, message: `Published campaign ${ad.businessName} to ${issue.title} Slot ${slotNumber}`, campaign: historySelect(history) });
+  return NextResponse.json({ ok: true, adId: ad.id, message: "Campaign published successfully.", campaign: historySelect(history) });
 }
 
 async function unpublishCampaign(campaignId: string) {
