@@ -16,6 +16,7 @@ export type PublicationAdLike = Partial<StaticAd> & {
   couponCode?: string | null;
   artworkUrl?: string | null;
   image?: string | null;
+  imageUrl?: string | null;
 };
 
 const activeFallbackAds: PublicationAdLike[] = publishedAds.filter((ad) => ad.active !== false);
@@ -28,17 +29,13 @@ export function PublicationAdFallback({ ad, slotNumber, primary = false }: { ad?
   const fallback = activeFallbackAds[slotNumber - 1] || activeFallbackAds[0];
   const displayAd = ad || fallback;
   const sponsor = displayAd.businessName || displayAd.advertiserName || "Potty Favor Sponsor";
-  const headline = displayAd.headline || displayAd.generatedHeadline || displayAd.title || sponsor;
-  const body = displayAd.offer || displayAd.generatedSubheadline || "Reach restroom readers where phones are already in hand.";
-  const cta = displayAd.ctaText || displayAd.cta || "Learn More";
   const href = displayAd.targetUrl || "/advertiser-portal";
-  const image = displayAd.artworkUrl || displayAd.image;
+  const image = displayAd.artworkUrl || displayAd.imageUrl || displayAd.image;
 
   return (
     <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`} id={`ad-${slotNumber}`} data-ad-slot="content-ad" data-placement={slotNumber}>
       {image ? (
         <a className="published-ad-link generated-ad-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor} advertisement`}>
-          <span className="slot ad-badge">Sponsor / Ad {slotNumber}</span>
           <img className="generated-ad-image" width={320} height={100} src={image} alt={`${sponsor} advertisement`} />
         </a>
       ) : (
