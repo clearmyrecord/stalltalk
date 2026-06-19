@@ -197,7 +197,7 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
     subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
     ctaText: text(formData, "ctaText", "Claim Offer"),
     couponCode: nullableText(formData, "couponCode"),
-    adSize: text(formData, "adSize", "Mobile Sponsor Card"),
+    adSize: text(formData, "adSize", "3:1 Sponsor Banner"),
     logoBase64: nullableText(formData, "logoBase64"),
     logoUrl: nullableText(formData, "logoUrl"),
     targetUrl: text(formData, "targetUrl", "#"),

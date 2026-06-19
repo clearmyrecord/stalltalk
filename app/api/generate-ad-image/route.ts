@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { AD_FORMAT_LABEL, AD_IMAGE_GENERATION_SIZE } from "@/lib/ad-config";
 
-type AdSize = "Mobile Sponsor Card";
+type AdSize = "3:1 Sponsor Banner";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -21,13 +22,13 @@ const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1"]);
 const ALLOWED_ORIGINS = ["https://stalltalk.vercel.app", "https://clearmyrecord.github.io", "http://localhost:3000", "http://localhost:8080"];
 
 const SPONSOR_CARD_SIZE = {
-  apiSize: "1024x1024",
-  composition: "mobile-first square Potty Favor sponsor card with one clear visual hierarchy, premium branded composition, and protected readable text areas",
-  cssSafeArea: "1:1 Mobile Sponsor Card"
+  apiSize: AD_IMAGE_GENERATION_SIZE,
+  composition: "wide 3:1 Potty Favor sponsor banner with one clear visual hierarchy, premium branded composition, and protected readable text areas",
+  cssSafeArea: AD_FORMAT_LABEL
 };
 
 const sizeMap: Record<AdSize, typeof SPONSOR_CARD_SIZE> = {
-  "Mobile Sponsor Card": SPONSOR_CARD_SIZE
+  "3:1 Sponsor Banner": SPONSOR_CARD_SIZE
 };
 
 function safe(value: unknown, fallback: string) {
@@ -40,7 +41,7 @@ function limitText(value: string, max: number) {
 }
 
 function normalizeSize(_value: unknown): AdSize {
-  return "Mobile Sponsor Card";
+  return "3:1 Sponsor Banner";
 }
 
 function currentModel(body: Record<string, unknown> = {}) {
@@ -125,7 +126,7 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
       `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
       `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
       `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
-      `Canvas: ${adSize}; generate exactly one square image at ${size.apiSize}; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and generous mobile safe margins.`,
+      `Canvas: ${adSize}; generate exactly one wide 3:1 sponsor banner image at ${size.apiSize}; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and generous mobile safe margins.`,
       `Professional local business ad: premium background, clear logo zone in the upper safe area, short readable typography, strong offer, visible CTA button, coupon chip, brand-consistent accents, and no more than 6 words per text block when possible.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
       logoInstruction,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode, useEffect, useState, useTransition } from "react";
+import { AD_DESKTOP_HEIGHT, AD_DESKTOP_WIDTH, AD_FORMAT_LABEL } from "@/lib/ad-config";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -8,7 +9,7 @@ type VenueOption = { id: string; name: string; city: string; state: string };
 type RestroomOption = { id: string; name: string; venueName: string };
 type IssueOption = { id: string; title: string; venueName: string; status: string };
 type RecentCampaign = { id: string; businessName: string; title: string; offer: string; ctaText: string; couponCode: string | null; createdAt: string };
-type SavedCampaign = { campaignId: string; parentCampaignId?: string | null; versionNumber?: number | null; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "Mobile Sponsor Card"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
+type SavedCampaign = { campaignId: string; parentCampaignId?: string | null; versionNumber?: number | null; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "3:1 Sponsor Banner"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
 
 type Props = {
   createAd: (formData: FormData) => Promise<{ ok: boolean; adId?: string; message?: string }>;
@@ -22,9 +23,9 @@ type Props = {
   serverWarning?: string;
 };
 
-type AdSize = "Mobile Sponsor Card";
+type AdSize = "3:1 Sponsor Banner";
 type GeneratedCreative = {
-  adSize: "Mobile Sponsor Card";
+  adSize: "3:1 Sponsor Banner";
   imageUrl: string;
   promptUsed: string;
   headline: string;
@@ -51,7 +52,7 @@ type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessNam
 const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "Concert Goers", "Convention Attendees", "Custom Audience"];
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
 const visualStyles = ["Vegas Neon", "Casino Luxury", "Sports Bar", "Restaurant", "Event Promotion", "Concert", "Modern Minimal"];
-const MOBILE_SPONSOR_CARD: AdSize = "Mobile Sponsor Card";
+const SPONSOR_BANNER: AdSize = "3:1 Sponsor Banner";
 const ENV_WARNING_MESSAGE = "Publishing is not fully configured. Add Cloudinary environment variables in Vercel.";
 
 const isPublishingConfigured = Boolean(
@@ -60,7 +61,7 @@ const isPublishingConfigured = Boolean(
 );
 
 const sizes: Record<AdSize, { label: string; className: string }> = {
-  [MOBILE_SPONSOR_CARD]: { label: MOBILE_SPONSOR_CARD, className: "aspect-square" }
+  [SPONSOR_BANNER]: { label: SPONSOR_BANNER, className: "aspect-[3/1] max-w-[600px]" }
 };
 
 function safe(value: string | undefined, fallback: string) {
@@ -171,7 +172,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
   });
 
   useEffect(() => {
-    setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: MOBILE_SPONSOR_CARD, createdAt: item.createdAt, parentCampaignId: item.parentCampaignId || item.campaignId, versionNumber: item.versionNumber || 1 })));
+    setHistory(savedCampaigns.map((item) => ({ ...item, businessName: item.businessName, imageUrl: item.imageUrl || "", promptUsed: item.promptUsed || "", headline: item.headline || "", subheadline: item.subheadline || "", ctaText: item.ctaText || "Claim Offer", couponCode: item.couponCode || "", adSize: SPONSOR_BANNER, createdAt: item.createdAt, parentCampaignId: item.parentCampaignId || item.campaignId, versionNumber: item.versionNumber || 1 })));
   }, [savedCampaigns]);
 
   const selectedCreative = creatives[selectedCreativeIndex];
@@ -180,7 +181,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
 
   async function uploadFinishedAd(file: File | undefined) {
     if (!file) return;
-    setUploadMessage("Uploading finished 320x100 graphic to Cloudinary...");
+    setUploadMessage("Uploading finished 3:1 sponsor banner to Cloudinary...");
     try {
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
       const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
@@ -193,7 +194,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
       const result = await response.json();
       if (!response.ok || !result.secure_url) throw new Error(result.error?.message || "Cloudinary upload failed.");
       const campaignId = crypto.randomUUID();
-      const uploaded: GeneratedCreative = { adSize: MOBILE_SPONSOR_CARD, imageUrl: String(result.secure_url), promptUsed: "Uploaded finished 320x100 ad graphic stored in Cloudinary.", headline: limitText(safe(form.offer || form.businessName, "Uploaded Sponsor Ad"), 34), subheadline: limitText(safe(form.category, "Uploaded artwork"), 46), ctaText: limitText(safe(form.ctaText, "Learn More"), 18), couponCode: limitText(safe(form.couponCode, ""), 16), businessName: safe(form.businessName, "Uploaded Sponsor"), campaignId, parentCampaignId: campaignRootId || campaignId, versionNumber: creatives.length + 1, publishStatus: "UPLOADED" };
+      const uploaded: GeneratedCreative = { adSize: SPONSOR_BANNER, imageUrl: String(result.secure_url), promptUsed: "Uploaded finished 3:1 sponsor banner graphic stored in Cloudinary.", headline: limitText(safe(form.offer || form.businessName, "Uploaded Sponsor Ad"), 34), subheadline: limitText(safe(form.category, "Uploaded artwork"), 46), ctaText: limitText(safe(form.ctaText, "Learn More"), 18), couponCode: limitText(safe(form.couponCode, ""), 16), businessName: safe(form.businessName, "Uploaded Sponsor"), campaignId, parentCampaignId: campaignRootId || campaignId, versionNumber: creatives.length + 1, publishStatus: "UPLOADED" };
       setCreatives((items) => [...items, uploaded]);
       setSelectedCreativeIndex(creatives.length);
       setHasGenerated(true);
@@ -224,8 +225,8 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     if (!form.logoBase64 || !imageUrl || typeof window === "undefined" || typeof document === "undefined") return imageUrl;
     const [baseImage, logoImage] = await Promise.all([loadCanvasImage(imageUrl), loadCanvasImage(form.logoBase64)]);
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 1024;
+    canvas.width = AD_DESKTOP_WIDTH * 2;
+    canvas.height = Math.round(canvas.width / 3);
     const context = canvas.getContext("2d");
     if (!context) return imageUrl;
     const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
@@ -275,7 +276,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     if (!campaignRootId || !regenerate) setCampaignRootId(parentCampaignId);
     const nextVersion = regenerate && creatives.length ? Math.max(...creatives.map((creative) => creative.versionNumber || 1)) + 1 : 1;
     const campaignBatchId = `${parentCampaignId}-v${nextVersion}`;
-    const adSize = MOBILE_SPONSOR_CARD;
+    const adSize = SPONSOR_BANNER;
     const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: Number(slotNumber) };
     const generated: GeneratedCreative[] = [];
 
@@ -372,7 +373,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     formData.set("promptUsed", selectedCreative.promptUsed);
     formData.set("generatedHeadline", selectedCreative.headline);
     formData.set("generatedSubheadline", selectedCreative.subheadline);
-    formData.set("adSize", MOBILE_SPONSOR_CARD);
+    formData.set("adSize", SPONSOR_BANNER);
     formData.set("ctaText", selectedCreative.ctaText);
     formData.set("targetUrl", form.website || "#");
     formData.set("phone", form.phone);
@@ -467,7 +468,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
         <ChoiceGroup title="Tone" options={tones} value={form.tone} onChange={(value) => update("tone", value)} />
         <ChoiceGroup title="Visual Style" options={visualStyles} value={form.visualStyle} onChange={(value) => update("visualStyle", value)} />
         <div className="lg:col-span-2"><Field label="Brand Colors" value={form.brandColors} onChange={(value) => update("brandColors", value)} placeholder="#ff2d55, #ffd400, #5b2cff" /></div>
-        <label className="lg:col-span-2 rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase">Upload finished 320x100 ad graphic<span className="mt-2 block text-sm normal-case text-ink/70">Stores the file in Cloudinary and uses it exactly like an AI-generated creative. Homepage display is cropped to the 320x100 content-ad slot.</span><input className="mt-3 w-full" type="file" accept="image/*" onChange={(event) => void uploadFinishedAd(event.target.files?.[0])} />{uploadMessage ? <span className="mt-2 block text-sm normal-case text-stallPurple">{uploadMessage}</span> : null}</label>
+        <label className="lg:col-span-2 rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase">Upload finished 3:1 ad graphic<span className="mt-2 block text-sm normal-case text-ink/70">Upload finished 3:1 ad graphic. Recommended: 1200x400 or 600x200. Stores the file in Cloudinary and uses it exactly like an AI-generated creative.</span><input className="mt-3 w-full" type="file" accept="image/*" onChange={(event) => void uploadFinishedAd(event.target.files?.[0])} />{uploadMessage ? <span className="mt-2 block text-sm normal-case text-stallPurple">{uploadMessage}</span> : null}</label>
       </div> : null}
 
       {step === 5 ? <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -476,7 +477,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
         </div>
         <div>
           <div className="mb-3 flex flex-wrap gap-2">{creatives.map((creative, index) => <button key={creative.campaignId || `${creative.adSize}-${index}`} className={`rounded-xl border-2 border-ink px-3 py-2 font-black uppercase ${selectedCreativeIndex === index ? "bg-stallYellow" : "bg-paper"}`} onClick={() => setSelectedCreativeIndex(index)}>Version {creative.versionNumber || index + 1}</button>)}</div>
-          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate one locked Mobile Sponsor Card image.</p>}
+          {selectedCreative ? <PreviewCard creative={selectedCreative} /> : <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">Generate one locked 3:1 sponsor banner image.</p>}
           {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
           {error ? <p className="mt-3 rounded-xl border-2 border-stallRed bg-red-50 p-3 text-sm font-black text-stallRed">{error} Copy was still generated and a styled fallback ad preview is available.</p> : null}
         </div>
@@ -579,7 +580,7 @@ function roundRect(context: CanvasRenderingContext2D, x: number, y: number, widt
 }
 
 function PreviewCard({ creative }: { creative: GeneratedCreative }) {
-  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><div className={`${sizes[creative.adSize].className} overflow-hidden rounded-2xl border-4 border-ink bg-ink`}>{creative.imageUrl ? <img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /> : <FallbackAd creative={creative} />}</div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.imageFallback ? <p className="mt-2 text-xs font-black uppercase text-stallPurple">Styled fallback preview: {creative.imageError}</p> : null}{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
+  return <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal"><p className="mb-2 text-xs font-black uppercase tracking-widest text-stallPurple">Preview: 600×180 desktop / 320×100 mobile · {AD_FORMAT_LABEL}</p><div className={`${sizes[creative.adSize].className} w-full overflow-hidden rounded-2xl border-4 border-ink bg-ink`} style={{ width: "min(100%, 600px)", height: "auto" }}>{creative.imageUrl ? <img className="h-full w-full object-cover" src={creative.imageUrl} alt={`${creative.adSize} generated ad`} /> : <FallbackAd creative={creative} />}</div><div className="mt-4 grid gap-3 md:grid-cols-2"><div className="min-w-0"><p className="truncate text-xs font-black uppercase text-stallPurple">Business: {shortenLabel(creative.businessName || "Generated Sponsor", 30)}</p><h3 className="break-words font-display text-3xl uppercase leading-none md:text-4xl">{shortenLabel(creative.headline, 38)}</h3><p className="mt-2 break-words font-bold">{shortenLabel(creative.subheadline, 58)}</p><p className="mt-2 break-words font-black uppercase text-stallRed">{shortenLabel(creative.ctaText, 20)} • {shortenLabel(creative.couponCode, 18)}</p>{creative.imageFallback ? <p className="mt-2 text-xs font-black uppercase text-stallPurple">Styled fallback preview: {creative.imageError}</p> : null}{creative.historySaved === false ? <p className="mt-2 text-xs font-black uppercase text-stallRed">History save failed: {creative.historyError}</p> : null}</div><div className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase tracking-widest text-stallRed">Prompt used</p><p className="mt-2 max-h-44 overflow-y-auto break-words text-sm font-bold">{creative.promptUsed}</p><p className="mt-2 text-xs font-black uppercase text-stallPurple">Model: {creative.model || creative.diagnostic?.model || "configured server model"}</p></div></div></article>;
 }
 
 function FallbackAd({ creative }: { creative: GeneratedCreative }) {

@@ -1,5 +1,6 @@
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
+import { AD_DESKTOP_HEIGHT, AD_DESKTOP_WIDTH } from "@/lib/ad-config";
 
 type StaticAd = (typeof publishedAds)[number];
 export type PublicationAdLike = Partial<StaticAd> & {
@@ -36,13 +37,14 @@ export function PublicationAdFallback({ ad, slotNumber, primary = false }: { ad?
     <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`} id={`ad-${slotNumber}`} data-ad-slot="content-ad" data-placement={slotNumber}>
       {image ? (
         <a className="published-ad-link generated-ad-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor} advertisement`}>
-          <img className="generated-ad-image" width={320} height={100} src={image} alt={`${sponsor} advertisement`} />
+          <img className="generated-ad-image" width={AD_DESKTOP_WIDTH} height={AD_DESKTOP_HEIGHT} src={image} alt={`${sponsor} advertisement`} />
         </a>
       ) : (
         <a className="ad-placeholder-link" href={href}>
           <span className="slot">Sponsor / Ad {slotNumber}</span>
           <strong>Advertise Here</strong>
-          <span>Submit your business</span>
+          <span>Reach readers in the stall</span>
+          <em>Claim This Spot</em>
         </a>
       )}
     </article>

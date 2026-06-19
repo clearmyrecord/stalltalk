@@ -28,7 +28,7 @@ function historySelect(item: any) {
     subheadline: item.subheadline || "",
     ctaText: item.ctaText || "Claim Offer",
     couponCode: item.couponCode || "",
-    adSize: "Mobile Sponsor Card",
+    adSize: "3:1 Sponsor Banner",
     imageUrl: item.image || "",
     promptUsed: item.prompt || "",
     createdAt: item.createdAt.toISOString(),
@@ -118,7 +118,7 @@ async function publishCampaign(body: Record<string, unknown>) {
     ? await prisma.publisher.findUnique({ where: { id: publisherId } })
     : null;
   const resolvedBody = { ...body, advertiserId: advertiser?.id ?? null, publisherId: publisher?.id ?? null };
-  const ad = await prisma.ad.create({ data: { publisherId: publisher?.id ?? null, advertiserId: advertiser?.id ?? null, businessName: str(body, "businessName"), title: str(body, "title"), offer: str(body, "offer"), artworkUrl: nullable(body, "artworkUrl"), creativeType: "IMAGE", promptUsed: nullable(body, "promptUsed"), generatedHeadline: nullable(body, "generatedHeadline"), generatedSubheadline: nullable(body, "generatedSubheadline"), adSize: "320x100", ctaText: str(body, "ctaText", "Claim Offer"), targetUrl: str(body, "targetUrl", "#"), phone: nullable(body, "phone"), couponCode: nullable(body, "couponCode"), status: "ACTIVE" as AdStatus, scope, venueId: scope === "VENUE" ? nullable(body, "venueId") : null, restroomId: scope === "RESTROOM" ? nullable(body, "restroomId") : null } });
+  const ad = await prisma.ad.create({ data: { publisherId: publisher?.id ?? null, advertiserId: advertiser?.id ?? null, businessName: str(body, "businessName"), title: str(body, "title"), offer: str(body, "offer"), artworkUrl: nullable(body, "artworkUrl"), creativeType: "IMAGE", promptUsed: nullable(body, "promptUsed"), generatedHeadline: nullable(body, "generatedHeadline"), generatedSubheadline: nullable(body, "generatedSubheadline"), adSize: "3:1 sponsor banner", ctaText: str(body, "ctaText", "Claim Offer"), targetUrl: str(body, "targetUrl", "#"), phone: nullable(body, "phone"), couponCode: nullable(body, "couponCode"), status: "ACTIVE" as AdStatus, scope, venueId: scope === "VENUE" ? nullable(body, "venueId") : null, restroomId: scope === "RESTROOM" ? nullable(body, "restroomId") : null } });
   const previousSlot = await prisma.issueAdSlot.findUnique({ where: { issueId_slotNumber: { issueId, slotNumber } }, include: { ad: true } });
   if (previousSlot?.adId) {
     await prisma.ad.update({ where: { id: previousSlot.adId }, data: { status: "PAUSED" } });
@@ -154,5 +154,5 @@ async function updateStatus(campaignId: string, publishStatus: string) {
   return NextResponse.json({ ok: true, message: `Campaign ${publishStatus.toLowerCase()}.`, campaign: historySelect(item) });
 }
 function historyData(body: Record<string, unknown>, parentCampaignId: string) {
-  return { parentCampaignId, publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "Mobile Sponsor Card", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
+  return { parentCampaignId, publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
 }
