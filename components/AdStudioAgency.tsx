@@ -140,6 +140,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
   const [error, setError] = useState("");
   const [publishMessage, setPublishMessage] = useState("");
   const [publishError, setPublishError] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
   const [campaignRootId, setCampaignRootId] = useState("");
   const [apiStatus, setApiStatus] = useState<ApiDiagnostic | null>(null);
   const [selectedCreativeIndex, setSelectedCreativeIndex] = useState(0);
@@ -176,6 +177,32 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
   const selectedCreative = creatives[selectedCreativeIndex];
   const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
   const activeVenue = venues[0];
+
+  async function uploadFinishedAd(file: File | undefined) {
+    if (!file) return;
+    setUploadMessage("Uploading finished 320x100 graphic to Cloudinary...");
+    try {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+      if (!cloudName || !uploadPreset) throw new Error("Cloudinary upload is not configured.");
+      const data = new FormData();
+      data.set("file", file);
+      data.set("upload_preset", uploadPreset);
+      data.set("folder", "stalltalk/ads");
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: data });
+      const result = await response.json();
+      if (!response.ok || !result.secure_url) throw new Error(result.error?.message || "Cloudinary upload failed.");
+      const campaignId = crypto.randomUUID();
+      const uploaded: GeneratedCreative = { adSize: MOBILE_SPONSOR_CARD, imageUrl: String(result.secure_url), promptUsed: "Uploaded finished 320x100 ad graphic stored in Cloudinary.", headline: limitText(safe(form.offer || form.businessName, "Uploaded Sponsor Ad"), 34), subheadline: limitText(safe(form.category, "Uploaded artwork"), 46), ctaText: limitText(safe(form.ctaText, "Learn More"), 18), couponCode: limitText(safe(form.couponCode, ""), 16), businessName: safe(form.businessName, "Uploaded Sponsor"), campaignId, parentCampaignId: campaignRootId || campaignId, versionNumber: creatives.length + 1, publishStatus: "UPLOADED" };
+      setCreatives((items) => [...items, uploaded]);
+      setSelectedCreativeIndex(creatives.length);
+      setHasGenerated(true);
+      setStep(5);
+      setUploadMessage("Uploaded graphic is ready to publish to a content-ad slot.");
+    } catch (error) {
+      setUploadMessage(error instanceof Error ? error.message : "Upload failed.");
+    }
+  }
 
   function readLogo(file: File | undefined) {
     if (!file) {
@@ -440,6 +467,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
         <ChoiceGroup title="Tone" options={tones} value={form.tone} onChange={(value) => update("tone", value)} />
         <ChoiceGroup title="Visual Style" options={visualStyles} value={form.visualStyle} onChange={(value) => update("visualStyle", value)} />
         <div className="lg:col-span-2"><Field label="Brand Colors" value={form.brandColors} onChange={(value) => update("brandColors", value)} placeholder="#ff2d55, #ffd400, #5b2cff" /></div>
+        <label className="lg:col-span-2 rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase">Upload finished 320x100 ad graphic<span className="mt-2 block text-sm normal-case text-ink/70">Stores the file in Cloudinary and uses it exactly like an AI-generated creative. Homepage display is cropped to the 320x100 content-ad slot.</span><input className="mt-3 w-full" type="file" accept="image/*" onChange={(event) => void uploadFinishedAd(event.target.files?.[0])} />{uploadMessage ? <span className="mt-2 block text-sm normal-case text-stallPurple">{uploadMessage}</span> : null}</label>
       </div> : null}
 
       {step === 5 ? <div className="grid gap-6 lg:grid-cols-[1fr_360px]">

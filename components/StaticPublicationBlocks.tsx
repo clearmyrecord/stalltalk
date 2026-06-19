@@ -31,30 +31,22 @@ export function PublicationAdFallback({ ad, slotNumber, primary = false }: { ad?
   const headline = displayAd.headline || displayAd.generatedHeadline || displayAd.title || sponsor;
   const body = displayAd.offer || displayAd.generatedSubheadline || "Reach restroom readers where phones are already in hand.";
   const cta = displayAd.ctaText || displayAd.cta || "Learn More";
-  const href = displayAd.targetUrl || "/signin";
+  const href = displayAd.targetUrl || "/advertiser-portal";
   const image = displayAd.artworkUrl || displayAd.image;
-
-  const linkedImage = image && href && href !== "#";
 
   return (
     <article className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`} id={`ad-${slotNumber}`} data-ad-slot="content-ad" data-placement={slotNumber}>
       {image ? (
-        linkedImage ? (
-          <a className="published-ad-link generated-ad-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor} advertisement`}>
-            <img className="generated-ad-image" width={320} height={100} src={image} alt={`${sponsor} advertisement`} />
-          </a>
-        ) : (
+        <a className="published-ad-link generated-ad-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor} advertisement`}>
+          <span className="slot ad-badge">Sponsor / Ad {slotNumber}</span>
           <img className="generated-ad-image" width={320} height={100} src={image} alt={`${sponsor} advertisement`} />
-        )
+        </a>
       ) : (
-        <>
+        <a className="ad-placeholder-link" href={href}>
           <span className="slot">Sponsor / Ad {slotNumber}</span>
-          <div className="ad-mark" aria-hidden="true">{sponsor.slice(0, 2).toUpperCase()}</div>
-          <p className="ad-sponsor">{sponsor}</p>
-          <h3>{headline}</h3>
-          <div className="ad-copy"><p>{body}</p></div>
-          <div className="ad-actions"><a href={href}>{cta}</a>{displayAd.couponCode ? <span className="coupon">{displayAd.couponCode}</span> : null}</div>
-        </>
+          <strong>Advertise Here</strong>
+          <span>Submit your business</span>
+        </a>
       )}
     </article>
   );
@@ -99,7 +91,7 @@ function StaticHumor() { return <section className="publication-content-block hu
 function QuotesBlock() { return <section className="publication-content-block quotes-card panel"><h2>Inspirational <strong>Quotes</strong></h2><ul>{publishedIssue.quotes.map((quote) => <li key={quote}>{quote}</li>)}</ul></section>; }
 function DidYouKnowBlock() { return <section className="publication-content-block did-card panel"><h2>Did you know?</h2><ol>{publishedIssue.didYouKnow.map((fact) => <li key={fact}>{fact}</li>)}</ol></section>; }
 function WordOfDayBlock() { return <section className="publication-content-block word-card panel"><h2>Word-of-the-Day</h2><strong>{publishedIssue.wordOfTheDay}</strong><p>{publishedIssue.wordDefinition}</p></section>; }
-function StaticRestaurantBlock() { return <section className="publication-content-block restaurant-review panel"><div className="card-label">Restaurant Review</div><div className="review-box"><div className="review-content"><h2>Worth the Stop</h2><h3>Featured Local Restaurant</h3><p>This month’s pick is a local spot with strong atmosphere, good service, and food that makes it worth coming back for. Perfect for a casual lunch, date night, or a quick bite before heading back out.</p><p className="review-rating">★★★★☆ 4/5</p><a href="#ad-5" className="review-button">Read Full Review</a></div></div></section>; }
+function StaticRestaurantBlock() { return <section className="publication-content-block restaurant-review panel"><div className="card-label">Restaurant Review</div><div className="review-box"><img src="/images/restaurant-review.jpg" alt="Featured local restaurant" className="review-photo" /><div className="review-content"><h2>Worth the Stop</h2><h3>Featured Local Restaurant</h3><p>This month’s pick is a local spot with strong atmosphere, good service, and food that makes it worth coming back for. Perfect for a casual lunch, date night, or a quick bite before heading back out.</p><p className="review-rating">★★★★☆ 4/5</p><a href="#ad-5" className="review-button">Read Full Review</a></div></div></section>; }
 function CalendarBlock() { const days = Array.from({ length: 35 }, (_, index) => index + 1); return <section className="publication-content-block calendar-card panel" id="calendar"><h2>Calendar / Event Spotlight</h2><div className="calendar-layout"><div><div className="calendar-grid" aria-label="Published event calendar">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span className="calendar-weekday" key={day}>{day}</span>)}{days.map((day) => <span key={day}>{day <= 30 ? day : ""}</span>)}</div><p>{publishedIssue.calendarText}</p></div><aside className="event-spotlight"><strong>Event Spotlight</strong><p>Submit local happenings to keep the monthly calendar moving.</p></aside></div></section>; }
 function SubmitEventForm() {
   return (

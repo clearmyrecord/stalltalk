@@ -1,5 +1,4 @@
 import type { Ad } from "@prisma/client";
-import { initials } from "@/lib/format";
 import { recordAnalytics } from "@/lib/actions";
 
 type Props = {
@@ -77,7 +76,7 @@ function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: 
     return linkedArtwork ? <a className={frame} href={ad.targetUrl} target="_blank" rel="noopener noreferrer"><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></a> : <div className={frame}><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
   }
 
-  return <div className={`ad-gradient-${slotNumber} grid aspect-square place-items-center rounded-xl border-2 border-ink text-center text-3xl font-black text-white shadow-inner`}>{initials(ad.businessName)}</div>;
+  return <a className="grid aspect-[320/100] place-items-center rounded-xl border-2 border-ink bg-paper p-3 text-center font-black text-ink no-underline" href={ad.targetUrl || "/advertiser-portal"}><span className="text-[10px] uppercase tracking-widest text-stallPurple">Sponsor / Ad {slotNumber}</span><strong className="uppercase">Advertise Here</strong><span className="text-xs">Submit your business</span></a>;
 }
 
 function TrackingButton({ label, type, ad, issueId, publisherId, venueId, restroomId, qrCodeId, slotNumber, dark = false }: { label: string; type: string; ad: Ad; issueId: string; publisherId?: string | null; venueId?: string | null; restroomId?: string | null; qrCodeId?: string | null; slotNumber: number; dark?: boolean }) {
