@@ -47,17 +47,19 @@ function InlineInventoryPreview({ slots }: { slots: Array<{ slotNumber: number; 
         <PreviewSection label="Header" />
         <PreviewSection label="Mission" />
         <PreviewAd {...slots[0]} />
-        <PreviewSection label="Funny Article" />
+        <PreviewSection label="Hilariously Funny" />
         <PreviewAd {...slots[1]} />
+        <PreviewSection label="Feature Article" />
         <PreviewSection label="Restaurant Review" />
         <PreviewAd {...slots[2]} />
-        <PreviewSection label="Events" />
+        <PreviewSection label="Event Calendar" />
         <PreviewAd {...slots[3]} />
         <PreviewSection label="Local Deals" />
         <PreviewAd {...slots[4]} />
-        <PreviewSection label="Trivia" />
+        <PreviewSection label="Trivia / Did You Know" />
         <PreviewAd {...slots[5]} />
-        <PreviewSection label="Community" />
+        <PreviewSection label="Inspirational Quotes" />
+        <PreviewSection label="Word of the Month" />
         <PreviewAd {...slots[6]} />
         <PreviewAd {...slots[7]} />
       </div>

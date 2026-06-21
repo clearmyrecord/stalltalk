@@ -3,17 +3,29 @@
 import { useActionState, useEffect } from "react";
 import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, Publisher, QrCode, Restroom, Venue } from "@prisma/client";
 import { createIssueAction, updateIssueAction, type IssueSaveState } from "@/lib/actions";
-import { typeOptions } from "@/lib/format";
+import { contentLabels } from "@/lib/format";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
 type IssueWithBlocks = Issue & { contentBlocks: IssueContentBlock[]; adSlots: IssueAdSlot[] };
 
 const initialState: IssueSaveState = { ok: false, message: "" };
+const CONTENT_ZONES = [
+  ["mission", "MISSION"],
+  ["funny", "HILARIOUSLY_FUNNY"],
+  ["feature", "FEATURE_ARTICLE"],
+  ["restaurant", "RESTAURANT_REVIEW"],
+  ["events", "EVENT_CALENDAR"],
+  ["deals", "LOCAL_DEALS"],
+  ["trivia", "TRIVIA"],
+  ["quote", "INSPIRATIONAL_QUOTES"],
+  ["community", "WORD_OF_THE_MONTH"],
+] as const;
+const zoneOptions = CONTENT_ZONES.map(([, type]) => ({ value: type, label: contentLabels[type as keyof typeof contentLabels] }));
 
 export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ads, issue }: { publishers: Publisher[]; venues: Venue[]; restrooms: Restroom[]; qrCodes: QrCode[]; articles: Article[]; ads: Ad[]; issue?: IssueWithBlocks }) {
   const action = issue ? updateIssueAction.bind(null, issue.id) : createIssueAction;
   const [state, formAction, pending] = useActionState(action, initialState);
-  const blocks = Array.from({ length: 8 }, (_, index) => issue?.contentBlocks.find((block) => block.sortOrder === index + 1));
+  const blocks = CONTENT_ZONES.map(([key], index) => issue?.contentBlocks.find((block) => (block.layout as any)?.key === key) || issue?.contentBlocks.find((block) => block.sortOrder === index + 1));
 
   useEffect(() => {
     if (!state.message) return;
@@ -21,7 +33,14 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
   }, [state]);
 
   return <form action={formAction} className="mt-6 grid gap-5" onSubmit={(event) => {
-    if (process.env.NODE_ENV !== "production") console.log("[issue-save-client-payload]", Object.fromEntries(new FormData(event.currentTarget).entries()));
+    const formData = new FormData(event.currentTarget);
+    const selectedTypes = CONTENT_ZONES.map((_, index) => String(formData.get(`blockType${index + 1}`) || "")).filter(Boolean);
+    if (new Set(selectedTypes).size !== selectedTypes.length) {
+      event.preventDefault();
+      alert("Content type already assigned.");
+      return;
+    }
+    if (process.env.NODE_ENV !== "production") console.log("[issue-save-client-payload]", Object.fromEntries(formData.entries()));
   }}>
     {issue ? <input type="hidden" name="updatedAt" value={issue.updatedAt.toISOString()} /> : null}
     {state.message ? <div className={`rounded-2xl border-4 border-ink p-4 font-black shadow-brutal ${state.ok ? "bg-green-100" : "bg-red-100"}`} role="status">
@@ -44,15 +63,16 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
     <div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal">
       <h2 className="font-display text-5xl uppercase">Venue-aware layout editor</h2>
       <p className="mb-4 font-bold">Leave venue assignment empty for global network content, or choose one/multiple venues for venue-only articles, events, reviews, announcements, and coupons.</p>
-      <div className="grid gap-4 md:grid-cols-2">{blocks.map((block, i) => <div key={i} className="grid gap-3 rounded-xl border-2 border-ink bg-white p-3">
+      <div className="grid gap-4 md:grid-cols-2">{blocks.map((block, i) => { const [layoutKey, defaultType] = CONTENT_ZONES[i]; return <div key={layoutKey} className="grid gap-3 rounded-xl border-2 border-ink bg-white p-3">
         <p className="font-display text-3xl uppercase">Drop Zone {i + 1}</p>
-        <select name={`blockType${i + 1}`} defaultValue={block?.type || typeOptions[i % typeOptions.length]?.value} className="rounded border-2 border-ink p-2 font-black">{typeOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
+        <input type="hidden" name={`blockLayoutKey${i + 1}`} value={layoutKey} />
+        <select name={`blockType${i + 1}`} defaultValue={block?.type || defaultType} className="rounded border-2 border-ink p-2 font-black">{zoneOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
         <select name={`blockArticle${i + 1}`} defaultValue={block?.articleId || ""} className="rounded border-2 border-ink p-2"><option value="">No linked article</option>{articles.map((article) => <option key={article.id} value={article.id}>{article.title}</option>)}</select>
         <VenueMultiSelect name={`blockVenueIds${i + 1}`} venues={venues} selected={block?.venueIds || []} />
         <input name={`blockTitle${i + 1}`} defaultValue={block?.title} placeholder="Title" className="rounded border-2 border-ink p-2" />
         <textarea name={`blockBody${i + 1}`} defaultValue={block?.body} placeholder="Body" rows={4} className="rounded border-2 border-ink p-2" />
         <input name={`blockImage${i + 1}`} defaultValue={block?.imageUrl || ""} placeholder="Image URL optional" className="rounded border-2 border-ink p-2" />
-      </div>)}</div>
+      </div>})}</div>
     </div>
 
     <div className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal">

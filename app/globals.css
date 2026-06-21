@@ -943,12 +943,24 @@ body:has(.public-page) { background: #000; }
   text-transform: uppercase;
 }
 
+.did-you-know-title,
+.trivia-title,
+.magazine-notes-title,
 .did-card h2 {
-  margin: 0 !important;
-  color: #17110f;
+  margin: 0 0 28px !important;
+  padding: 18px 24px;
+  border-radius: 16px;
+  background: #111;
+  color: #fff !important;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(2.4rem, 6vw, 4.75rem);
+  font-size: clamp(2rem, 6vw, 4.5rem);
   line-height: .95;
+  text-align: center;
+  opacity: 1;
+  mix-blend-mode: normal;
+  text-shadow: none;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .did-card .did-list {
