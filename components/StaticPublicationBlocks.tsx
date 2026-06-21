@@ -152,24 +152,27 @@ export function StaticPublicationBlocks({
   qrCode,
   mainFeature,
   secondaryFeature,
+  blocks = [],
 }: {
   ads: PublicationAdLike[];
   qrCode?: string | null;
   mainFeature?: { title: string; body: string };
   secondaryFeature?: { title: string; body: string };
+  blocks?: Array<{ title: string; body: string; imageUrl?: string | null; layout?: any }>;
 }) {
   const publicationAds = getPublicationAds(ads);
+  const block = (key: string) => blocks.find((item) => item.layout?.key === key);
   return (
     <>
-      <StaticHumor />
+      <StaticHumor block={block("funny")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[1]} slotNumber={2} />
-      <StaticRestaurantBlock />
+      <StaticRestaurantBlock block={block("restaurant")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[2]} slotNumber={3} />
-      <CalendarBlock />
+      <CalendarBlock block={block("events")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[3]} slotNumber={4} />
-      <LocalDealsBlock />
+      <LocalDealsBlock block={block("deals")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[4]} slotNumber={5} />
-      <DidYouKnowBlock />
+      <DidYouKnowBlock block={block("trivia")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[5]} slotNumber={6} />
       <StaticArticle
         title={mainFeature?.title || publishedIssue.mainFeatureTitle}
@@ -183,13 +186,13 @@ export function StaticPublicationBlocks({
   );
 }
 
-function StaticHumor() {
+function StaticHumor({ block }: { block?: { title: string; body: string } }) {
   return (
     <section className="publication-content-block humor-card panel">
       <p className="laughs">HA HA HA</p>
-      <h2>{publishedIssue.humorTitle}</h2>
+      <h2>{block?.title || publishedIssue.humorTitle}</h2>
       <div className="article-copy single-column">
-        {publishedIssue.humorBody.split("\n\n").map((paragraph) => (
+        {(block?.body || publishedIssue.humorBody).split("\n\n").map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>
         ))}
       </div>
@@ -228,29 +231,28 @@ function QuotesBlock() {
   );
 }
 
-function LocalDealsBlock() {
+function LocalDealsBlock({ block }: { block?: { title: string; body: string } }) {
   return (
     <section className="publication-content-block secondary-card panel">
       <p className="feature-eyebrow">Local Deals</p>
-      <h2>Deals Worth Leaving the Stall For</h2>
-      <p className="feature-subtitle">Fresh venue-friendly offers, coupons, and neighborhood specials for Potty Favor readers.</p>
+      <h2>{block?.title || "Deals Worth Leaving the Stall For"}</h2>
       <div className="article-copy">
-        <p>Check this issue’s sponsor panels for timely discounts, featured experiences, and limited-time local offers near your venue.</p>
+        {(block?.body || "Fresh venue-friendly offers, coupons, and neighborhood specials for Potty Favor readers.\n\nCheck this issue’s sponsor panels for timely discounts, featured experiences, and limited-time local offers near your venue.").split("\n\n").map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
       </div>
     </section>
   );
 }
 
-function DidYouKnowBlock() {
+function DidYouKnowBlock({ block }: { block?: { title: string; body: string } }) {
   return (
     <section className="publication-content-block did-card panel">
       <div className="did-card-inner">
         <header className="did-card-header">
           <p className="editorial-kicker">Magazine Notes</p>
-          <h2>Did You Know?</h2>
+          <h2>{block?.title || "Did You Know?"}</h2>
         </header>
         <ol className="did-list">
-          {publishedIssue.didYouKnow.map((fact, index) => (
+          {(block?.body ? block.body.split("\n").filter(Boolean) : publishedIssue.didYouKnow).map((fact, index) => (
             <li key={fact}>
               <span className="did-number">
                 {String(index + 1).padStart(2, "0")}
@@ -278,25 +280,20 @@ function WordOfDayBlock() {
     </section>
   );
 }
-function StaticRestaurantBlock() {
+function StaticRestaurantBlock({ block }: { block?: { title: string; body: string; imageUrl?: string | null; layout?: any } }) {
   return (
     <section className="publication-content-block restaurant-review panel">
       <p className="card-label">Restaurant Review</p>
       <img
-        src="/images/restaurant-review.jpg"
+        src={block?.imageUrl || block?.layout?.imageUrl || "/images/restaurant-review.jpg"}
         alt="Featured local restaurant"
         className="review-photo review-hero"
       />
       <div className="review-content">
-        <h2>Worth the Stop</h2>
-        <h3>Featured Local Restaurant</h3>
+        <h2>{block?.layout?.reviewHeadline || block?.title || "Worth the Stop"}</h2>
+        <h3>{block?.layout?.restaurantName || "Featured Local Restaurant"}</h3>
         <p className="review-rating">★★★★½ 4.5/5</p>
-        <p>
-          This month’s pick is a local spot with strong atmosphere, good
-          service, and food that makes it worth coming back for. Perfect for a
-          casual lunch, date night, or a quick bite before heading back out.
-        </p>
-        <p className="review-address">Las Vegas, NV</p>
+        {(block?.body || "This month’s pick is a local spot with strong atmosphere, good service, and food that makes it worth coming back for. Perfect for a casual lunch, date night, or a quick bite before heading back out.\n\nLas Vegas, NV").split("\n\n").map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
         <div className="review-actions">
           <a href="https://pottyfavor.com/advertise" className="review-button">
             Visit Website
@@ -309,14 +306,14 @@ function StaticRestaurantBlock() {
     </section>
   );
 }
-function CalendarBlock() {
+function CalendarBlock({ block }: { block?: { title: string; body: string; layout?: any } }) {
   const days = Array.from({ length: 35 }, (_, index) => index + 1);
   return (
     <section
       className="publication-content-block calendar-card panel"
       id="calendar"
     >
-      <h2>Calendar / Event Spotlight</h2>
+      <h2>{block?.title || "Calendar / Event Spotlight"}</h2>
       <div className="calendar-layout">
         <div>
           <div className="calendar-grid" aria-label="Published event calendar">
@@ -329,11 +326,11 @@ function CalendarBlock() {
               <span key={day}>{day <= 30 ? day : ""}</span>
             ))}
           </div>
-          <p>{publishedIssue.calendarText}</p>
+          <p>{block?.body || publishedIssue.calendarText}</p>
         </div>
         <aside className="event-spotlight">
           <strong>Event Spotlight</strong>
-          <p>Submit local happenings to keep the monthly calendar moving.</p>
+          <p>{block?.layout?.eventDescription || "Submit local happenings to keep the monthly calendar moving."}</p>
         </aside>
       </div>
     </section>
