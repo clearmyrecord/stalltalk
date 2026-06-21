@@ -5,6 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { DEFAULT_PUBLIC_ISSUE_ID, DEFAULT_PUBLIC_ISSUE_LABEL, isDefaultPublicIssue } from "@/lib/default-public-issue";
 
+function readableDatabaseError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("[ad-studio/campaigns] database error", error);
+  for (const column of ["targetType", "targetLabel", "publishedToHomepage", "slotPublished", "selectedSlot", "publishStatus"]) {
+    if (message.includes(column)) return `Database schema is missing ${column}. Run the latest migration.`;
+  }
+  return "Database update failed. Check server logs and run the latest migration if schema columns are missing.";
+}
+
 export const dynamic = "force-dynamic";
 
 function str(body: Record<string, unknown>, key: string, fallback = "") {
@@ -36,6 +45,7 @@ function historySelect(item: any) {
     createdAt: item.createdAt.toISOString(),
     slotPublished: item.slotPublished,
     selectedSlot: item.selectedSlot,
+    publishedToHomepage: item.publishedToHomepage || false,
     targetUrl: item.targetUrl,
     logoBase64: item.logoBase64,
     publishStatus: item.publishStatus,
@@ -60,7 +70,7 @@ export async function POST(request: Request) {
   await requireAdmin();
   const body = await request.json() as Record<string, unknown>;
   const action = str(body, "action", "save");
-  if (action === "publish") return publishCampaign(body);
+  if (action === "publish") return publishCampaignSafe(body);
   if (action === "duplicate") return duplicateCampaign(body);
   return saveCampaign(body);
 }
@@ -73,7 +83,7 @@ export async function PATCH(request: Request) {
   if (!campaignId) return NextResponse.json({ error: "campaignId is required" }, { status: 400 });
   if (action === "unpublish") return unpublishCampaign(campaignId);
   if (action === "archive") return updateStatus(campaignId, "ARCHIVED");
-  if (action === "publish") return publishCampaign(body);
+  if (action === "publish") return publishCampaignSafe(body);
   return saveCampaign(body);
 }
 
@@ -88,11 +98,16 @@ export async function DELETE(request: Request) {
 async function saveCampaign(body: Record<string, unknown>) {
   const campaignId = str(body, "campaignId") || crypto.randomUUID();
   const parentCampaignId = str(body, "parentCampaignId", campaignId);
-  const item = await prisma.stalltalkCampaignHistory.upsert({
-    where: { campaignId },
-    update: historyData(body, parentCampaignId),
-    create: { campaignId, ...historyData(body, parentCampaignId) }
-  });
+  let item;
+  try {
+    item = await prisma.stalltalkCampaignHistory.upsert({
+      where: { campaignId },
+      update: historyData(body, parentCampaignId),
+      create: { campaignId, ...historyData(body, parentCampaignId) }
+    });
+  } catch (error) {
+    return NextResponse.json({ error: readableDatabaseError(error) }, { status: 500 });
+  }
   revalidatePath("/admin/ad-studio");
   return NextResponse.json({ ok: true, message: "Campaign saved.", campaign: historySelect(item) });
 }
@@ -101,9 +116,17 @@ async function duplicateCampaign(body: Record<string, unknown>) {
   const source = await prisma.stalltalkCampaignHistory.findUnique({ where: { campaignId: str(body, "campaignId") } });
   if (!source) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   const copyId = crypto.randomUUID();
-  const copy = await prisma.stalltalkCampaignHistory.create({ data: { publisherId: source.publisherId, advertiserId: source.advertiserId, campaignId: copyId, parentCampaignId: source.parentCampaignId || source.campaignId, versionNumber: source.versionNumber + 1, business: `${source.business} Copy`, image: source.image, prompt: source.prompt, headline: source.headline, subheadline: source.subheadline, ctaText: source.ctaText, couponCode: source.couponCode, adSize: source.adSize, logoBase64: source.logoBase64, logoUrl: source.logoUrl, targetUrl: source.targetUrl, selectedSlot: source.selectedSlot, publishStatus: "DRAFT" } });
+  const copy = await prisma.stalltalkCampaignHistory.create({ data: { publisherId: source.publisherId, advertiserId: source.advertiserId, campaignId: copyId, parentCampaignId: source.parentCampaignId || source.campaignId, versionNumber: source.versionNumber + 1, business: `${source.business} Copy`, image: source.image, prompt: source.prompt, headline: source.headline, subheadline: source.subheadline, ctaText: source.ctaText, couponCode: source.couponCode, adSize: source.adSize, logoBase64: source.logoBase64, logoUrl: source.logoUrl, targetUrl: source.targetUrl, selectedSlot: source.selectedSlot, targetType: source.targetType, targetLabel: source.targetLabel, publishedToHomepage: false, publishStatus: "DRAFT" } });
   revalidatePath("/admin/ad-studio");
   return NextResponse.json({ ok: true, message: "Campaign duplicated as a new draft.", campaign: historySelect(copy) });
+}
+
+async function publishCampaignSafe(body: Record<string, unknown>) {
+  try {
+    return await publishCampaign(body);
+  } catch (error) {
+    return NextResponse.json({ error: readableDatabaseError(error) }, { status: 500 });
+  }
 }
 
 async function publishCampaign(body: Record<string, unknown>) {
@@ -140,11 +163,11 @@ async function publishCampaign(body: Record<string, unknown>) {
     }
     await prisma.issueAdSlot.upsert({ where: { issueId_slotNumber: { issueId, slotNumber } }, update: { adId: ad.id, source: scope }, create: { issueId, adId: ad.id, slotNumber, source: scope } });
   }
-  await prisma.stalltalkAdSlot.upsert({ where: { slotNumber }, update: { adId: ad.id, business: ad.businessName, image: ad.artworkUrl, headline: ad.generatedHeadline || ad.title, subheadline: ad.generatedSubheadline || ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, targetUrl: ad.targetUrl, phone: ad.phone, publisherId: ad.publisherId }, create: { slotNumber, adId: ad.id, business: ad.businessName, image: ad.artworkUrl, headline: ad.generatedHeadline || ad.title, subheadline: ad.generatedSubheadline || ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, targetUrl: ad.targetUrl, phone: ad.phone, publisherId: ad.publisherId } });
+  if (defaultPublicTarget) await prisma.stalltalkAdSlot.upsert({ where: { slotNumber }, update: { adId: ad.id, business: ad.businessName, image: ad.artworkUrl, headline: ad.generatedHeadline || ad.title, subheadline: ad.generatedSubheadline || ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, targetUrl: ad.targetUrl, phone: ad.phone, publisherId: ad.publisherId }, create: { slotNumber, adId: ad.id, business: ad.businessName, image: ad.artworkUrl, headline: ad.generatedHeadline || ad.title, subheadline: ad.generatedSubheadline || ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, targetUrl: ad.targetUrl, phone: ad.phone, publisherId: ad.publisherId } });
   const campaignId = str(body, "campaignId", ad.id);
   const parentCampaignId = str(body, "parentCampaignId", campaignId);
   await prisma.stalltalkCampaignHistory.updateMany({ where: { parentCampaignId, NOT: { campaignId } }, data: { publishStatus: "SUPERSEDED" } });
-  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
+  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date(), publishedToHomepage: defaultPublicTarget }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date(), publishedToHomepage: defaultPublicTarget } });
   revalidatePath("/");
   revalidatePath("/issue");
   if (issue?.venue?.slug) revalidatePath(`/issue/${issue.venue.slug}`);
@@ -157,7 +180,8 @@ async function unpublishCampaign(campaignId: string) {
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   if (campaign.adId) await prisma.ad.update({ where: { id: campaign.adId }, data: { status: "PAUSED" } });
   await prisma.issueAdSlot.deleteMany({ where: { adId: campaign.adId || "" } });
-  const item = await prisma.stalltalkCampaignHistory.update({ where: { campaignId }, data: { publishStatus: "UNPUBLISHED", slotPublished: null } });
+  if (campaign.publishedToHomepage && campaign.slotPublished) await prisma.stalltalkAdSlot.updateMany({ where: { slotNumber: campaign.slotPublished, adId: campaign.adId || undefined }, data: { adId: null } });
+  const item = await prisma.stalltalkCampaignHistory.update({ where: { campaignId }, data: { publishStatus: "UNPUBLISHED", slotPublished: null, publishedToHomepage: false } });
   revalidatePath("/");
   revalidatePath("/issue");
   revalidatePath("/admin/ad-studio");
@@ -169,5 +193,5 @@ async function updateStatus(campaignId: string, publishStatus: string) {
   return NextResponse.json({ ok: true, message: `Campaign ${publishStatus.toLowerCase()}.`, campaign: historySelect(item) });
 }
 function historyData(body: Record<string, unknown>, parentCampaignId: string) {
-  return { parentCampaignId, targetType: nullable(body, "targetType"), targetLabel: nullable(body, "targetLabel"), publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
+  return { parentCampaignId, targetType: nullable(body, "targetType"), targetLabel: nullable(body, "targetLabel"), publishedToHomepage: Boolean(body.publishedToHomepage), publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), logoUrl: nullable(body, "logoUrl"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
 }
