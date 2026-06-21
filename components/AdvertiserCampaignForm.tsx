@@ -34,7 +34,7 @@ export function AdvertiserCampaignForm({ advertisers, placements, selectedAdvert
       </div>
       <fieldset className="grid gap-2 rounded-xl border-2 border-ink bg-white p-3 md:col-span-2">
         <legend className="px-2 font-black uppercase">Select one or multiple QR/toilet placements</legend>
-        {placements.map((placement) => <label key={placement.id} className="flex gap-2 font-bold"><input type="checkbox" name="inventoryIds" value={placement.id} checked={selectedPlacements.includes(placement.id)} onChange={(event) => togglePlacement(placement.id, event.target.checked)} /> {placement.venueName} • Base month {placement.month} • {placement.restroomName || placement.qrCode || "Venue-wide"} • {placement.toiletLabel || "QR TBD"} • Slot {placement.slotNumber}</label>)}
+        {placements.map((placement) => <label key={placement.id} className="flex gap-2 font-bold"><input type="checkbox" name="inventoryIds" value={placement.id} checked={selectedPlacements.includes(placement.id)} onChange={(event) => togglePlacement(placement.id, event.target.checked)} /> {placement.venueName} • Base month {placement.month} • {placement.restroomName || placement.qrCode || "Venue-wide"} • {placement.toiletLabel || "QR TBD"} • Sponsor Placement {placement.slotNumber}</label>)}
         {placements.length === 0 ? <p className="font-black">No placements available to select for this start month.</p> : null}
       </fieldset>
       <input name="name" placeholder="Campaign name" className="rounded border-2 border-ink p-3" />

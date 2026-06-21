@@ -1,6 +1,7 @@
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
 import { AD_DESKTOP_HEIGHT, AD_DESKTOP_WIDTH } from "@/lib/ad-config";
+import { sponsorPlacementLabel, sponsorPlacementSection } from "@/lib/sponsor-placements";
 
 type StaticAd = (typeof publishedAds)[number];
 export type PublicationAdLike = Partial<StaticAd> & {
@@ -76,6 +77,8 @@ export function PublicationAdFallback({
     });
 
   const ctaText = displayAd.ctaText || displayAd.cta || "Learn More";
+  const placementLabel = sponsorPlacementLabel(slotNumber);
+  const placementSection = sponsorPlacementSection(slotNumber);
 
   return (
     <article
@@ -83,22 +86,24 @@ export function PublicationAdFallback({
       id={`ad-${slotNumber}`}
       data-ad-slot="content-ad"
       data-placement={slotNumber}
+      data-sponsor-placement={placementLabel}
+      data-section={placementSection}
     >
-      <span className="sponsored-label">Sponsored</span>
+      <span className="sponsored-label">{placementLabel}</span>
       {image ? (
         <a
           className="published-ad-link generated-ad-link"
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`${sponsor} advertisement`}
+          aria-label={`${sponsor} ${placementLabel} advertisement`}
         >
           <img
             className="generated-ad-image"
             width={AD_DESKTOP_WIDTH}
             height={AD_DESKTOP_HEIGHT}
             src={image}
-            alt={`${sponsor} advertisement`}
+            alt={`${sponsor} ${placementLabel} advertisement`}
           />
           <span className="ad-cta-button">{ctaText}</span>
         </a>
@@ -169,28 +174,22 @@ export function StaticPublicationBlocks({
     <>
       <StaticHumor />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[1]} slotNumber={2} />
+      <StaticRestaurantBlock />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[2]} slotNumber={3} />
+      <CalendarBlock />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[3]} slotNumber={4} />
+      <LocalDealsBlock />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[4]} slotNumber={5} />
+      <DidYouKnowBlock />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[5]} slotNumber={6} />
       <StaticArticle
         title={mainFeature?.title || publishedIssue.mainFeatureTitle}
         body={mainFeature?.body || publishedIssue.mainFeatureBody}
         variant="feature-card"
       />
-      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[2]} slotNumber={3} />
-      <QuotesBlock />
-      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[3]} slotNumber={4} />
-      <StaticRestaurantBlock />
-      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[4]} slotNumber={5} />
-      <DidYouKnowBlock />
-      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[5]} slotNumber={6} />
-      <WordOfDayBlock />
-      <StaticArticle
-        title={secondaryFeature?.title || publishedIssue.secondaryFeatureTitle}
-        body={secondaryFeature?.body || publishedIssue.secondaryFeatureBody}
-        variant="secondary-card"
-      />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[6]} slotNumber={7} />
-      <CalendarBlock />
-      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[7]} slotNumber={8} />
       <SubmitEventForm />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[7]} slotNumber={8} />
     </>
   );
 }
@@ -236,6 +235,19 @@ function QuotesBlock() {
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+function LocalDealsBlock() {
+  return (
+    <section className="publication-content-block secondary-card panel">
+      <p className="feature-eyebrow">Local Deals</p>
+      <h2>Deals Worth Leaving the Stall For</h2>
+      <p className="feature-subtitle">Fresh venue-friendly offers, coupons, and neighborhood specials for Potty Favor readers.</p>
+      <div className="article-copy">
+        <p>Check this issue’s sponsor panels for timely discounts, featured experiences, and limited-time local offers near your venue.</p>
+      </div>
     </section>
   );
 }

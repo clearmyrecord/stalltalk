@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, Publisher, QrCode, Restroom, Venue } from "@prisma/client";
 import { createIssueAction, updateIssueAction, type IssueSaveState } from "@/lib/actions";
 import { typeOptions } from "@/lib/format";
+import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
 type IssueWithBlocks = Issue & { contentBlocks: IssueContentBlock[]; adSlots: IssueAdSlot[] };
 
@@ -55,9 +56,9 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
     </div>
 
     <div className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal">
-      <h2 className="font-display text-5xl uppercase">Assign ad slots 1–8</h2>
+      <h2 className="font-display text-5xl uppercase">Assign 8 Premium Sponsor Panels</h2>
       <p className="mb-3 font-bold">Ads can be global, city, venue, or restroom scoped. Venue ads may target one or multiple venues from the ad editor.</p>
-      <div className="grid gap-3 md:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <label key={i} className="grid gap-1 font-black uppercase">Slot {i + 1}<select name={`slot${i + 1}`} defaultValue={issue?.adSlots.find((slot) => slot.slotNumber === i + 1)?.adId || ""} className="rounded border-2 border-ink p-3"><option value="">Auto serve</option>{ads.map((ad) => <option key={ad.id} value={ad.id}>{ad.businessName} • {ad.scope}</option>)}</select></label>)}</div>
+      <div className="grid gap-3 md:grid-cols-4">{SPONSOR_PLACEMENTS.map((placement) => <label key={placement.number} className="grid gap-1 font-black uppercase">{placement.label}<select name={`slot${placement.number}`} defaultValue={issue?.adSlots.find((slot) => slot.slotNumber === placement.number)?.adId || ""} className="rounded border-2 border-ink p-3"><option value="">Auto serve</option>{ads.map((ad) => <option key={ad.id} value={ad.id}>{ad.businessName} • {ad.scope}</option>)}</select></label>)}</div>
     </div>
     <button disabled={pending} className="rounded-2xl border-4 border-ink bg-stallRed px-6 py-4 font-black uppercase text-white shadow-brutal disabled:opacity-60">{pending ? "Saving…" : "Save Issue"}</button>
   </form>;

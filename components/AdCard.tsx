@@ -1,5 +1,6 @@
 import type { Ad } from "@prisma/client";
 import { recordAnalytics } from "@/lib/actions";
+import { sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 type Props = {
   ad: Ad & { slotNumber?: number; source?: string };
@@ -21,7 +22,7 @@ export function AdCard({ ad, slotNumber, issueId, publisherId, venueId, restroom
   return (
     <article className={articleClasses}>
       <div className="mb-2 flex items-center justify-between gap-2 md:col-span-2">
-        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
+        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">{sponsorPlacementLabel(slotNumber)}</span>
         <span className="rounded-full bg-stallPurple px-2 py-1 text-[10px] font-black uppercase text-white">{ad.source || ad.scope}</span>
       </div>
       <CreativeFrame ad={ad} slotNumber={slotNumber} compact={compact || chip} chip={chip} />
@@ -47,7 +48,7 @@ export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number
   return (
     <article className={articleClasses}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
+        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">{sponsorPlacementLabel(slotNumber)}</span>
         <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-stallPurple ring-2 ring-ink">Premium</span>
       </div>
       <div className={`grid ${chip ? "min-h-16" : "min-h-40"} place-items-center rounded-xl bg-white p-4 text-center font-black uppercase text-ink shadow-inner`}>

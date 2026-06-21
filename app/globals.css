@@ -661,7 +661,7 @@ body:has(.public-page) { background: #000; }
 .ad-placeholder-link strong { color: #17110f; font-size: 1.25rem; text-transform: uppercase; }
 @media (max-width: 760px) { .publication-content-block.panel { padding: 22px 18px; } .review-box { grid-template-columns: 1fr; } .review-photo { height: 210px; } .article-copy { line-height: 1.72; } }
 
-/* Canonical homepage/content ad slot sponsor banner sizing. */
+/* Canonical homepage/content sponsor placement sizing. */
 [data-ad-slot="content-ad"] {
   width: 320px !important;
   max-width: 100% !important;

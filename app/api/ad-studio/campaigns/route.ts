@@ -8,6 +8,7 @@ import {
   DEFAULT_PUBLIC_ISSUE_LABEL,
   isDefaultPublicIssue,
 } from "@/lib/default-public-issue";
+import { sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 function readableDatabaseError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -232,7 +233,7 @@ async function publishCampaign(body: Record<string, unknown>) {
   const slotNumber = int(body, "slotNumber");
   if (!issueId || slotNumber < 1 || slotNumber > 8)
     return NextResponse.json(
-      { error: "issueId and slotNumber 1-8 are required" },
+      { error: "issueId and sponsor placement 1-8 are required" },
       { status: 400 },
     );
   const defaultPublicTarget = isDefaultPublicIssue(issueId);
@@ -404,7 +405,7 @@ async function publishCampaign(body: Record<string, unknown>) {
   return NextResponse.json({
     ok: true,
     adId: ad.id,
-    message: "Campaign published successfully.",
+    message: `Campaign published successfully to ${sponsorPlacementLabel(slotNumber)}.`,
     campaign: historySelect(history),
   });
 }

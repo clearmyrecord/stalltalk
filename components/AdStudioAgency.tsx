@@ -16,6 +16,7 @@ import {
   DEFAULT_PUBLIC_ISSUE_ID,
   DEFAULT_PUBLIC_ISSUE_LABEL,
 } from "@/lib/default-public-issue";
+import { SPONSOR_PLACEMENTS, sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -452,7 +453,7 @@ function AdStudioPanel({
       setHasGenerated(true);
       setStep(5);
       setUploadMessage(
-        "Uploaded 1024x768 sponsor card is ready to publish to a content-ad slot.",
+        "Uploaded 1024x768 sponsor card is ready to publish to a content sponsor placement.",
       );
     } catch (error) {
       setUploadMessage(
@@ -894,7 +895,7 @@ function AdStudioPanel({
       return;
     }
     if (!slotNumber) {
-      setPublishError("Select a slot before publishing.");
+      setPublishError("Select a sponsor placement before publishing.");
       return;
     }
     if (!selectedCreative) return;
@@ -1006,7 +1007,7 @@ function AdStudioPanel({
             ]);
           setPublishMessage(
             result?.message ||
-              `Published campaign ${safe(form.businessName, "Your Business")} to ${form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`,
+              `Published campaign ${safe(form.businessName, "Your Business")} to ${form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} ${sponsorPlacementLabel(Number(slotNumber))}`,
           );
           setCreatives((items) =>
             items.map((item, index) => ({
@@ -1065,7 +1066,7 @@ function AdStudioPanel({
             AI ad generator from a creative brief: enter business info, offer,
             audience, and creative direction, then generate ad copy plus a
             graphic through the existing /api/generate-ad-image route before
-            publishing to a Stall Talk ad slot.
+            publishing to a Stall Talk sponsor placement.
           </p>
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
@@ -1090,9 +1091,9 @@ function AdStudioPanel({
             value={slotNumber}
             onChange={(event) => setSlotNumber(event.target.value)}
           >
-            {Array.from({ length: 8 }, (_, index) => (
-              <option key={index + 1} value={index + 1}>
-                Slot {index + 1}
+            {SPONSOR_PLACEMENTS.map((placement) => (
+              <option key={placement.number} value={placement.number}>
+                {placement.label}
               </option>
             ))}
           </select>
@@ -1770,7 +1771,7 @@ function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem
                 {item.publishedAt
                   ? new Date(item.publishedAt).toLocaleString()
                   : "Published"}{" "}
-                • Slot {item.slotPublished || item.selectedSlot || "—"} •{" "}
+                • {sponsorPlacementLabel(item.slotPublished || item.selectedSlot)} •{" "}
                 {item.publishStatus || "PUBLISHED"}
               </p>
               <h4 className="font-black uppercase">{item.businessName}</h4>
