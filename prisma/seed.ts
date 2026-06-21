@@ -1,14 +1,10 @@
-import { scryptSync, randomBytes } from "node:crypto";
 import { AdScope, ContentBlockType, PrismaClient } from "@prisma/client";
+import { hashPassword } from "../lib/passwords";
 
 const prisma = new PrismaClient();
 
 function slug(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""); }
 
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
-}
 
 const sponsorAds = [
   ["Hooters", "Wings After the Win", "Free fried pickles with any 10-wing order.", "VENUE", "STALLWINGS", 49900],
