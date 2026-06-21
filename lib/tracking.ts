@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { sponsorPlacementLabel, sponsorPlacementSection } from "@/lib/sponsor-placements";
 
 function parseUa(userAgent: string) {
   const mobile = /iPhone|Android|Mobile/i.test(userAgent);
@@ -48,16 +49,16 @@ export async function recordQrScan({ code, request, source }: { code: string; re
   return qr;
 }
 
-export async function recordAdImpression({ adId, slotNumber, qrCode, campaignId, venueId, request }: { adId?: string | null; slotNumber?: number | null; qrCode?: string | null; campaignId?: string | null; venueId?: string | null; request: Request }) {
+export async function recordAdImpression({ adId, slotNumber, qrCode, campaignId, venueId, issueId, request }: { adId?: string | null; slotNumber?: number | null; qrCode?: string | null; campaignId?: string | null; venueId?: string | null; issueId?: string | null; request: Request }) {
   if (!adId && !campaignId) return;
   const qr = qrCode ? await findQrRecord(qrCode).catch(() => null) : null;
   const userAgent = request.headers.get("user-agent") || "";
   const ids = requestIds(request);
-  const metadata = { qrCode, campaignId, userAgent, ipHash: ipHash(request) };
+  const metadata = { qrCode, campaignId, sponsorPlacement: sponsorPlacementLabel(slotNumber), section: sponsorPlacementSection(slotNumber), metric: "impression", userAgent, ipHash: ipHash(request) };
   await prisma.$transaction([
     ...(adId ? [prisma.ad.update({ where: { id: adId }, data: { viewCount: { increment: 1 }, lastViewedAt: new Date() } })] : []),
     ...(campaignId ? [prisma.stalltalkCampaignHistory.updateMany({ where: { OR: [{ id: campaignId }, { campaignId }] }, data: { viewCount: { increment: 1 }, lastViewedAt: new Date() } })] : []),
-    prisma.analyticsEvent.create({ data: { adId: adId || undefined, venueId: venueId || qr?.venueId, restroomId: qr?.restroomId, qrCodeId: qr?.id, type: "AD_IMPRESSION", slotNumber, visitorId: ids.visitorId, sessionId: ids.sessionId, path: new URL(request.url).pathname + new URL(request.url).search, metadata } }),
+    prisma.analyticsEvent.create({ data: { adId: adId || undefined, venueId: venueId || qr?.venueId, restroomId: qr?.restroomId, qrCodeId: qr?.id, issueId: issueId || undefined, type: "AD_IMPRESSION", slotNumber, visitorId: ids.visitorId, sessionId: ids.sessionId, path: new URL(request.url).pathname + new URL(request.url).search, metadata } }),
   ]);
 }
 
@@ -66,7 +67,7 @@ export async function recordAdClick({ adId, slotNumber, qrCode, targetUrl, reque
   const qr = qrCode ? await findQrRecord(qrCode).catch(() => null) : null;
   const userAgent = request.headers.get("user-agent") || "";
   const ids = requestIds(request);
-  const metadata = { qrCode, targetUrl, userAgent, ipHash: ipHash(request) };
+  const metadata = { qrCode, targetUrl, sponsorPlacement: sponsorPlacementLabel(slotNumber), section: sponsorPlacementSection(slotNumber), metric: "click", userAgent, ipHash: ipHash(request) };
   if (ad) {
     await prisma.$transaction([
       prisma.ad.update({ where: { id: adId }, data: { clickCount: { increment: 1 }, lastClickedAt: new Date() } }),

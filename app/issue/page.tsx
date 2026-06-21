@@ -215,7 +215,7 @@ async function StaticIssuePage({ qrCode, request }: { qrCode?: string; request: 
   const ads = getPublicationAds(
     dbAds.length ? dbAds : publishedAds.filter((ad) => ad.active !== false),
   );
-  await Promise.all(ads.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, request }).catch((error) => console.error("Ad impression analytics failed", error))));
+  await Promise.all(ads.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, issueId: DEFAULT_PUBLIC_ISSUE_ID, request }).catch((error) => console.error("Ad impression analytics failed", error))));
 
   return (
     <main className="public-page">
@@ -253,7 +253,7 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
         : undefined,
     ),
   );
-  await Promise.all(publicationAds.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, venueId: issue.venueId, request }).catch((error) => console.error("Ad impression analytics failed", error))));
+  await Promise.all(publicationAds.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, venueId: issue.venueId, issueId: issue.id, request }).catch((error) => console.error("Ad impression analytics failed", error))));
   const articleBlocks = issue.contentBlocks.filter(
     (block) =>
       block.type === "ARTICLE" &&

@@ -8,6 +8,7 @@ import { requireAdmin, requireRole } from "./auth";
 import { slugify } from "./format";
 import { calculateFlightTotal, flightDateRange, flightEndMonth, normalizeFlightMonth, PRICE_PER_PLACEMENT_MONTH_CENTS, safeFlightMonths } from "./campaign-flights";
 import { qrIssueUrl } from "./qr";
+import { sponsorPlacementLabel } from "./sponsor-placements";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -77,12 +78,12 @@ export async function createAd(formData: FormData) {
   const issueId = nullableText(formData, "issueId");
   const slotNumber = intValue(formData, "slotNumber");
   if (!issueId) throw new Error("Select an issue before publishing this generated ad.");
-  if (slotNumber < 1 || slotNumber > 8) throw new Error("Select a valid ad slot before publishing this generated ad.");
+  if (slotNumber < 1 || slotNumber > 8) throw new Error("Select a valid sponsor placement before publishing this generated ad.");
   const ad = await prisma.ad.create({ data: adData(formData) });
   const publication = await publishAdToSlot(ad.id, formData);
   revalidatePath("/admin/ads");
   revalidatePath("/admin/issue-builder");
-  return { ok: true, adId: ad.id, message: `Published campaign ${text(formData, "businessName", ad.businessName)} to Issue ${publication.issueTitle} Slot ${publication.slotNumber}` };
+  return { ok: true, adId: ad.id, message: `Published campaign ${text(formData, "businessName", ad.businessName)} to Issue ${publication.issueTitle} ${sponsorPlacementLabel(publication.slotNumber)}` };
 }
 
 export async function updateAd(id: string, formData: FormData) {
@@ -129,8 +130,8 @@ function adData(formData: FormData) {
 async function publishAdToSlot(adId: string, formData: FormData) {
   const issueId = nullableText(formData, "issueId");
   const slotNumber = intValue(formData, "slotNumber");
-  if (!issueId) throw new Error("Issue ID is required before publishing an ad to a public issue slot.");
-  if (slotNumber < 1 || slotNumber > 8) throw new Error("Slot number is required and must be between 1 and 8.");
+  if (!issueId) throw new Error("Issue ID is required before publishing an ad to a sponsor placement.");
+  if (slotNumber < 1 || slotNumber > 8) throw new Error("Sponsor placement is required and must be between 1 and 8.");
 
   const issue = await prisma.issue.findUnique({ where: { id: issueId }, select: { id: true, title: true, venue: { select: { slug: true } } } });
   if (!issue) throw new Error("Selected issue was not found.");
@@ -198,7 +199,7 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
     subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
     ctaText: text(formData, "ctaText", "Claim Offer"),
     couponCode: nullableText(formData, "couponCode"),
-    adSize: text(formData, "adSize", "3:1 Sponsor Banner"),
+    adSize: text(formData, "adSize", "4:3 Sponsor Card"),
     logoBase64: nullableText(formData, "logoBase64"),
     logoUrl: nullableText(formData, "logoUrl"),
     targetUrl: text(formData, "targetUrl", "#"),
@@ -759,14 +760,14 @@ export async function submitFinishedAdvertiserAd(formData: FormData) {
       name: `${businessName} finished ad upload`,
       businessName,
       headline: `${businessName} finished ad`,
-      body: `Uploaded finished 3:1 ad image: ${imageName}`,
+      body: `Uploaded finished 4:3 sponsor panel image: ${imageName}`,
       creativeUrl: imageName,
       targetUrl,
       ctaText: "Learn More",
       status: "SUBMITTED",
       approvalStatus: "SUBMITTED",
       submittedAt: new Date(),
-      creatives: { create: [{ advertiserId, kind: "BANNER" as any, imageUrl: imageName, headline: `${businessName} finished ad`, body: "Finished 3:1 ad submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
+      creatives: { create: [{ advertiserId, kind: "BANNER" as any, imageUrl: imageName, headline: `${businessName} finished ad`, body: "Finished 4:3 sponsor panel submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
     }
   });
   revalidatePath("/portal/advertiser");

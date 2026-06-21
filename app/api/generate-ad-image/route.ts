@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { AD_FORMAT_LABEL, AD_IMAGE_GENERATION_SIZE } from "@/lib/ad-config";
 
-type AdSize = "3:1 Sponsor Banner";
+type AdSize = "4:3 Sponsor Card";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -23,12 +23,12 @@ const ALLOWED_ORIGINS = ["https://stalltalk.vercel.app", "https://clearmyrecord.
 
 const SPONSOR_CARD_SIZE = {
   apiSize: AD_IMAGE_GENERATION_SIZE,
-  composition: "wide 3:1 Potty Favor sponsor banner with one clear visual hierarchy, premium branded composition, and protected readable text areas",
+  composition: "premium 4:3 Potty Favor sponsor card with one clear visual hierarchy, magazine-style composition, generous padding, and protected readable text areas",
   cssSafeArea: AD_FORMAT_LABEL
 };
 
 const sizeMap: Record<AdSize, typeof SPONSOR_CARD_SIZE> = {
-  "3:1 Sponsor Banner": SPONSOR_CARD_SIZE
+  "4:3 Sponsor Card": SPONSOR_CARD_SIZE
 };
 
 function safe(value: unknown, fallback: string) {
@@ -41,7 +41,7 @@ function limitText(value: string, max: number) {
 }
 
 function normalizeSize(_value: unknown): AdSize {
-  return "3:1 Sponsor Banner";
+  return "4:3 Sponsor Card";
 }
 
 function currentModel(body: Record<string, unknown> = {}) {
@@ -121,7 +121,7 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
   return {
     ...copy,
     promptUsed: safe(body.prompt, [
-      "Create a premium horizontal 3:1 advertising background for Potty Favor.",
+      "Create a premium sponsor card advertisement background for Potty Favor, not a thin banner. Design for a 4:3 magazine-style ad card.",
       "No words.",
       "No letters.",
       "No numbers.",
@@ -129,13 +129,13 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
       "No coupon.",
       "No CTA button.",
       "No readable text.",
-      "Leave clean open space for text overlays.",
+      "Leave clean open space for text overlays. All important text, offer, logo, coupon, and CTA must fit inside the full card.",
       "Use premium commercial lighting, relevant background imagery, and strong contrast.",
-      "The final banner will be 1536x512.",
+      "The final visible ad will be 1024x768.",
       "Generate background/art only. The app will add all business name, headline, subheadline, coupon, CTA, and logo overlays later.",
       `Creative brief for background only: ${creativeBrief}. Business category: ${category}. Audience: ${copy.audience}.`,
       `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors for atmosphere only: ${brandColors}. Venue/city atmosphere: ${venueVibe}.`,
-      `Canvas requested from OpenAI: ${size.apiSize}. Keep the complete useful background inside a 3:1 horizontal 1536x512 composition.`,
+      `Canvas requested from OpenAI: ${size.apiSize}. Keep the complete useful background inside a 4:3 1024x768 sponsor card composition. Use generous padding and no content near edges.`,
       logoInstruction,
       "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, fake UI chrome, design-process annotations, and any text-like markings. Return clean commercial background artwork only."
     ].filter(Boolean).join(" "))

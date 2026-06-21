@@ -16,6 +16,7 @@ import {
   DEFAULT_PUBLIC_ISSUE_ID,
   DEFAULT_PUBLIC_ISSUE_LABEL,
 } from "@/lib/default-public-issue";
+import { SPONSOR_PLACEMENTS, sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -48,7 +49,7 @@ type SavedCampaign = {
   subheadline: string;
   ctaText: string;
   couponCode: string;
-  adSize: "3:1 Sponsor Banner";
+  adSize: "4:3 Sponsor Card";
   imageUrl: string;
   promptUsed: string;
   createdAt: string;
@@ -79,9 +80,9 @@ type Props = {
   serverWarning?: string;
 };
 
-type AdSize = "3:1 Sponsor Banner";
+type AdSize = "4:3 Sponsor Card";
 type GeneratedCreative = {
-  adSize: "3:1 Sponsor Banner";
+  adSize: "4:3 Sponsor Card";
   imageUrl: string;
   promptUsed: string;
   headline: string;
@@ -142,7 +143,7 @@ const visualStyles = [
   "Concert",
   "Modern Minimal",
 ];
-const SPONSOR_BANNER: AdSize = "3:1 Sponsor Banner";
+const SPONSOR_BANNER: AdSize = "4:3 Sponsor Card";
 const ENV_WARNING_MESSAGE =
   "Publishing is not fully configured. Add Cloudinary environment variables in Vercel.";
 
@@ -154,7 +155,7 @@ const isPublishingConfigured = Boolean(
 const sizes: Record<AdSize, { label: string; className: string }> = {
   [SPONSOR_BANNER]: {
     label: SPONSOR_BANNER,
-    className: "aspect-[3/1] max-w-[600px]",
+    className: "aspect-[4/3] max-w-[720px]",
   },
 };
 
@@ -422,29 +423,18 @@ function AdStudioPanel({
 
   async function uploadFinishedAd(file: File | undefined) {
     if (!file) return;
-    setUploadMessage("Uploading finished 3:1 sponsor banner to Cloudinary...");
+    setUploadMessage("Composing finished 4:3 sponsor card and uploading to Cloudinary...");
+    let objectUrl = "";
     try {
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-      if (!cloudName || !uploadPreset)
-        throw new Error("Cloudinary upload is not configured.");
-      const data = new FormData();
-      data.set("file", file);
-      data.set("upload_preset", uploadPreset);
-      data.set("folder", "stalltalk/ads");
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: "POST", body: data },
-      );
-      const result = await response.json();
-      if (!response.ok || !result.secure_url)
-        throw new Error(result.error?.message || "Cloudinary upload failed.");
+      objectUrl = URL.createObjectURL(file);
+      const composedImageUrl = await composeSponsorBannerImage(objectUrl);
+      const cloudinaryUrl = await uploadImageUrlToCloudinary(composedImageUrl);
       const campaignId = crypto.randomUUID();
       const uploaded: GeneratedCreative = {
         adSize: SPONSOR_BANNER,
-        imageUrl: String(result.secure_url),
+        imageUrl: cloudinaryUrl,
         promptUsed:
-          "Uploaded finished 3:1 sponsor banner graphic stored in Cloudinary.",
+          "Uploaded finished 4:3 sponsor card graphic normalized to 1024x768 and stored in Cloudinary.",
         headline: limitText(
           safe(form.offer || form.businessName, "Uploaded Sponsor Ad"),
           34,
@@ -463,12 +453,14 @@ function AdStudioPanel({
       setHasGenerated(true);
       setStep(5);
       setUploadMessage(
-        "Uploaded graphic is ready to publish to a content-ad slot.",
+        "Uploaded 1024x768 sponsor card is ready to publish to a content sponsor placement.",
       );
     } catch (error) {
       setUploadMessage(
         error instanceof Error ? error.message : "Upload failed.",
       );
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     }
   }
 
@@ -510,17 +502,17 @@ function AdStudioPanel({
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = "rgba(255,212,0,.18)";
     context.beginPath();
-    context.arc(1250, 120, 280, 0, Math.PI * 2);
+    context.arc(canvas.width - 160, 140, 220, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = "rgba(255,255,255,.10)";
     context.beginPath();
-    context.arc(260, 450, 220, 0, Math.PI * 2);
+    context.arc(210, canvas.height - 150, 190, 0, Math.PI * 2);
     context.fill();
 
     if (imageUrl) {
       try {
         const baseImage = await loadCanvasImage(imageUrl);
-        const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
+        const scale = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
         const width = baseImage.width * scale;
         const height = baseImage.height * scale;
         context.drawImage(baseImage, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
@@ -529,14 +521,14 @@ function AdStudioPanel({
       }
     }
 
-    const shade = context.createLinearGradient(0, 0, canvas.width, 0);
-    shade.addColorStop(0, "rgba(5,0,24,.82)");
-    shade.addColorStop(0.48, "rgba(5,0,24,.56)");
-    shade.addColorStop(1, "rgba(5,0,24,.28)");
+    const shade = context.createLinearGradient(0, 0, 0, canvas.height);
+    shade.addColorStop(0, "rgba(5,0,24,.78)");
+    shade.addColorStop(0.58, "rgba(5,0,24,.48)");
+    shade.addColorStop(1, "rgba(5,0,24,.64)");
     context.fillStyle = shade;
     context.fillRect(0, 0, canvas.width, canvas.height);
 
-    const padding = 64;
+    const padding = 72;
     const business = safe(form.businessName, "Your Business");
     const headline = safe(form.offer, "Limited-Time Offer");
     const subheadline = `For ${activeAudience}`;
@@ -568,22 +560,22 @@ function AdStudioPanel({
     context.font = `900 ${businessFit.size}px Arial Black, Arial, sans-serif`;
     businessFit.lines.forEach((line, index) => context.fillText(line, logoRight, padding + index * businessFit.lineHeight));
 
-    const headlineMaxWidth = 860;
-    const headlineFit = fitCanvasText(context, headline, headlineMaxWidth, 2, 82, 42, 900);
-    const headlineY = 178 - (headlineFit.lines.length - 1) * 26;
+    const headlineMaxWidth = canvas.width - padding * 2;
+    const headlineFit = fitCanvasText(context, headline, headlineMaxWidth, 3, 78, 38, 900);
+    const headlineY = 250 - (headlineFit.lines.length - 1) * 18;
     context.shadowColor = "rgba(0,0,0,.42)";
     context.shadowBlur = 14;
     context.font = `900 ${headlineFit.size}px Arial Black, Arial, sans-serif`;
     headlineFit.lines.forEach((line, index) => context.fillText(line, padding, headlineY + index * headlineFit.lineHeight));
     context.shadowBlur = 0;
 
-    const subFit = fitCanvasText(context, subheadline, 760, 1, 34, 22, 800, "Arial, sans-serif");
+    const subFit = fitCanvasText(context, subheadline, canvas.width - padding * 2, 2, 34, 22, 800, "Arial, sans-serif");
     context.font = `800 ${subFit.size}px Arial, sans-serif`;
     context.fillStyle = "#fff7b8";
     context.fillText(subFit.lines[0] || "", padding, headlineY + headlineFit.lines.length * headlineFit.lineHeight + 18);
 
-    const ctaWidth = 300;
-    const ctaHeight = 78;
+    const ctaWidth = 280;
+    const ctaHeight = 76;
     const ctaX = canvas.width - padding - ctaWidth;
     const ctaY = canvas.height - padding - ctaHeight;
     drawRoundRect(context, ctaX, ctaY, ctaWidth, ctaHeight, 28);
@@ -596,9 +588,9 @@ function AdStudioPanel({
     context.fillText(ctaLine, ctaX + (ctaWidth - context.measureText(ctaLine).width) / 2, ctaY + (ctaHeight - ctaFit.size) / 2 - 2);
 
     if (coupon) {
-      const badgeWidth = 340;
+      const badgeWidth = 300;
       const badgeHeight = 64;
-      const badgeX = ctaX - badgeWidth - 28;
+      const badgeX = Math.max(padding, ctaX - badgeWidth - 24);
       const badgeY = canvas.height - padding - badgeHeight;
       drawRoundRect(context, badgeX, badgeY, badgeWidth, badgeHeight, 22);
       context.fillStyle = "rgba(255,255,255,.94)";
@@ -613,7 +605,7 @@ function AdStudioPanel({
     return canvas.toDataURL("image/png");
   }
 
-  async function isThreeToOneImage(imageUrl: string) {
+  async function isFinalSponsorCardImage(imageUrl: string) {
     if (!imageUrl || typeof window === "undefined") return false;
     const image = await loadCanvasImage(imageUrl);
     return image.width === AD_FINAL_WIDTH && image.height === AD_FINAL_HEIGHT;
@@ -636,7 +628,12 @@ function AdStudioPanel({
     canvas.height = AD_FINAL_HEIGHT;
     const context = canvas.getContext("2d");
     if (!context) return imageUrl;
-    context.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#050018";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const baseScale = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
+    const baseWidth = baseImage.width * baseScale;
+    const baseHeight = baseImage.height * baseScale;
+    context.drawImage(baseImage, (canvas.width - baseWidth) / 2, (canvas.height - baseHeight) / 2, baseWidth, baseHeight);
     const logoMaxWidth = canvas.width * 0.34;
     const logoMaxHeight = canvas.height * 0.16;
     const logoScale = Math.min(
@@ -898,7 +895,7 @@ function AdStudioPanel({
       return;
     }
     if (!slotNumber) {
-      setPublishError("Select a slot before publishing.");
+      setPublishError("Select a sponsor placement before publishing.");
       return;
     }
     if (!selectedCreative) return;
@@ -907,12 +904,12 @@ function AdStudioPanel({
       return;
     }
     try {
-      if (!(await isThreeToOneImage(selectedCreative.imageUrl))) {
-        setPublishError("Final ad must be a 3:1 sponsor banner before publishing.");
+      if (!(await isFinalSponsorCardImage(selectedCreative.imageUrl))) {
+        setPublishError("Final ad must be a 1024x768 4:3 sponsor card before publishing.");
         return;
       }
     } catch {
-      setPublishError("Final ad must be a 3:1 sponsor banner before publishing.");
+      setPublishError("Final ad must be a 1024x768 4:3 sponsor card before publishing.");
       return;
     }
     const formData = new FormData();
@@ -1010,7 +1007,7 @@ function AdStudioPanel({
             ]);
           setPublishMessage(
             result?.message ||
-              `Published campaign ${safe(form.businessName, "Your Business")} to ${form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`,
+              `Published campaign ${safe(form.businessName, "Your Business")} to ${form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} ${sponsorPlacementLabel(Number(slotNumber))}`,
           );
           setCreatives((items) =>
             items.map((item, index) => ({
@@ -1069,7 +1066,7 @@ function AdStudioPanel({
             AI ad generator from a creative brief: enter business info, offer,
             audience, and creative direction, then generate ad copy plus a
             graphic through the existing /api/generate-ad-image route before
-            publishing to a Stall Talk ad slot.
+            publishing to a Stall Talk sponsor placement.
           </p>
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
@@ -1094,9 +1091,9 @@ function AdStudioPanel({
             value={slotNumber}
             onChange={(event) => setSlotNumber(event.target.value)}
           >
-            {Array.from({ length: 8 }, (_, index) => (
-              <option key={index + 1} value={index + 1}>
-                Slot {index + 1}
+            {SPONSOR_PLACEMENTS.map((placement) => (
+              <option key={placement.number} value={placement.number}>
+                {placement.label}
               </option>
             ))}
           </select>
@@ -1231,9 +1228,9 @@ function AdStudioPanel({
             />
           </div>
           <label className="lg:col-span-2 rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase">
-            Upload finished 3:1 ad graphic
+            Upload finished 4:3 sponsor card graphic
             <span className="mt-2 block text-sm normal-case text-ink/70">
-              Upload finished 3:1 ad graphic. Recommended: 1200x400 or 600x200.
+              Upload finished 4:3 sponsor card graphic. Recommended: 1024x768 PNG.
               Stores the file in Cloudinary and uses it exactly like an
               AI-generated creative.
             </span>
@@ -1284,7 +1281,7 @@ function AdStudioPanel({
               <PreviewCard creative={selectedCreative} />
             ) : (
               <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">
-                Generate one locked 3:1 sponsor banner image.
+                Generate one locked 4:3 sponsor card image.
               </p>
             )}
             {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
@@ -1625,11 +1622,11 @@ function PreviewCard({ creative }: { creative: GeneratedCreative }) {
   return (
     <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal">
       <p className="mb-2 text-xs font-black uppercase tracking-widest text-stallPurple">
-        Preview: 600×180 desktop / 320×100 mobile · {AD_FORMAT_LABEL}
+        Preview: max 720px desktop / 100% mobile · 1024×768 PNG · {AD_FORMAT_LABEL}
       </p>
       <div
         className={`${sizes[creative.adSize].className} w-full overflow-hidden rounded-2xl border-4 border-ink bg-[#050018]`}
-        style={{ width: "min(100%, 600px)", height: "auto" }}
+        style={{ width: "min(100%, 720px)", height: "auto" }}
       >
         {creative.imageUrl ? (
           <img
@@ -1774,7 +1771,7 @@ function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem
                 {item.publishedAt
                   ? new Date(item.publishedAt).toLocaleString()
                   : "Published"}{" "}
-                • Slot {item.slotPublished || item.selectedSlot || "—"} •{" "}
+                • {sponsorPlacementLabel(item.slotPublished || item.selectedSlot)} •{" "}
                 {item.publishStatus || "PUBLISHED"}
               </p>
               <h4 className="font-black uppercase">{item.businessName}</h4>
@@ -1793,7 +1790,7 @@ function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem
                   <img
                     src={item.imageUrl}
                     alt={`${item.businessName} published ad thumbnail`}
-                    className="h-10 w-28 rounded border border-ink bg-[#050018] object-contain"
+                    className="aspect-[4/3] h-16 rounded border border-ink bg-[#050018] object-contain"
                   />
                 ) : null}
               </div>

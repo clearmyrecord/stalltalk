@@ -1,9 +1,9 @@
-export const AD_ASPECT_RATIO = 3 / 1;
-export const AD_DESKTOP_WIDTH = 900;
-export const AD_DESKTOP_HEIGHT = 300;
-export const AD_FINAL_WIDTH = 1536;
-export const AD_FINAL_HEIGHT = 512;
+export const AD_ASPECT_RATIO = 4 / 3;
+export const AD_DESKTOP_WIDTH = 720;
+export const AD_DESKTOP_HEIGHT = 540;
+export const AD_FINAL_WIDTH = 1024;
+export const AD_FINAL_HEIGHT = 768;
 export const AD_MOBILE_WIDTH = 320;
-export const AD_MOBILE_HEIGHT = 100;
-export const AD_IMAGE_GENERATION_SIZE = "1536x1024";
-export const AD_FORMAT_LABEL = "3:1 sponsor banner";
+export const AD_MOBILE_HEIGHT = 240;
+export const AD_IMAGE_GENERATION_SIZE = "1024x1024";
+export const AD_FORMAT_LABEL = "4:3 sponsor card";

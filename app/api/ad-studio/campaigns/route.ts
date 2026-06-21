@@ -8,6 +8,7 @@ import {
   DEFAULT_PUBLIC_ISSUE_LABEL,
   isDefaultPublicIssue,
 } from "@/lib/default-public-issue";
+import { sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 function readableDatabaseError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -65,7 +66,7 @@ function historySelect(item: any) {
     subheadline: item.subheadline || "",
     ctaText: item.ctaText || "Claim Offer",
     couponCode: item.couponCode || "",
-    adSize: "3:1 Sponsor Banner",
+    adSize: "4:3 Sponsor Card",
     imageUrl: item.image || "",
     promptUsed: item.prompt || "",
     createdAt: item.createdAt.toISOString(),
@@ -232,7 +233,7 @@ async function publishCampaign(body: Record<string, unknown>) {
   const slotNumber = int(body, "slotNumber");
   if (!issueId || slotNumber < 1 || slotNumber > 8)
     return NextResponse.json(
-      { error: "issueId and slotNumber 1-8 are required" },
+      { error: "issueId and sponsor placement 1-8 are required" },
       { status: 400 },
     );
   const defaultPublicTarget = isDefaultPublicIssue(issueId);
@@ -288,7 +289,7 @@ async function publishCampaign(body: Record<string, unknown>) {
       promptUsed: nullable(body, "promptUsed"),
       generatedHeadline: nullable(body, "generatedHeadline"),
       generatedSubheadline: nullable(body, "generatedSubheadline"),
-      adSize: "3:1 sponsor banner",
+      adSize: "4:3 sponsor card",
       ctaText: str(body, "ctaText", "Claim Offer"),
       targetUrl: str(body, "targetUrl", "#"),
       phone: nullable(body, "phone"),
@@ -404,7 +405,7 @@ async function publishCampaign(body: Record<string, unknown>) {
   return NextResponse.json({
     ok: true,
     adId: ad.id,
-    message: "Campaign published successfully.",
+    message: `Campaign published successfully to ${sponsorPlacementLabel(slotNumber)}.`,
     campaign: historySelect(history),
   });
 }
@@ -491,7 +492,7 @@ function historyData(body: Record<string, unknown>, parentCampaignId: string) {
       nullable(body, "offer"),
     ctaText: nullable(body, "ctaText") || nullable(body, "cta"),
     couponCode: nullable(body, "couponCode"),
-    adSize: "3:1 Sponsor Banner",
+    adSize: "4:3 Sponsor Card",
     logoBase64: nullable(body, "logoBase64"),
     logoUrl: nullable(body, "logoUrl"),
     targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"),

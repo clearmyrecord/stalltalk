@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChrome";
 import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
 import { IssueNotFound } from "@/components/IssueNotFound";
+import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
 export const dynamic = "force-dynamic";
 type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } } } }>;
@@ -69,8 +70,8 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
         <PublicationHeader monthYear={monthYear} venueLine={venueLine} />
         <IssueContent issue={renderIssue} ads={ads} venueDrafts={approvedVenueDrafts} restaurantReviews={sortedReviews} />
       </article>
-      <nav className="mobile-sponsor-nav" aria-label="Sponsor slots">
-        <div>{Array.from({ length: 8 }, (_, index) => <a key={index} href={`#ad-${index + 1}`}>{index + 1}</a>)}</div>
+      <nav className="mobile-sponsor-nav" aria-label="Sponsor placements">
+        <div>{SPONSOR_PLACEMENTS.map((placement) => <a key={placement.number} href={`#ad-${placement.number}`} aria-label={placement.label}>{placement.number}</a>)}</div>
       </nav>
     </main>
   );
@@ -85,7 +86,7 @@ function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds;
     <section className="print-grid">
       <MissionCard missionText="Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall." />
       <PublicationAdFallback ad={publicationAds[0]} slotNumber={1} primary />
-      <StaticPublicationBlocks ads={publicationAds} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} />
+      <StaticPublicationBlocks ads={publicationAds} qrCode={issue.qrCode?.qrSlug} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} />
     </section>
   );
 }

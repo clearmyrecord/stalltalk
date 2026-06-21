@@ -39,7 +39,7 @@ export default async function IssuesPage() {
                 </p>
 
                 <p className="font-black">
-                  {issue.contentBlocks.length} blocks • {issue.adSlots.length}/8 manual ad slots
+                  {issue.contentBlocks.length} blocks • {issue.adSlots.length}/8 manual sponsor placements
                 </p>
               </div>
 

@@ -1,5 +1,6 @@
 import type { Ad } from "@prisma/client";
 import { recordAnalytics } from "@/lib/actions";
+import { sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 type Props = {
   ad: Ad & { slotNumber?: number; source?: string };
@@ -21,7 +22,7 @@ export function AdCard({ ad, slotNumber, issueId, publisherId, venueId, restroom
   return (
     <article className={articleClasses}>
       <div className="mb-2 flex items-center justify-between gap-2 md:col-span-2">
-        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
+        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">{sponsorPlacementLabel(slotNumber)}</span>
         <span className="rounded-full bg-stallPurple px-2 py-1 text-[10px] font-black uppercase text-white">{ad.source || ad.scope}</span>
       </div>
       <CreativeFrame ad={ad} slotNumber={slotNumber} compact={compact || chip} chip={chip} />
@@ -47,7 +48,7 @@ export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number
   return (
     <article className={articleClasses}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">Ad {slotNumber}</span>
+        <span className="rounded-full bg-ink px-2 py-1 text-[10px] font-black uppercase tracking-widest text-stallYellow">{sponsorPlacementLabel(slotNumber)}</span>
         <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-stallPurple ring-2 ring-ink">Premium</span>
       </div>
       <div className={`grid ${chip ? "min-h-16" : "min-h-40"} place-items-center rounded-xl bg-white p-4 text-center font-black uppercase text-ink shadow-inner`}>
@@ -61,11 +62,11 @@ export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number
 }
 
 function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: number; compact: boolean; chip: boolean }) {
-  const frame = "ad-creative-frame relative aspect-[3/1] overflow-hidden rounded-xl border-2 border-ink bg-ink shadow-inner";
+  const frame = "ad-creative-frame relative aspect-[4/3] overflow-hidden rounded-xl border-2 border-ink bg-ink shadow-inner";
   const linkedArtwork = ad.targetUrl && ad.targetUrl !== "#";
 
   if (ad.creativeType === "VIDEO" && ad.videoUrl) {
-    return <div className={frame}><video className="h-full w-full object-cover" src={ad.videoUrl} autoPlay muted loop playsInline /></div>;
+    return <div className={frame}><video className="h-full w-full object-contain" src={ad.videoUrl} autoPlay muted loop playsInline /></div>;
   }
 
   if (ad.creativeType === "HTML" && ad.htmlCreative) {
@@ -73,10 +74,10 @@ function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: 
   }
 
   if (ad.artworkUrl) {
-    return linkedArtwork ? <a className={frame} href={ad.targetUrl} target="_blank" rel="noopener noreferrer"><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></a> : <div className={frame}><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
+    return linkedArtwork ? <a className={frame} href={ad.targetUrl} target="_blank" rel="noopener noreferrer"><img className="h-full w-full object-contain" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></a> : <div className={frame}><img className="h-full w-full object-contain" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
   }
 
-  return <a className="grid aspect-[3/1] place-items-center rounded-xl bg-white p-3 text-center font-black text-ink no-underline" href={ad.targetUrl || "https://pottyfavor.com/advertise"}><span className="text-[10px] uppercase tracking-widest text-stallPurple">Sponsored</span><strong className="uppercase">YOUR BUSINESS HERE</strong><span className="text-xs">Reach thousands of monthly readers from inside Las Vegas venues.</span></a>;
+  return <a className="grid aspect-[4/3] place-items-center rounded-xl bg-white p-3 text-center font-black text-ink no-underline" href={ad.targetUrl || "https://pottyfavor.com/advertise"}><span className="text-[10px] uppercase tracking-widest text-stallPurple">Sponsored</span><strong className="uppercase">YOUR BUSINESS HERE</strong><span className="text-xs">Reach thousands of monthly readers from inside Las Vegas venues.</span></a>;
 }
 
 function TrackingButton({ label, type, ad, issueId, publisherId, venueId, restroomId, qrCodeId, slotNumber, dark = false }: { label: string; type: string; ad: Ad; issueId: string; publisherId?: string | null; venueId?: string | null; restroomId?: string | null; qrCodeId?: string | null; slotNumber: number; dark?: boolean }) {
