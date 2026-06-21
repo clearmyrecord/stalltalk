@@ -1173,3 +1173,31 @@ body:has(.public-page) { background: #000; }
   .word-card.panel { padding: 34px 22px !important; border-radius: 22px !important; }
   .word-card .word-definition { font-size: 18px; }
 }
+
+/* Final canonical native 3:1 sponsor banner rendering. */
+[data-ad-slot="content-ad"],
+.ad-card[data-ad-slot="content-ad"],
+.inline-ad[data-ad-slot="content-ad"] {
+  width: min(100%, 900px) !important;
+  max-width: 900px !important;
+  height: auto !important;
+  aspect-ratio: 3 / 1 !important;
+  background: #050018 !important;
+}
+[data-ad-slot="content-ad"] img,
+[data-ad-slot="content-ad"] .generated-ad-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background: #050018 !important;
+}
+@media (max-width: 640px) {
+  [data-ad-slot="content-ad"],
+  .ad-card[data-ad-slot="content-ad"],
+  .inline-ad[data-ad-slot="content-ad"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
