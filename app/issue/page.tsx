@@ -16,6 +16,8 @@ import {
   type PublicationAdLike,
 } from "@/components/StaticPublicationBlocks";
 import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
+import { headers } from "next/headers";
+import { recordAdImpression, recordQrScan } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +41,15 @@ export default async function IssueQueryPage({
   searchParams: Promise<IssueSearchParams>;
 }) {
   const { venue, qr, previewIssueId } = await searchParams;
+  const request = await requestFromHeaders(`/issue${qr ? `?qr=${encodeURIComponent(qr)}` : ""}`);
+
+  if (qr) {
+    try {
+      await recordQrScan({ code: qr, request, source: "issue-query" });
+    } catch (error) {
+      console.error("Issue query QR scan analytics failed", error);
+    }
+  }
 
   try {
     if (previewIssueId) {
@@ -107,7 +118,7 @@ export default async function IssueQueryPage({
       },
     );
     if (hasDefaultPublicAds) {
-      return <StaticIssuePage />;
+      return <StaticIssuePage qrCode={qr} request={request} />;
     }
 
     const latestPublishedIssue = await prisma.issue.findFirst({
@@ -139,7 +150,7 @@ export default async function IssueQueryPage({
     }
 
     if (latestPublishedIssue) {
-      return <DatabaseIssuePage issue={latestPublishedIssue as IssueWithAds} />;
+      return <DatabaseIssuePage issue={latestPublishedIssue as IssueWithAds} qrCode={qr} request={request} />;
     }
   } catch (error) {
     console.error(
@@ -148,10 +159,17 @@ export default async function IssueQueryPage({
     );
   }
 
-  return <StaticIssuePage />;
+  return <StaticIssuePage qrCode={qr} request={request} />;
 }
 
-async function StaticIssuePage() {
+async function requestFromHeaders(path: string) {
+  const h = await headers();
+  const proto = h.get("x-forwarded-proto") || "https";
+  const host = h.get("x-forwarded-host") || h.get("host") || "localhost:3000";
+  return new Request(`${proto}://${host}${path}`, { headers: h });
+}
+
+async function StaticIssuePage({ qrCode, request }: { qrCode?: string; request: Request }) {
   const defaultCampaigns = await prisma.stalltalkCampaignHistory
     .findMany({
       where: {
@@ -174,6 +192,7 @@ async function StaticIssuePage() {
       if (!campaign.slotPublished || !campaign.ad) return items;
       items[campaign.slotPublished - 1] = {
         id: campaign.ad.id,
+        campaignId: campaign.campaignId,
         businessName: campaign.ad.businessName || campaign.business,
         title: campaign.ad.title || campaign.headline || undefined,
         offer: campaign.ad.offer || campaign.subheadline || undefined,
@@ -196,6 +215,7 @@ async function StaticIssuePage() {
   const ads = getPublicationAds(
     dbAds.length ? dbAds : publishedAds.filter((ad) => ad.active !== false),
   );
+  await Promise.all(ads.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, request }).catch((error) => console.error("Ad impression analytics failed", error))));
 
   return (
     <main className="public-page">
@@ -207,8 +227,8 @@ async function StaticIssuePage() {
         <PublicationHeader monthYear={publishedIssue.issueMonthYear} />
         <section className="print-grid">
           <MissionCard missionText={publishedIssue.missionText} />
-          <PublicationAdFallback ad={ads[0]} slotNumber={1} primary />
-          <StaticPublicationBlocks ads={ads} />
+          <PublicationAdFallback ad={ads[0]} slotNumber={1} qrCode={qrCode} primary />
+          <StaticPublicationBlocks ads={ads} qrCode={qrCode} />
         </section>
         <PublicationFooter />
       </article>
@@ -216,7 +236,7 @@ async function StaticIssuePage() {
   );
 }
 
-async function DatabaseIssuePage({ issue }: { issue: IssueWithAds }) {
+async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithAds; qrCode?: string; request: Request }) {
   const ads = await getServedAds(issue);
   const publicationAds = getPublicationAds(
     ads.map((ad) =>
@@ -233,6 +253,7 @@ async function DatabaseIssuePage({ issue }: { issue: IssueWithAds }) {
         : undefined,
     ),
   );
+  await Promise.all(publicationAds.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, venueId: issue.venueId, request }).catch((error) => console.error("Ad impression analytics failed", error))));
   const articleBlocks = issue.contentBlocks.filter(
     (block) =>
       block.type === "ARTICLE" &&
@@ -249,10 +270,12 @@ async function DatabaseIssuePage({ issue }: { issue: IssueWithAds }) {
           <PublicationAdFallback
             ad={publicationAds[0]}
             slotNumber={1}
+            qrCode={qrCode}
             primary
           />
           <StaticPublicationBlocks
             ads={publicationAds}
+            qrCode={qrCode}
             mainFeature={
               mainFeature
                 ? { title: mainFeature.title, body: mainFeature.body }
