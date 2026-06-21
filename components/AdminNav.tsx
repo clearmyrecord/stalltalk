@@ -12,6 +12,7 @@ const links = [
   ["/admin/articles", "Articles"],
   ["/admin/restaurant-reviews", "Restaurant Reviews"],
   ["/admin/issues", "Issues"],
+  ["/admin/default-issue", "Default Global Issue"],
   ["/admin/issue-builder", "Issue Builder"],
   ["/admin/ads", "Ads"],
   ["/admin/ad-studio", "Ad Studio"],

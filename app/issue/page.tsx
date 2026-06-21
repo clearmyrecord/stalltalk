@@ -16,6 +16,7 @@ import {
   type PublicationAdLike,
 } from "@/components/StaticPublicationBlocks";
 import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
+import { getDefaultGlobalIssue } from "@/lib/default-global-issue";
 import { headers } from "next/headers";
 import { recordAdImpression, recordQrScan } from "@/lib/tracking";
 
@@ -105,6 +106,11 @@ export default async function IssueQueryPage({
           />
         );
       }
+    }
+
+    const defaultGlobalIssue = await getDefaultGlobalIssue();
+    if (defaultGlobalIssue?.status === "PUBLISHED") {
+      return <DatabaseIssuePage issue={defaultGlobalIssue as IssueWithAds} qrCode={qr} request={request} />;
     }
 
     const hasDefaultPublicAds = await prisma.stalltalkCampaignHistory.findFirst(
@@ -259,6 +265,7 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
       block.type === "ARTICLE" &&
       (!block.article || block.article.status === "PUBLISHED"),
   );
+  const byKey = (key: string) => issue.contentBlocks.find((block) => (block.layout as any)?.key === key);
   const [mainFeature, secondaryFeature] = articleBlocks;
 
   return (
@@ -266,7 +273,7 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
       <article className="publication" aria-label="Potty Favor monthly issue">
         <PublicationHeader monthYear={`${issue.month} ${issue.year}`} />
         <section className="print-grid">
-          <MissionCard missionText={publishedIssue.missionText} />
+          <MissionCard missionText={byKey("mission")?.body || publishedIssue.missionText} />
           <PublicationAdFallback
             ad={publicationAds[0]}
             slotNumber={1}
@@ -276,6 +283,7 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
           <StaticPublicationBlocks
             ads={publicationAds}
             qrCode={qrCode}
+            blocks={issue.contentBlocks.map((block) => ({ title: block.title, body: block.body, imageUrl: block.imageUrl, layout: block.layout as any }))}
             mainFeature={
               mainFeature
                 ? { title: mainFeature.title, body: mainFeature.body }
