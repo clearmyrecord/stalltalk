@@ -4,6 +4,7 @@ import { signOutAction } from "@/lib/actions";
 const links = [
   ["/admin/dashboard", "Dashboard"],
   ["/admin/publishers", "Publishers"],
+  ["/admin/users", "Users"],
   ["/admin/distributors", "Distributors"],
   ["/admin/advertisers", "Advertisers"],
   ["/admin/venues", "Venues"],
