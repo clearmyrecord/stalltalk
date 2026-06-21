@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CampaignsPage() {
   const [campaigns, issues] = await Promise.all([
-    prisma.stalltalkCampaignHistory.findMany({ where: { publishStatus: { not: "ARCHIVED" } }, include: { ad: { include: { issueSlots: { include: { issue: { include: { venue: true } } }, orderBy: { slotNumber: "asc" }, take: 1 } } } }, orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.stalltalkCampaignHistory.findMany({ where: { publishStatus: { notIn: ["ARCHIVED", "DELETED"] } }, include: { ad: { include: { issueSlots: { include: { issue: { include: { venue: true } } }, orderBy: { slotNumber: "asc" }, take: 1 } } } }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.issue.findMany({ include: { venue: true }, orderBy: [{ year: "desc" }, { issueNumber: "desc" }] })
   ]);
 
