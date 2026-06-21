@@ -126,7 +126,7 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
       `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
       `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,
       `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
-      `Canvas: ${adSize}; generate exactly one wide 3:1 sponsor banner image at ${size.apiSize}; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and generous mobile safe margins.`,
+      `Canvas: ${adSize}; generate exactly one wide 3:1 sponsor banner composition inside the supported ${size.apiSize} OpenAI canvas; composition: ${size.composition}; the finished image must match the displayed ${size.cssSafeArea} exactly with full-bleed artwork and generous mobile safe margins.`,
       `Professional local business ad: premium background, clear logo zone in the upper safe area, short readable typography, strong offer, visible CTA button, coupon chip, brand-consistent accents, and no more than 6 words per text block when possible.`,
       `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
       logoInstruction,
@@ -202,6 +202,9 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         logoUrl: safe(body.logoUrl, "") || null,
         targetUrl: safe(body.website || body.targetUrl, "") || null,
         selectedSlot: Number(body.slot || body.slotNumber || 1),
+        targetType: safe(body.targetType, "") || null,
+        targetLabel: safe(body.targetLabel, "") || null,
+        publishedToHomepage: false,
         parentCampaignId,
         versionNumber,
         publishStatus: "DRAFT"
@@ -222,6 +225,9 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
         logoUrl: safe(body.logoUrl, "") || null,
         targetUrl: safe(body.website || body.targetUrl, "") || null,
         selectedSlot: Number(body.slot || body.slotNumber || 1),
+        targetType: safe(body.targetType, "") || null,
+        targetLabel: safe(body.targetLabel, "") || null,
+        publishedToHomepage: false,
         parentCampaignId,
         versionNumber,
         publishStatus: "DRAFT"
@@ -229,8 +235,10 @@ async function saveGeneratedCreative(body: Record<string, unknown>, adSize: AdSi
     });
     return { campaignId, parentCampaignId, versionNumber, historySaved: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to save campaign history.";
-    console.error("[generate-ad-image] Campaign history save failed", { message, campaignId, adSize });
+    const rawMessage = error instanceof Error ? error.message : "Unable to save campaign history.";
+    console.error("[generate-ad-image] Campaign history save failed", { error, message: rawMessage, campaignId, adSize });
+    const missingColumn = ["targetType", "targetLabel", "publishedToHomepage", "parentCampaignId", "versionNumber", "targetUrl", "selectedSlot", "slotPublished", "publishStatus", "publishedAt", "logoBase64", "logoUrl", "headline", "subheadline", "ctaText", "couponCode", "viewCount", "clickCount", "lastViewedAt", "lastClickedAt"].find((column) => rawMessage.includes(column));
+    const message = missingColumn ? `Database schema is missing ${missingColumn}. Run the latest migration.` : "Campaign generated, but database history could not be saved. Check server logs and run the latest migration.";
     return { campaignId, parentCampaignId, versionNumber, historySaved: false, historyError: message };
   }
 }

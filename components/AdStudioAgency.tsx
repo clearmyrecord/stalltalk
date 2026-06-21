@@ -10,7 +10,7 @@ type VenueOption = { id: string; name: string; city: string; state: string };
 type RestroomOption = { id: string; name: string; venueName: string };
 type IssueOption = { id: string; title: string; label?: string; venueName: string; status: string; isDefault?: boolean; targetType?: string };
 type RecentCampaign = { id: string; businessName: string; title: string; offer: string; ctaText: string; couponCode: string | null; createdAt: string };
-type SavedCampaign = { campaignId: string; parentCampaignId?: string | null; versionNumber?: number | null; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "3:1 Sponsor Banner"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
+type SavedCampaign = { campaignId: string; parentCampaignId?: string | null; versionNumber?: number | null; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "3:1 Sponsor Banner"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null; publishedAt?: string | null; targetLabel?: string | null; targetType?: string | null };
 
 type Props = {
   createAd: (formData: FormData) => Promise<{ ok: boolean; adId?: string; message?: string }>;
@@ -48,7 +48,7 @@ type GeneratedCreative = {
   publishStatus?: string | null;
 };
 
-type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number | null };
+type CampaignHistoryItem = GeneratedCreative & { campaignId: string; businessName: string; createdAt: string; slotPublished?: number | null; publishedAt?: string | null; targetLabel?: string | null; targetType?: string | null };
 
 const audienceOptions = ["Tourists", "Locals", "Casino Guests", "Sports Fans", "Concert Goers", "Convention Attendees", "Custom Audience"];
 const tones = ["Funny", "Luxury", "Professional", "Urgent", "Family Friendly", "Nightlife"];
@@ -178,7 +178,8 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
 
   const selectedCreative = creatives[selectedCreativeIndex];
   const activeAudience = form.audience === "Custom Audience" ? safe(form.customAudience, "custom audience") : form.audience;
-  const activeVenue = venues[0];
+  const activeIssue = issues.find((issue) => issue.id === form.issueId);
+  const publishTargetContext = form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? "Default publish target: Default Public Issue" : `Selected issue: ${activeIssue?.venueName || activeIssue?.label || activeIssue?.title || "Selected Issue"}`;
 
   async function uploadFinishedAd(file: File | undefined) {
     if (!file) return;
@@ -220,6 +221,21 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
 
   function update(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function cropImageToSponsorBanner(imageUrl: string) {
+    if (!imageUrl || typeof window === "undefined" || typeof document === "undefined") return imageUrl;
+    const baseImage = await loadCanvasImage(imageUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = AD_DESKTOP_WIDTH * 2;
+    canvas.height = Math.round(canvas.width / 3);
+    const context = canvas.getContext("2d");
+    if (!context) return imageUrl;
+    const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
+    const drawnWidth = baseImage.width * scale;
+    const drawnHeight = baseImage.height * scale;
+    context.drawImage(baseImage, (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2, drawnWidth, drawnHeight);
+    return canvas.toDataURL("image/png");
   }
 
   async function overlayLogoOnImage(imageUrl: string) {
@@ -278,7 +294,8 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     const nextVersion = regenerate && creatives.length ? Math.max(...creatives.map((creative) => creative.versionNumber || 1)) + 1 : 1;
     const campaignBatchId = `${parentCampaignId}-v${nextVersion}`;
     const adSize = SPONSOR_BANNER;
-    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: Number(slotNumber) };
+    const targetLabel = form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.label || issues.find((issue) => issue.id === form.issueId)?.title || form.issueId;
+    const base = { ...form, audience: activeAudience, parentCampaignId, campaignId: campaignBatchId, versionNumber: nextVersion, adSize, slot: Number(slotNumber), targetType: form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_ID : "issue", targetLabel };
     const generated: GeneratedCreative[] = [];
 
     try {
@@ -303,7 +320,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
         } else {
           generated.push({
           adSize,
-          imageUrl: await overlayLogoOnImage(data.imageUrl),
+          imageUrl: await overlayLogoOnImage(await cropImageToSponsorBanner(data.imageUrl)),
           promptUsed: data.promptUsed,
           headline: data.headline,
           subheadline: data.subheadline,
@@ -333,14 +350,8 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     setCreatives((current) => regenerate ? [...current, ...generated] : generated);
     setSelectedCreativeIndex(regenerate ? creatives.length : 0);
     setHasGenerated(true);
-    setHistory(mergedHistory);
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem("stalltalk-ad-studio-history", JSON.stringify(mergedHistory));
-      } catch {
-        setError("Generated campaign is available, but browser history could not be saved.");
-      }
-    }
+    setHistory(mergedHistory.filter((item) => item.historySaved !== false));
+    if (generated.some((item) => item.historySaved === false)) setError(generated.find((item) => item.historySaved === false)?.historyError || "Campaign generated, but database history was not saved. Download remains available.");
     setStep(5);
     setIsGenerating(false);
   }
@@ -397,6 +408,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
           return result;
         })
         .then((result) => {
+          if (result?.campaign) setHistory((items) => [result.campaign, ...items.filter((item) => item.campaignId !== result.campaign.campaignId)]);
           setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to ${form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`);
           setCreatives((items) => items.map((item, index) => ({ ...item, publishStatus: index === selectedCreativeIndex ? "PUBLISHED" : item.parentCampaignId === (selectedCreative.parentCampaignId || campaignRootId) ? "SUPERSEDED" : item.publishStatus })));
         })
@@ -509,11 +521,11 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
         <HistoryPanel title="Database Campaign History" items={history} onLoad={(item) => { setCreatives([item]); setSelectedCreativeIndex(0); if (item.selectedSlot) setSlotNumber(String(item.selectedSlot)); if (item.targetUrl) update("website", item.targetUrl); setStep(5); }} />
         <div className="rounded-2xl border-4 border-ink bg-white p-4">
           <h3 className="font-display text-4xl uppercase">Published Ad History</h3>
-          <div className="mt-3 grid gap-2">{recentCampaigns.map((item) => <article key={item.id} className="rounded-xl border-2 border-ink bg-paper p-3"><p className="text-xs font-black uppercase text-stallRed">{new Date(item.createdAt).toLocaleDateString()}</p><h4 className="font-black uppercase">{item.businessName}</h4><p className="text-sm font-bold">{item.title}</p><p className="text-xs font-black uppercase text-stallPurple">{item.ctaText} {item.couponCode ? `• ${item.couponCode}` : ""}</p></article>)}</div>
+          <PublishedHistoryPanel items={history.filter((item) => item.publishStatus === "PUBLISHED")} />
         </div>
       </div>
 
-      <p className="mt-6 text-sm font-bold text-ink/70">Default venue context: {activeVenue ? `${activeVenue.name}, ${activeVenue.city}` : "Add venues to target campaigns."} Restroom options loaded: {restrooms.length}. Publisher: {publishers.find((publisher) => publisher.id === form.publisherId)?.name || "None"}. Advertiser: {advertisers.find((advertiser) => advertiser.id === form.advertiserId)?.name || "None"}.</p>
+      <p className="mt-6 text-sm font-bold text-ink/70">{publishTargetContext}. Restroom options loaded: {restrooms.length}. Publisher: {publishers.find((publisher) => publisher.id === form.publisherId)?.name || "None"}. Advertiser: {advertisers.find((advertiser) => advertiser.id === form.advertiserId)?.name || "None"}.</p>
     </section>
   );
 }
@@ -609,6 +621,26 @@ function FallbackAd({ creative }: { creative: GeneratedCreative }) {
 
 function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
   return <div className="mt-3 grid gap-2 rounded-xl border-2 border-ink bg-paper p-3 text-xs font-black uppercase md:grid-cols-4"><span>API: {diagnostic.apiStatus || "unknown"}</span><span>OpenAI: {diagnostic.openAiStatus || "unknown"}</span><span>Model: {diagnostic.model || "server default"}</span><span>{diagnostic.errorType ? `Error: ${diagnostic.errorType}` : "Image API ready"}</span></div>;
+}
+
+
+function PublishedHistoryPanel({ items }: { items: CampaignHistoryItem[] }) {
+  async function campaignAction(campaignId: string, action: "unpublish" | "archive") {
+    const response = await fetch("/api/ad-studio/campaigns", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId, action }) });
+    if (!response.ok) throw new Error(`Campaign ${action} failed (${response.status})`);
+    window.location.reload();
+  }
+
+  return <div className="mt-3 grid gap-2">{items.length ? items.map((item) => {
+    const href = item.targetType === DEFAULT_PUBLIC_ISSUE_ID ? "/issue" : item.targetUrl || "/issue";
+    return <article key={item.campaignId} className="rounded-xl border-2 border-ink bg-paper p-3">
+      <p className="text-xs font-black uppercase text-stallRed">{item.publishedAt ? new Date(item.publishedAt).toLocaleString() : "Published"} • Slot {item.slotPublished || item.selectedSlot || "—"} • {item.publishStatus || "PUBLISHED"}</p>
+      <h4 className="font-black uppercase">{item.businessName}</h4>
+      <p className="text-sm font-bold">{item.headline}</p>
+      <p className="text-xs font-black uppercase text-stallPurple">{item.targetLabel || "Default Public Issue"}</p>
+      <div className="mt-2 flex flex-wrap gap-2"><a className="rounded bg-white px-2 py-1 text-xs font-black uppercase" href={href}>View on issue</a><button className="rounded bg-white px-2 py-1 text-xs font-black uppercase" onClick={() => campaignAction(item.campaignId, "unpublish")}>Unpublish</button><button className="rounded bg-white px-2 py-1 text-xs font-black uppercase" onClick={() => campaignAction(item.campaignId, "archive")}>Archive</button></div>
+    </article>;
+  }) : <p className="rounded-xl border-2 border-dashed border-ink p-4 font-bold">No published database ads yet.</p>}</div>;
 }
 
 function HistoryPanel({ title, items, onLoad }: { title: string; items: CampaignHistoryItem[]; onLoad: (item: CampaignHistoryItem) => void }) {
