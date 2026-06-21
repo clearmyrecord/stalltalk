@@ -8,12 +8,10 @@ datasource db {
 }
 
 enum Role {
-  SUPER_ADMIN
   ADMIN
   VENUE_MANAGER
   ADVERTISER
   DISTRIBUTOR
-  VENUE
 }
 
 enum CampaignStatus {

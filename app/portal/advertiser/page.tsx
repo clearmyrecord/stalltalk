@@ -1,101 +1,39 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { archiveAdvertiserCampaign, pauseAdvertiserCampaign, resumeAdvertiserCampaign, signOutAction, submitAdvertiserCampaign, updateAdvertiserCampaign } from "@/lib/actions";
-import { authEnvStatus, currentUser } from "@/lib/auth";
-import { money } from "@/lib/format";
+import { signOutAction } from "@/lib/actions";
+import { authEnvStatus, currentUser, dashboardForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { stripeEnvStatus } from "@/lib/stripe";
-import { PRICE_PER_PLACEMENT_MONTH_CENTS, flightStatus, normalizeFlightMonth } from "@/lib/campaign-flights";
-import { AdvertiserCampaignForm } from "@/components/AdvertiserCampaignForm";
+import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
 
 export const dynamic = "force-dynamic";
 
-function missingDb(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error || "");
-  return /does not exist|P2021|AdSlotInventory|AdCampaign|AdCampaignPlacement|User/i.test(message);
+function ErrorCard({ message }: { message: string }) {
+  return <main className="min-h-screen bg-paper p-8 text-ink"><div className="rounded-2xl border-4 border-ink bg-stallRed p-5 font-black text-white shadow-brutal">{message}</div></main>;
 }
-function badge(status: string) { return `rounded-full border-2 border-ink px-2 py-1 text-xs font-black uppercase ${["APPROVED", "PAID", "ACTIVE"].includes(status) ? "bg-green-100" : status === "REJECTED" ? "bg-stallRed text-white" : "bg-stallYellow"}`; }
 
-export default async function AdvertiserPortalPage({ searchParams }: { searchParams: Promise<{ city?: string; venue?: string; month?: string; stripe?: string }> }) {
-  const filters = await searchParams;
+export default async function AdvertiserPortalPage() {
   const auth = authEnvStatus();
-  const stripe = stripeEnvStatus();
   const user = await currentUser();
-  if (auth.isConfigured && (!user || user.role !== "ADVERTISER")) redirect("/signin?error=role");
-  const whereAdvertiser = user?.role === "ADVERTISER" && user.advertiserId ? { id: user.advertiserId } : {};
-  const selectedStartMonth = normalizeFlightMonth(filters.month || "2026-07");
+  if (auth.isConfigured && !user) redirect("/signin?error=admin_required");
+  if (user && user.role !== "ADVERTISER" && user.role !== "ADMIN") return <WrongPortal role={user.role} />;
+
   try {
-    const [advertisers, venues, inventory, campaigns, events, invoices] = await Promise.all([
-      prisma.advertiser.findMany({ where: whereAdvertiser, orderBy: { name: "asc" } }),
-      prisma.venue.findMany({ orderBy: [{ city: "asc" }, { name: "asc" }] }),
-      prisma.adSlotInventory.findMany({ where: { status: "OPEN", ...(filters.month ? { month: filters.month } : {}), ...(filters.venue ? { venueId: filters.venue } : {}), ...(filters.city ? { venue: { city: filters.city } } : {}) }, include: { venue: true, restroom: true, qrCode: true, toiletLocation: true }, orderBy: [{ month: "asc" }, { slotNumber: "asc" }] }),
-      prisma.adCampaign.findMany({ where: user?.role === "ADVERTISER" && user.advertiserId ? { advertiserId: user.advertiserId } : {}, include: { advertiser: true, inventory: { include: { venue: true, restroom: true, qrCode: true } }, placements: { include: { inventory: { include: { venue: true, restroom: true, qrCode: true, toiletLocation: true } } } }, payments: true, creatives: true, invoices: true }, orderBy: { createdAt: "desc" } }),
-      prisma.analyticsEvent.findMany({ where: user?.role === "ADVERTISER" && user.advertiserId ? { advertiserId: user.advertiserId } : {}, include: { venue: true }, orderBy: { createdAt: "desc" }, take: 500 }),
-      prisma.advertiserInvoice.findMany({ where: user?.role === "ADVERTISER" && user.advertiserId ? { advertiserId: user.advertiserId } : {}, include: { campaign: true, advertiser: true }, orderBy: { createdAt: "desc" } })
-    ]);
-    const selectedAdvertiser = advertisers[0];
-    const cities = [...new Set(venues.map((venue) => venue.city))];
-    const months = [...new Set(inventory.map((slot) => slot.month).concat(["2026-07", "2026-08", "2026-09"]))].sort();
-    const slotIdentity = inventory.map((slot) => ({ venueId: slot.venueId, restroomId: slot.restroomId, qrCodeId: slot.qrCodeId, toiletLocationId: slot.toiletLocationId, slotNumber: slot.slotNumber }));
-    const unavailable = slotIdentity.length ? await prisma.adCampaignPlacement.findMany({ where: { inventory: { OR: slotIdentity }, campaign: { status: { in: ["PAID", "ACTIVE"] }, flightStartMonth: { lte: selectedStartMonth }, flightEndMonth: { gte: selectedStartMonth } } }, include: { inventory: true } }) : [];
-    const unavailableKeys = new Set(unavailable.map((placement) => `${placement.inventory.venueId}:${placement.inventory.restroomId}:${placement.inventory.qrCodeId}:${placement.inventory.toiletLocationId}:${placement.inventory.slotNumber}`));
-    const availableInventory = inventory.filter((slot) => !unavailableKeys.has(`${slot.venueId}:${slot.restroomId}:${slot.qrCodeId}:${slot.toiletLocationId}:${slot.slotNumber}`));
-const placementOptions = availableInventory.map((slot) => ({
-  id: slot.id,
-  month: slot.month,
-  venueName: slot.venue.name,
-  restroomName: slot.restroom?.name || "",
-  qrCode: slot.qrCode?.qrSlug || "",
-  toiletLabel: slot.toiletLocation?.label || "",
-  slotNumber: slot.slotNumber,
-  priceCents: slot.priceCents,
-  venueId: slot.venueId,
-  city: slot.venue.city,
-  state: slot.venue.state,
-  venueType: slot.venue.venueType
-}));
-
-const eventCount = (type: string) =>
-  events.filter((event) => event.type === type).length;
-
-const impressions =
-  eventCount("AD_IMPRESSION") +
-  campaigns.reduce((sum, campaign) => sum + (campaign.impressionsServed || 0), 0);
-
-const clicks =
-  eventCount("AD_CLICK") +
-  campaigns.reduce((sum, campaign) => sum + (campaign.clicksServed || 0), 0);
-
-const qrScans =
-  eventCount("SCAN") +
-  campaigns.reduce((sum, campaign) => sum + (campaign.qrScans || 0), 0);
-
-const spend = campaigns.reduce(
-  (sum, campaign) =>
-    sum + (campaign.totalAmountCents - (campaign.remainingBudgetCents || 0)),
-  0
-);
-
-const coverage = new Set(
-  campaigns.flatMap((campaign) =>
-    campaign.placements
-      .map((placement) => placement.inventory.venueId)
-      .concat(campaign.targetVenueIds || [])
-  )
-).size;
-
-const statusCount = (statuses: string[]) =>
-  campaigns.filter(
-    (campaign) =>
-      statuses.includes(campaign.status) ||
-      statuses.includes(campaign.approvalStatus)
-  ).length;
-
-const ctr = impressions ? ((clicks / impressions) * 100).toFixed(2) : "0.00";
+    const advertiser = user?.advertiserId ? await prisma.advertiser.findUnique({ where: { id: user.advertiserId } }) : null;
+    if (user?.role === "ADVERTISER" && !advertiser) {
+      return <main className="min-h-screen bg-paper p-8 text-ink"><ProfileOnboarding title="Complete your advertiser profile" endpoint="/api/portal/advertiser/profile" button="Save Advertiser Profile" fields={[{ name: "businessName", label: "Business name" }, { name: "website", label: "Website", required: false }, { name: "phone", label: "Phone", required: false }, { name: "category", label: "Category", required: false }]} /></main>;
+    }
+    const [campaigns, invoices, ads] = advertiser ? await Promise.all([
+      prisma.adCampaign.count({ where: { advertiserId: advertiser.id } }),
+      prisma.advertiserInvoice.count({ where: { advertiserId: advertiser.id } }),
+      prisma.ad.count({ where: { advertiserId: advertiser.id, status: "ACTIVE" } })
+    ]) : [0, 0, 0];
+    return <main className="min-h-screen bg-paper p-8 text-ink"><header className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black uppercase tracking-[.25em] text-stallRed">Advertiser Portal</p><h1 className="font-display text-6xl uppercase">{advertiser?.name || "Advertiser Dashboard"}</h1></div><form action={signOutAction}><button className="rounded-xl bg-ink px-4 py-3 font-black uppercase text-white">Sign out</button></form></header><section className="mt-6 grid gap-4 md:grid-cols-3">{[["Campaigns", campaigns], ["Payments", invoices], ["Published Ads", ads]].map(([label, value]) => <div key={label} className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">{label}</p><p className="font-display text-5xl uppercase">{value}</p></div>)}</section><nav className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{["Create AI Ad", "Upload Finished Ad", "Campaigns", "Payments", "Published Ads", "Account Profile"].map((item) => <Link key={item} href="#" className="rounded-2xl border-4 border-ink bg-stallYellow p-5 font-display text-3xl uppercase shadow-brutal">{item}</Link>)}</nav></main>;
   } catch (error) {
-    if (!missingDb(error)) throw error;
-    return <main className="min-h-screen bg-paper p-8 text-ink"><h1 className="font-display text-7xl uppercase">Advertiser Dashboard</h1><Setup message="Run Prisma migrations to create Phase 2B advertiser inventory tables." /></main>;
+    return <ErrorCard message={error instanceof Error ? error.message : "Unable to load advertiser portal."} />;
   }
 }
 
-function Setup({ message }: { message: string }) { return <p className="mt-4 rounded-2xl border-4 border-ink bg-stallYellow p-5 font-black shadow-brutal">{message}</p>; }
+function WrongPortal({ role }: { role: any }) {
+  const dashboard = dashboardForRole(role);
+  return <main className="min-h-screen bg-paper p-8 text-ink"><section className="rounded-2xl border-4 border-ink bg-white p-6 shadow-brutal"><h1 className="font-display text-5xl uppercase">Wrong dashboard</h1><p className="mt-3 font-black">That account cannot access the advertiser dashboard.</p><Link href={dashboard} className="mt-4 inline-block rounded-xl bg-ink px-4 py-3 font-black uppercase text-white">Go to your dashboard</Link></section></main>;
+}

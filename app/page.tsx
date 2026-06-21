@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
-
+import Link from "next/link";
 export const dynamic = "force-dynamic";
-
 export default function Home() {
-  redirect("/issue");
+  return <main className="min-h-screen bg-paper p-8 text-ink"><section className="mx-auto max-w-4xl rounded-2xl border-4 border-ink bg-white p-8 shadow-brutal"><p className="font-black uppercase tracking-[.25em] text-stallRed">Potty Favor</p><h1 className="font-display text-7xl uppercase">Bathroom ads that people actually read.</h1><div className="mt-6 flex flex-wrap gap-3"><Link className="rounded-xl bg-ink px-5 py-3 font-black uppercase text-white" href="/signup?type=advertiser">Create advertiser account</Link><Link className="rounded-xl bg-stallYellow px-5 py-3 font-black uppercase text-ink" href="/signup?type=venue">Create venue account</Link><Link className="rounded-xl border-4 border-ink px-5 py-3 font-black uppercase" href="/issue">Read the issue</Link></div></section><footer className="mx-auto mt-8 max-w-4xl font-bold"><Link className="underline" href="/signup?type=advertiser">Advertise with us</Link><span> · </span><Link className="underline" href="/signup?type=venue">Add your venue</Link></footer></main>;
 }
