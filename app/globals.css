@@ -912,3 +912,199 @@ body:has(.public-page) { background: #000; }
 .secondary-card h2 { font-family:Georgia,'Times New Roman',serif; font-size:clamp(2.4rem,7vw,5.5rem); line-height:.95; }
 .feature-subtitle { font-size:clamp(1.1rem,2.5vw,1.55rem); font-weight:700; color:#51483d; }
 @media (max-width:640px){ .publication-content-block.panel,.humor-card.panel,.feature-card.panel,.secondary-card.panel,.quotes-card.panel,.restaurant-review.panel,.did-card.panel,.calendar-card.panel,.submit-event-card.panel{padding:30px 22px !important;} [data-ad-slot="content-ad"],.ad-card[data-ad-slot="content-ad"],.inline-ad[data-ad-slot="content-ad"]{width:100% !important; min-width:min(100%,320px) !important;} [data-ad-slot="content-ad"] .ad-placeholder-link{padding:22px !important;gap:5px;} [data-ad-slot="content-ad"] .sponsored-label{top:10px;left:12px;} [data-ad-slot="content-ad"] .ad-cta-button{right:12px;bottom:10px;padding:8px 12px;font-size:.68rem;} }
+
+/* Potty Favor editorial layout refresh for fact and quote sections. */
+.did-card.panel {
+  width: 100% !important;
+  max-width: 980px !important;
+  padding: 48px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, #fffaf0 0%, #ffffff 58%, #f5f1e7 100%) !important;
+}
+
+.did-card-inner {
+  width: 100%;
+}
+
+.did-card-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.did-card .editorial-kicker {
+  margin: 0;
+  color: #9a7424;
+  font-size: .78rem;
+  font-weight: 1000;
+  letter-spacing: .24em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.did-card h2 {
+  margin: 0 !important;
+  color: #17110f;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.4rem, 6vw, 4.75rem);
+  line-height: .95;
+}
+
+.did-card .did-list {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: did-facts;
+}
+
+.did-card .did-list li {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  padding: 22px 24px;
+  border: 1px solid rgba(23, 17, 15, .08);
+  border-bottom-color: rgba(23, 17, 15, .16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .92);
+  color: #201815;
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  font-weight: 750;
+  line-height: 1.55;
+  box-shadow: inset 0 -1px 0 rgba(23, 17, 15, .05);
+}
+
+.did-card .did-list li:nth-child(even) {
+  background: #f7efe0;
+}
+
+.did-card .did-number {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(154, 116, 36, .55);
+  border-radius: 999px;
+  background: #17110f;
+  color: #fff9e8;
+  font-size: .9rem;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  line-height: 1;
+}
+
+.did-card .did-fact {
+  display: block;
+}
+
+.quotes-card.panel {
+  width: 100% !important;
+  max-width: 980px !important;
+  padding: 0 48px 48px !important;
+  overflow: hidden !important;
+  border-radius: 28px !important;
+  background: #fffdf7 !important;
+  border-color: rgba(16, 16, 107, .18) !important;
+}
+
+.quotes-card .quotes-hero {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  margin: 0 -48px 32px;
+  padding: 32px;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, rgba(215, 168, 63, .28), transparent 34%), linear-gradient(135deg, #10106b, #372080 56%, #17110f);
+  text-align: center;
+}
+
+.quotes-card .quotes-hero h2 {
+  margin: 0 !important;
+  color: #fff;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 5vw, 56px) !important;
+  font-weight: 900;
+  letter-spacing: .03em;
+  line-height: .95 !important;
+  overflow: hidden;
+  text-wrap: balance;
+  word-break: normal;
+}
+
+.quotes-card .quote-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quotes-card .quote-card {
+  margin: 0 0 24px;
+  padding: 32px;
+  border: 1px solid rgba(23, 17, 15, .08);
+  border-left: 0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  color: #17110f;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.1rem, 2.3vw, 1.35rem);
+  font-style: normal;
+  line-height: 1.65;
+}
+
+.quotes-card .quote-card:last-child {
+  margin-bottom: 0;
+}
+
+.quotes-card .quote-text {
+  display: block;
+}
+
+.quotes-card cite {
+  display: block;
+  margin-top: 18px;
+  color: #6c5321;
+  font-family: Inter, sans-serif;
+  font-size: .92rem;
+  font-style: normal;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  line-height: 1.3;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .did-card.panel,
+  .quotes-card.panel {
+    padding: 30px 22px !important;
+  }
+
+  .did-card .did-list li {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .did-card .did-number {
+    width: 42px;
+    height: 42px;
+  }
+
+  .quotes-card.panel {
+    padding-top: 0 !important;
+  }
+
+  .quotes-card .quotes-hero {
+    margin: 0 -22px 28px;
+  }
+
+  .quotes-card .quote-card {
+    padding: 24px;
+  }
+}
