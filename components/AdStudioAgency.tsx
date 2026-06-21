@@ -8,8 +8,8 @@ import {
   useTransition,
 } from "react";
 import {
-  AD_DESKTOP_HEIGHT,
-  AD_DESKTOP_WIDTH,
+  AD_FINAL_HEIGHT,
+  AD_FINAL_WIDTH,
   AD_FORMAT_LABEL,
 } from "@/lib/ad-config";
 import {
@@ -412,7 +412,7 @@ function AdStudioPanel({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function cropImageToSponsorBanner(imageUrl: string) {
+  async function finalizeSponsorBannerImage(imageUrl: string) {
     if (
       !imageUrl ||
       typeof window === "undefined" ||
@@ -421,24 +421,20 @@ function AdStudioPanel({
       return imageUrl;
     const baseImage = await loadCanvasImage(imageUrl);
     const canvas = document.createElement("canvas");
-    canvas.width = AD_DESKTOP_WIDTH * 2;
-    canvas.height = Math.round(canvas.width / 3);
+    canvas.width = AD_FINAL_WIDTH;
+    canvas.height = AD_FINAL_HEIGHT;
     const context = canvas.getContext("2d");
     if (!context) return imageUrl;
-    const scale = Math.max(
-      canvas.width / baseImage.width,
-      canvas.height / baseImage.height,
-    );
-    const drawnWidth = baseImage.width * scale;
-    const drawnHeight = baseImage.height * scale;
-    context.drawImage(
-      baseImage,
-      (canvas.width - drawnWidth) / 2,
-      (canvas.height - drawnHeight) / 2,
-      drawnWidth,
-      drawnHeight,
-    );
+    const sourceWidth = Math.min(baseImage.width, AD_FINAL_WIDTH);
+    const sourceHeight = Math.min(baseImage.height, AD_FINAL_HEIGHT);
+    context.drawImage(baseImage, 0, 0, sourceWidth, sourceHeight, 0, 0, AD_FINAL_WIDTH, AD_FINAL_HEIGHT);
     return canvas.toDataURL("image/png");
+  }
+
+  async function isThreeToOneImage(imageUrl: string) {
+    if (!imageUrl || typeof window === "undefined") return false;
+    const image = await loadCanvasImage(imageUrl);
+    return image.width === AD_FINAL_WIDTH && image.height === AD_FINAL_HEIGHT;
   }
 
   async function overlayLogoOnImage(imageUrl: string) {
@@ -454,23 +450,11 @@ function AdStudioPanel({
       loadCanvasImage(form.logoBase64),
     ]);
     const canvas = document.createElement("canvas");
-    canvas.width = AD_DESKTOP_WIDTH * 2;
-    canvas.height = Math.round(canvas.width / 3);
+    canvas.width = AD_FINAL_WIDTH;
+    canvas.height = AD_FINAL_HEIGHT;
     const context = canvas.getContext("2d");
     if (!context) return imageUrl;
-    const scale = Math.max(
-      canvas.width / baseImage.width,
-      canvas.height / baseImage.height,
-    );
-    const drawnWidth = baseImage.width * scale;
-    const drawnHeight = baseImage.height * scale;
-    context.drawImage(
-      baseImage,
-      (canvas.width - drawnWidth) / 2,
-      (canvas.height - drawnHeight) / 2,
-      drawnWidth,
-      drawnHeight,
-    );
+    context.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
     const logoMaxWidth = canvas.width * 0.34;
     const logoMaxHeight = canvas.height * 0.16;
     const logoScale = Math.min(
@@ -613,7 +597,7 @@ function AdStudioPanel({
           adSize,
           imageUrl: await uploadImageUrlToCloudinary(
             await overlayLogoOnImage(
-              await cropImageToSponsorBanner(data.imageUrl),
+              await finalizeSponsorBannerImage(data.imageUrl),
             ),
           ),
           promptUsed: data.promptUsed,
@@ -655,6 +639,32 @@ function AdStudioPanel({
       targetUrl: form.website || null,
       selectedSlot: Number(slotNumber),
     }));
+    await Promise.all(
+      nextHistory
+        .filter((creative) => creative.imageUrl && !creative.imageFallback)
+        .map((creative) =>
+          fetch("/api/ad-studio/campaigns", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...base,
+              campaignId: creative.campaignId,
+              parentCampaignId: creative.parentCampaignId || parentCampaignId,
+              versionNumber: creative.versionNumber || nextVersion,
+              businessName: creative.businessName,
+              imageUrl: creative.imageUrl,
+              finalImageUrl: creative.imageUrl,
+              promptUsed: creative.promptUsed,
+              generatedHeadline: creative.headline,
+              generatedSubheadline: creative.subheadline,
+              ctaText: creative.ctaText,
+              couponCode: creative.couponCode,
+              targetUrl: form.website || null,
+              publishStatus: "DRAFT",
+            }),
+          }).catch(() => undefined),
+        ),
+    );
     const mergedHistory = [...nextHistory, ...history].slice(0, 12);
     setCreatives((current) =>
       regenerate ? [...current, ...generated] : generated,
@@ -697,6 +707,15 @@ function AdStudioPanel({
     if (!selectedCreative) return;
     if (!selectedCreative.imageUrl) {
       setPublishError("Image must be uploaded before publishing.");
+      return;
+    }
+    try {
+      if (!(await isThreeToOneImage(selectedCreative.imageUrl))) {
+        setPublishError("Final ad must be a 3:1 sponsor banner before publishing.");
+        return;
+      }
+    } catch {
+      setPublishError("Final ad must be a 3:1 sponsor banner before publishing.");
       return;
     }
     const formData = new FormData();
@@ -1143,9 +1162,9 @@ function AdStudioPanel({
                     published image will render without a click link.
                   </p>
                 ) : null}
-                <div className="grid gap-2 md:grid-cols-4">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                   <button
-                    className="rounded-xl border-2 border-ink bg-paper px-3 py-2 font-black uppercase"
+                    className="w-full whitespace-normal rounded-xl border-2 border-ink bg-paper px-3 py-3 text-center text-sm font-black uppercase leading-tight"
                     onClick={() =>
                       setSelectedCreativeIndex(selectedCreativeIndex)
                     }
@@ -1153,21 +1172,21 @@ function AdStudioPanel({
                     Use This Version
                   </button>
                   <button
-                    className="rounded-xl border-4 border-ink bg-stallRed px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50"
+                    className="w-full whitespace-normal rounded-xl border-4 border-ink bg-stallRed px-4 py-3 text-center text-sm font-black uppercase leading-tight text-white shadow-brutal disabled:opacity-50"
                     disabled={isPending}
                     onClick={() => void publish()}
                   >
                     {isPending ? "Publishing..." : "Publish This Version"}
                   </button>
                   <button
-                    className="rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 font-black uppercase text-white shadow-brutal disabled:opacity-50"
+                    className="w-full whitespace-normal rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 text-center text-sm font-black uppercase leading-tight text-white shadow-brutal disabled:opacity-50"
                     disabled={isGenerating}
                     onClick={() => void generateCampaign(true)}
                   >
                     Regenerate
                   </button>
                   <button
-                    className="rounded-xl border-4 border-ink bg-paper px-4 py-3 font-black uppercase shadow-brutal disabled:opacity-50"
+                    className="w-full whitespace-normal rounded-xl border-4 border-ink bg-paper px-4 py-3 text-center text-sm font-black uppercase leading-tight shadow-brutal disabled:opacity-50"
                     disabled={!selectedCreative.imageUrl}
                     onClick={downloadSelectedCreative}
                   >
@@ -1410,12 +1429,12 @@ function PreviewCard({ creative }: { creative: GeneratedCreative }) {
         Preview: 600×180 desktop / 320×100 mobile · {AD_FORMAT_LABEL}
       </p>
       <div
-        className={`${sizes[creative.adSize].className} w-full overflow-hidden rounded-2xl border-4 border-ink bg-ink`}
+        className={`${sizes[creative.adSize].className} w-full overflow-hidden rounded-2xl border-4 border-ink bg-[#050018]`}
         style={{ width: "min(100%, 600px)", height: "auto" }}
       >
         {creative.imageUrl ? (
           <img
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             src={creative.imageUrl}
             alt={`${creative.adSize} generated ad`}
           />
@@ -1574,7 +1593,7 @@ function PublishedHistoryPanel({ items }: { items: CampaignHistoryItem[] }) {
                   <img
                     src={item.imageUrl}
                     alt={`${item.businessName} published ad thumbnail`}
-                    className="h-10 w-24 rounded border border-ink object-cover"
+                    className="h-10 w-28 rounded border border-ink bg-[#050018] object-contain"
                   />
                 ) : null}
               </div>
