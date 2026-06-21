@@ -576,6 +576,8 @@ model StalltalkCampaignHistory {
   logoBase64    String?
   logoUrl       String?
   targetUrl     String?
+  targetType    String?
+  targetLabel   String?
   selectedSlot  Int?
   slotPublished Int?
   publishStatus String      @default("DRAFT")
@@ -590,6 +592,7 @@ model StalltalkCampaignHistory {
   ad            Ad?         @relation(fields: [adId], references: [id], onDelete: SetNull)
 
   @@index([parentCampaignId, versionNumber])
+  @@index([targetType, publishStatus, slotPublished])
   @@map("stalltalk_campaign_history")
 }
 

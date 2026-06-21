@@ -20,7 +20,7 @@ function int(body: Record<string, unknown>, key: string, fallback = 0) {
 }
 function historySelect(item: any) {
   const issueSlot = item.ad?.issueSlots?.[0];
-  const isDefaultTarget = item.publishStatus === "PUBLISHED" && !issueSlot && item.slotPublished;
+  const isDefaultTarget = item.targetType === DEFAULT_PUBLIC_ISSUE_ID || (item.publishStatus === "PUBLISHED" && !issueSlot && item.slotPublished);
   return {
     campaignId: item.campaignId,
     parentCampaignId: item.parentCampaignId,
@@ -41,8 +41,10 @@ function historySelect(item: any) {
     publishStatus: item.publishStatus,
     publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
     issueId: issueSlot?.issueId || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_ID : null),
-    issueTitle: issueSlot?.issue?.title || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : null),
-    venueName: issueSlot?.issue?.venue?.name || null,
+    issueTitle: item.targetLabel || issueSlot?.issue?.title || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : null),
+    venueName: isDefaultTarget ? "Public" : issueSlot?.issue?.venue?.name || null,
+    targetType: item.targetType || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_ID : null),
+    targetLabel: item.targetLabel || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : null),
     viewCount: item.viewCount || 0,
     clickCount: item.clickCount || 0
   };
@@ -120,7 +122,9 @@ async function publishCampaign(body: Record<string, unknown>) {
   const publisher = publisherId
     ? await prisma.publisher.findUnique({ where: { id: publisherId } })
     : null;
-  const resolvedBody = { ...body, advertiserId: advertiser?.id ?? null, publisherId: publisher?.id ?? null };
+  const targetType = defaultPublicTarget ? DEFAULT_PUBLIC_ISSUE_ID : "issue";
+  const targetLabel = defaultPublicTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : issue?.title || str(body, "targetLabel", issueId);
+  const resolvedBody = { ...body, advertiserId: advertiser?.id ?? null, publisherId: publisher?.id ?? null, targetType, targetLabel };
   const ad = await prisma.ad.create({ data: { publisherId: publisher?.id ?? null, advertiserId: advertiser?.id ?? null, businessName: str(body, "businessName"), title: str(body, "title"), offer: str(body, "offer"), artworkUrl: nullable(body, "artworkUrl"), creativeType: "IMAGE", promptUsed: nullable(body, "promptUsed"), generatedHeadline: nullable(body, "generatedHeadline"), generatedSubheadline: nullable(body, "generatedSubheadline"), adSize: "3:1 sponsor banner", ctaText: str(body, "ctaText", "Claim Offer"), targetUrl: str(body, "targetUrl", "#"), phone: nullable(body, "phone"), couponCode: nullable(body, "couponCode"), status: "ACTIVE" as AdStatus, scope, venueId: scope === "VENUE" ? nullable(body, "venueId") : null, restroomId: scope === "RESTROOM" ? nullable(body, "restroomId") : null } });
   if (defaultPublicTarget) {
     const previousSlot = await prisma.stalltalkAdSlot.findUnique({ where: { slotNumber }, include: { ad: true } });
@@ -140,7 +144,7 @@ async function publishCampaign(body: Record<string, unknown>) {
   const campaignId = str(body, "campaignId", ad.id);
   const parentCampaignId = str(body, "parentCampaignId", campaignId);
   await prisma.stalltalkCampaignHistory.updateMany({ where: { parentCampaignId, NOT: { campaignId } }, data: { publishStatus: "SUPERSEDED" } });
-  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
+  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
   revalidatePath("/");
   revalidatePath("/issue");
   if (issue?.venue?.slug) revalidatePath(`/issue/${issue.venue.slug}`);
@@ -165,5 +169,5 @@ async function updateStatus(campaignId: string, publishStatus: string) {
   return NextResponse.json({ ok: true, message: `Campaign ${publishStatus.toLowerCase()}.`, campaign: historySelect(item) });
 }
 function historyData(body: Record<string, unknown>, parentCampaignId: string) {
-  return { parentCampaignId, publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
+  return { parentCampaignId, targetType: nullable(body, "targetType"), targetLabel: nullable(body, "targetLabel"), publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
 }

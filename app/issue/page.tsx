@@ -54,7 +54,7 @@ export default async function IssueQueryPage({
       }
     }
 
-    const hasDefaultPublicAds = await prisma.stalltalkAdSlot.findFirst({ where: { ad: { status: "ACTIVE" } }, select: { id: true } });
+    const hasDefaultPublicAds = await prisma.stalltalkCampaignHistory.findFirst({ where: { targetType: DEFAULT_PUBLIC_ISSUE_ID, publishStatus: "PUBLISHED", ad: { status: "ACTIVE" } }, select: { id: true } });
     if (hasDefaultPublicAds) {
       return <StaticIssuePage />;
     }
@@ -88,22 +88,23 @@ export default async function IssueQueryPage({
 }
 
 async function StaticIssuePage() {
-  const dbSlots = await prisma.stalltalkAdSlot.findMany({ where: { ad: { status: "ACTIVE" } }, include: { ad: true }, orderBy: { slotNumber: "asc" } }).catch((error) => {
-    console.error("Default public issue ad slot load failed; using static ad JSON fallback.", error);
+  const defaultCampaigns = await prisma.stalltalkCampaignHistory.findMany({ where: { targetType: DEFAULT_PUBLIC_ISSUE_ID, publishStatus: "PUBLISHED", ad: { status: "ACTIVE" } }, include: { ad: true }, orderBy: [{ slotPublished: "asc" }, { publishedAt: "desc" }] }).catch((error) => {
+    console.error("Default public issue published ad load failed; using static ad JSON fallback.", error);
     return [];
   });
-  const dbAds = dbSlots.reduce<PublicationAdLike[]>((items, slot) => {
-    items[slot.slotNumber - 1] = {
-      id: slot.ad?.id || slot.adId || slot.id,
-      businessName: slot.ad?.businessName || slot.business,
-      title: slot.ad?.title || slot.headline || undefined,
-      offer: slot.ad?.offer || slot.subheadline || undefined,
-      generatedHeadline: slot.ad?.generatedHeadline || slot.headline || undefined,
-      generatedSubheadline: slot.ad?.generatedSubheadline || slot.subheadline || undefined,
-      ctaText: slot.ad?.ctaText || slot.ctaText || undefined,
-      targetUrl: slot.ad?.targetUrl || slot.targetUrl || undefined,
-      couponCode: slot.ad?.couponCode || slot.couponCode || undefined,
-      artworkUrl: slot.ad?.artworkUrl || slot.image || undefined
+  const dbAds = defaultCampaigns.reduce<PublicationAdLike[]>((items, campaign) => {
+    if (!campaign.slotPublished || !campaign.ad) return items;
+    items[campaign.slotPublished - 1] = {
+      id: campaign.ad.id,
+      businessName: campaign.ad.businessName || campaign.business,
+      title: campaign.ad.title || campaign.headline || undefined,
+      offer: campaign.ad.offer || campaign.subheadline || undefined,
+      generatedHeadline: campaign.ad.generatedHeadline || campaign.headline || undefined,
+      generatedSubheadline: campaign.ad.generatedSubheadline || campaign.subheadline || undefined,
+      ctaText: campaign.ad.ctaText || campaign.ctaText || undefined,
+      targetUrl: campaign.ad.targetUrl || campaign.targetUrl || undefined,
+      couponCode: campaign.ad.couponCode || campaign.couponCode || undefined,
+      artworkUrl: campaign.ad.artworkUrl || campaign.image || undefined
     };
     return items;
   }, []);

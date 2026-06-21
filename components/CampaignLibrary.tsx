@@ -2,8 +2,8 @@
 
 import { DEFAULT_PUBLIC_ISSUE_ID, DEFAULT_PUBLIC_ISSUE_LABEL } from "@/lib/default-public-issue";
 
-type Campaign = { campaignId: string; parentCampaignId: string | null; versionNumber: number; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; imageUrl: string; promptUsed: string; targetUrl: string; selectedSlot: number | null; slotPublished: number | null; publishStatus: string; createdAt: string; publishedAt: string | null; issueId: string | null; issueTitle: string | null; venueName: string | null; publisherId: string; advertiserId: string };
-type Issue = { id: string; title: string; venueName: string };
+type Campaign = { campaignId: string; parentCampaignId: string | null; versionNumber: number; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; imageUrl: string; promptUsed: string; targetUrl: string; selectedSlot: number | null; slotPublished: number | null; publishStatus: string; createdAt: string; publishedAt: string | null; issueId: string | null; issueTitle: string | null; venueName: string | null; publisherId: string; advertiserId: string; targetType?: string | null; targetLabel?: string | null };
+type Issue = { id: string; title: string; label?: string; venueName: string; isDefault?: boolean; targetType?: string };
 const headers = ["Business Name", "Headline", "Status", "Issue", "Venue", "Slot", "Created Date", "Published Date", "Version", "Actions"];
 function fileSafe(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "business"; }
 async function downloadPng(campaign: Campaign) {
@@ -19,10 +19,10 @@ async function downloadPng(campaign: Campaign) {
 
 export function CampaignLibrary({ campaigns, issues }: { campaigns: Campaign[]; issues: Issue[] }) {
   async function action(campaign: Campaign, actionName: "duplicate" | "unpublish" | "archive" | "publish") {
-    const issueOptions = [DEFAULT_PUBLIC_ISSUE_ID, ...issues.map((issue) => issue.id)].join("\n");
+    const issueOptions = issues.map((issue) => issue.isDefault ? `${issue.label || issue.title} (${issue.id})` : `${issue.title} • ${issue.venueName} (${issue.id})`).join("\n");
     const issueId = actionName === "publish" ? window.prompt(`Issue ID to publish into (use ${DEFAULT_PUBLIC_ISSUE_ID} for ${DEFAULT_PUBLIC_ISSUE_LABEL})\n${issueOptions}`, campaign.issueId || DEFAULT_PUBLIC_ISSUE_ID) : "";
     const slotNumber = actionName === "publish" ? window.prompt("Slot / placement number", String(campaign.selectedSlot || campaign.slotPublished || 1)) : "";
-    const response = await fetch("/api/ad-studio/campaigns", { method: actionName === "duplicate" ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...campaign, action: actionName, issueId, slotNumber, businessName: campaign.businessName, title: campaign.headline, offer: campaign.subheadline, artworkUrl: campaign.imageUrl, generatedHeadline: campaign.headline, generatedSubheadline: campaign.subheadline }) });
+    const response = await fetch("/api/ad-studio/campaigns", { method: actionName === "duplicate" ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...campaign, action: actionName, issueId, targetType: issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_ID : "issue", targetLabel: issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === issueId)?.title || issueId, slotNumber, businessName: campaign.businessName, title: campaign.headline, offer: campaign.subheadline, artworkUrl: campaign.imageUrl, generatedHeadline: campaign.headline, generatedSubheadline: campaign.subheadline }) });
     const result = await response.json();
     if (!response.ok || result.error) alert(result.error || "Campaign action failed"); else window.location.reload();
   }
