@@ -7,11 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import {
-  AD_FINAL_HEIGHT,
-  AD_FINAL_WIDTH,
-  AD_FORMAT_LABEL,
-} from "@/lib/ad-config";
+import { AD_FORMAT_LABEL } from "@/lib/ad-config";
 import {
   DEFAULT_PUBLIC_ISSUE_ID,
   DEFAULT_PUBLIC_ISSUE_LABEL,
@@ -52,7 +48,7 @@ type SavedCampaign = {
   subheadline: string;
   ctaText: string;
   couponCode: string;
-  adSize: "4:3 Sponsor Card";
+  adSize: AdSize;
   imageUrl: string;
   promptUsed: string;
   createdAt: string;
@@ -84,9 +80,9 @@ type Props = {
   mode?: "admin" | "advertiser";
 };
 
-type AdSize = "4:3 Sponsor Card";
+type AdSize = "Editorial Magazine Ad";
 type GeneratedCreative = {
-  adSize: "4:3 Sponsor Card";
+  adSize: AdSize;
   imageUrl: string;
   promptUsed: string;
   headline: string;
@@ -147,7 +143,7 @@ const visualStyles = [
   "Concert",
   "Modern Minimal",
 ];
-const SPONSOR_BANNER: AdSize = "4:3 Sponsor Card";
+const EDITORIAL_AD: AdSize = "Editorial Magazine Ad";
 const ENV_WARNING_MESSAGE =
   "Publishing is not fully configured. Add Cloudinary environment variables in Vercel.";
 
@@ -157,9 +153,9 @@ const isPublishingConfigured = Boolean(
 );
 
 const sizes: Record<AdSize, { label: string; className: string }> = {
-  [SPONSOR_BANNER]: {
-    label: SPONSOR_BANNER,
-    className: "aspect-[4/3] max-w-[720px]",
+  [EDITORIAL_AD]: {
+    label: EDITORIAL_AD,
+    className: "max-w-[720px]",
   },
 };
 
@@ -407,7 +403,7 @@ function AdStudioPanel({
         subheadline: item.subheadline || "",
         ctaText: item.ctaText || "Claim Offer",
         couponCode: item.couponCode || "",
-        adSize: SPONSOR_BANNER,
+        adSize: EDITORIAL_AD,
         createdAt: item.createdAt,
         parentCampaignId: item.parentCampaignId || item.campaignId,
         versionNumber: item.versionNumber || 1,
@@ -430,19 +426,18 @@ function AdStudioPanel({
   async function uploadFinishedAd(file: File | undefined) {
     if (!file) return;
     setUploadMessage(
-      "Composing finished 4:3 sponsor card and uploading to Cloudinary...",
+      "Uploading finished editorial ad to Cloudinary...",
     );
     let objectUrl = "";
     try {
       objectUrl = URL.createObjectURL(file);
-      const composedImageUrl = await composeSponsorBannerImage(objectUrl);
-      const cloudinaryUrl = await uploadImageUrlToCloudinary(composedImageUrl);
+      const cloudinaryUrl = await uploadImageUrlToCloudinary(objectUrl);
       const campaignId = crypto.randomUUID();
       const uploaded: GeneratedCreative = {
-        adSize: SPONSOR_BANNER,
+        adSize: EDITORIAL_AD,
         imageUrl: cloudinaryUrl,
         promptUsed:
-          "Uploaded finished 4:3 sponsor card graphic normalized to 1024x768 and stored in Cloudinary.",
+          "Uploaded finished editorial ad stored in Cloudinary. It will render uncropped.",
         headline: limitText(
           safe(form.offer || form.businessName, "Uploaded Sponsor Ad"),
           34,
@@ -461,7 +456,7 @@ function AdStudioPanel({
       setHasGenerated(true);
       setStep(5);
       setUploadMessage(
-        "Uploaded 1024x768 sponsor card is ready to publish to a content sponsor placement.",
+        "Uploaded editorial ad is ready to publish and will render uncropped in the issue.",
       );
     } catch (error) {
       setUploadMessage(
@@ -493,266 +488,8 @@ function AdStudioPanel({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function composeSponsorBannerImage(imageUrl?: string) {
-    if (typeof window === "undefined" || typeof document === "undefined")
-      return imageUrl || "";
-    const canvas = document.createElement("canvas");
-    canvas.width = AD_FINAL_WIDTH;
-    canvas.height = AD_FINAL_HEIGHT;
-    const context = canvas.getContext("2d");
-    if (!context) return imageUrl || "";
-
-    const gradient = context.createLinearGradient(
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    );
-    gradient.addColorStop(0, "#17002f");
-    gradient.addColorStop(0.45, "#5b2cff");
-    gradient.addColorStop(1, "#ff2d55");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "rgba(255,212,0,.18)";
-    context.beginPath();
-    context.arc(canvas.width - 160, 140, 220, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "rgba(255,255,255,.10)";
-    context.beginPath();
-    context.arc(210, canvas.height - 150, 190, 0, Math.PI * 2);
-    context.fill();
-
-    if (imageUrl) {
-      try {
-        const baseImage = await loadCanvasImage(imageUrl);
-        const scale = Math.min(
-          canvas.width / baseImage.width,
-          canvas.height / baseImage.height,
-        );
-        const width = baseImage.width * scale;
-        const height = baseImage.height * scale;
-        context.drawImage(
-          baseImage,
-          (canvas.width - width) / 2,
-          (canvas.height - height) / 2,
-          width,
-          height,
-        );
-      } catch {
-        // Keep styled gradient fallback when OpenAI output cannot be loaded.
-      }
-    }
-
-    const shade = context.createLinearGradient(0, 0, 0, canvas.height);
-    shade.addColorStop(0, "rgba(5,0,24,.78)");
-    shade.addColorStop(0.58, "rgba(5,0,24,.48)");
-    shade.addColorStop(1, "rgba(5,0,24,.64)");
-    context.fillStyle = shade;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    const padding = 72;
-    const business = safe(form.businessName, "Your Business");
-    const headline = safe(form.offer, "Limited-Time Offer");
-    const subheadline = `For ${activeAudience}`;
-    const cta = safe(form.ctaText, "Claim Offer");
-    const coupon = safe(form.couponCode, "");
-
-    let logoRight = padding;
-    if (form.logoBase64) {
-      try {
-        const logoImage = await loadCanvasImage(form.logoBase64);
-        const logoMaxWidth = 220;
-        const logoMaxHeight = 96;
-        const scale = Math.min(
-          logoMaxWidth / logoImage.width,
-          logoMaxHeight / logoImage.height,
-          1,
-        );
-        const logoWidth = logoImage.width * scale;
-        const logoHeight = logoImage.height * scale;
-        drawRoundRect(
-          context,
-          padding,
-          padding,
-          logoWidth + 28,
-          logoHeight + 28,
-          24,
-        );
-        context.fillStyle = "rgba(255,255,255,.94)";
-        context.fill();
-        context.drawImage(
-          logoImage,
-          padding + 14,
-          padding + 14,
-          logoWidth,
-          logoHeight,
-        );
-        logoRight = padding + logoWidth + 48;
-      } catch {
-        logoRight = padding;
-      }
-    }
-
-    context.textBaseline = "top";
-    context.fillStyle = "#ffffff";
-    const businessFit = fitCanvasText(context, business, 430, 2, 42, 24, 900);
-    context.font = `900 ${businessFit.size}px Arial Black, Arial, sans-serif`;
-    businessFit.lines.forEach((line, index) =>
-      context.fillText(
-        line,
-        logoRight,
-        padding + index * businessFit.lineHeight,
-      ),
-    );
-
-    const headlineMaxWidth = canvas.width - padding * 2;
-    const headlineFit = fitCanvasText(
-      context,
-      headline,
-      headlineMaxWidth,
-      3,
-      78,
-      38,
-      900,
-    );
-    const headlineY = 250 - (headlineFit.lines.length - 1) * 18;
-    context.shadowColor = "rgba(0,0,0,.42)";
-    context.shadowBlur = 14;
-    context.font = `900 ${headlineFit.size}px Arial Black, Arial, sans-serif`;
-    headlineFit.lines.forEach((line, index) =>
-      context.fillText(
-        line,
-        padding,
-        headlineY + index * headlineFit.lineHeight,
-      ),
-    );
-    context.shadowBlur = 0;
-
-    const subFit = fitCanvasText(
-      context,
-      subheadline,
-      canvas.width - padding * 2,
-      2,
-      34,
-      22,
-      800,
-      "Arial, sans-serif",
-    );
-    context.font = `800 ${subFit.size}px Arial, sans-serif`;
-    context.fillStyle = "#fff7b8";
-    context.fillText(
-      subFit.lines[0] || "",
-      padding,
-      headlineY + headlineFit.lines.length * headlineFit.lineHeight + 18,
-    );
-
-    const ctaWidth = 280;
-    const ctaHeight = 76;
-    const ctaX = canvas.width - padding - ctaWidth;
-    const ctaY = canvas.height - padding - ctaHeight;
-    drawRoundRect(context, ctaX, ctaY, ctaWidth, ctaHeight, 28);
-    context.fillStyle = "#ffd400";
-    context.fill();
-    const ctaFit = fitCanvasText(context, cta, ctaWidth - 42, 1, 32, 20, 900);
-    context.font = `900 ${ctaFit.size}px Arial Black, Arial, sans-serif`;
-    context.fillStyle = "#111111";
-    const ctaLine = ctaFit.lines[0] || cta;
-    context.fillText(
-      ctaLine,
-      ctaX + (ctaWidth - context.measureText(ctaLine).width) / 2,
-      ctaY + (ctaHeight - ctaFit.size) / 2 - 2,
-    );
-
-    if (coupon) {
-      const badgeWidth = 300;
-      const badgeHeight = 64;
-      const badgeX = Math.max(padding, ctaX - badgeWidth - 24);
-      const badgeY = canvas.height - padding - badgeHeight;
-      drawRoundRect(context, badgeX, badgeY, badgeWidth, badgeHeight, 22);
-      context.fillStyle = "rgba(255,255,255,.94)";
-      context.fill();
-      const couponFit = fitCanvasText(
-        context,
-        `CODE ${coupon}`,
-        badgeWidth - 36,
-        1,
-        28,
-        18,
-        900,
-      );
-      context.font = `900 ${couponFit.size}px Arial Black, Arial, sans-serif`;
-      context.fillStyle = "#5b2cff";
-      const couponLine = couponFit.lines[0] || coupon;
-      context.fillText(
-        couponLine,
-        badgeX + (badgeWidth - context.measureText(couponLine).width) / 2,
-        badgeY + (badgeHeight - couponFit.size) / 2 - 2,
-      );
-    }
-
-    return canvas.toDataURL("image/png");
-  }
-
-  async function isFinalSponsorCardImage(imageUrl: string) {
-    if (!imageUrl || typeof window === "undefined") return false;
-    const image = await loadCanvasImage(imageUrl);
-    return image.width === AD_FINAL_WIDTH && image.height === AD_FINAL_HEIGHT;
-  }
-
-  async function overlayLogoOnImage(imageUrl: string) {
-    if (
-      !form.logoBase64 ||
-      !imageUrl ||
-      typeof window === "undefined" ||
-      typeof document === "undefined"
-    )
-      return imageUrl;
-    const [baseImage, logoImage] = await Promise.all([
-      loadCanvasImage(imageUrl),
-      loadCanvasImage(form.logoBase64),
-    ]);
-    const canvas = document.createElement("canvas");
-    canvas.width = AD_FINAL_WIDTH;
-    canvas.height = AD_FINAL_HEIGHT;
-    const context = canvas.getContext("2d");
-    if (!context) return imageUrl;
-    context.fillStyle = "#050018";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    const baseScale = Math.min(
-      canvas.width / baseImage.width,
-      canvas.height / baseImage.height,
-    );
-    const baseWidth = baseImage.width * baseScale;
-    const baseHeight = baseImage.height * baseScale;
-    context.drawImage(
-      baseImage,
-      (canvas.width - baseWidth) / 2,
-      (canvas.height - baseHeight) / 2,
-      baseWidth,
-      baseHeight,
-    );
-    const logoMaxWidth = canvas.width * 0.34;
-    const logoMaxHeight = canvas.height * 0.16;
-    const logoScale = Math.min(
-      logoMaxWidth / logoImage.width,
-      logoMaxHeight / logoImage.height,
-      1,
-    );
-    const logoWidth = logoImage.width * logoScale;
-    const logoHeight = logoImage.height * logoScale;
-    const padding = 42;
-    context.fillStyle = "rgba(255,255,255,.92)";
-    roundRect(
-      context,
-      padding - 14,
-      padding - 14,
-      logoWidth + 28,
-      logoHeight + 28,
-      22,
-    );
-    context.fill();
-    context.drawImage(logoImage, padding, padding, logoWidth, logoHeight);
-    return canvas.toDataURL("image/png");
+  async function canonicalCreativeImage(imageUrl?: string) {
+    return imageUrl || "";
   }
 
   function fallbackCreative(
@@ -769,7 +506,7 @@ function AdStudioPanel({
       imageUrl: "",
       promptUsed:
         data?.promptUsed ||
-        `Fallback styled ad card for ${safe(form.businessName, "Your Business")} using creative brief: ${safe(form.offer, "Limited-time offer")}.`,
+        `Fallback styled editorial ad for ${safe(form.businessName, "Your Business")} using creative brief: ${safe(form.offer, "Limited-time offer")}.`,
       headline,
       subheadline: limitText(
         safe(
@@ -812,7 +549,7 @@ function AdStudioPanel({
           ) + 1
         : 1;
     const campaignBatchId = `${parentCampaignId}-v${nextVersion}`;
-    const adSize = SPONSOR_BANNER;
+    const adSize = EDITORIAL_AD;
     const targetLabel =
       form.issueId === DEFAULT_PUBLIC_ISSUE_ID
         ? DEFAULT_PUBLIC_ISSUE_LABEL
@@ -862,7 +599,7 @@ function AdStudioPanel({
         const message = diagnosticMessage(data);
         generated.push({
           ...fallbackCreative(adSize, message, data),
-          imageUrl: await composeSponsorBannerImage(),
+          imageUrl: await canonicalCreativeImage(),
           campaignId: campaignBatchId,
           parentCampaignId,
           versionNumber: nextVersion,
@@ -872,9 +609,7 @@ function AdStudioPanel({
       } else {
         generated.push({
           adSize,
-          imageUrl: await uploadImageUrlToCloudinary(
-            await composeSponsorBannerImage(data.imageUrl),
-          ),
+          imageUrl: await uploadImageUrlToCloudinary(data.imageUrl),
           promptUsed: data.promptUsed,
           headline: data.headline,
           subheadline: data.subheadline,
@@ -898,7 +633,7 @@ function AdStudioPanel({
         caught instanceof Error ? caught.message : "Image generation failed.";
       generated.push({
         ...fallbackCreative(adSize, message),
-        imageUrl: await composeSponsorBannerImage(),
+        imageUrl: await canonicalCreativeImage(),
         campaignId: campaignBatchId,
         parentCampaignId,
         versionNumber: nextVersion,
@@ -1014,19 +749,6 @@ function AdStudioPanel({
       setPublishError("Image must be uploaded before publishing.");
       return;
     }
-    try {
-      if (!(await isFinalSponsorCardImage(selectedCreative.imageUrl))) {
-        setPublishError(
-          "Final ad must be a 1024x768 4:3 sponsor card before publishing.",
-        );
-        return;
-      }
-    } catch {
-      setPublishError(
-        "Final ad must be a 1024x768 4:3 sponsor card before publishing.",
-      );
-      return;
-    }
     const formData = new FormData();
     const campaignId = selectedCreative.campaignId || crypto.randomUUID();
     formData.set("campaignId", campaignId);
@@ -1071,7 +793,7 @@ function AdStudioPanel({
     formData.set("promptUsed", selectedCreative.promptUsed);
     formData.set("generatedHeadline", selectedCreative.headline);
     formData.set("generatedSubheadline", selectedCreative.subheadline);
-    formData.set("adSize", SPONSOR_BANNER);
+    formData.set("adSize", EDITORIAL_AD);
     formData.set("ctaText", selectedCreative.ctaText);
     formData.set("targetUrl", form.website || "#");
     formData.set("phone", form.phone);
@@ -1179,7 +901,7 @@ function AdStudioPanel({
           </h1>
           <p className="mt-2 max-w-3xl text-lg font-bold">
             {isAdvertiserMode
-              ? "Advertiser-safe AI ad generator: create drafts, generate sponsor card creative, and submit finished campaigns for admin review."
+              ? "Advertiser-safe AI ad generator: create drafts, generate editorial ad creative, and submit finished campaigns for admin review."
               : "AI ad generator from a creative brief: enter business info, offer, audience, and creative direction, then generate ad copy plus a graphic through the existing /api/generate-ad-image route before publishing to a Stall Talk sponsor placement."}
           </p>
         </div>
@@ -1342,11 +1064,9 @@ function AdStudioPanel({
             />
           </div>
           <label className="lg:col-span-2 rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase">
-            Upload finished 4:3 sponsor card graphic
+            Upload finished editorial ad graphic
             <span className="mt-2 block text-sm normal-case text-ink/70">
-              Upload finished 4:3 sponsor card graphic. Recommended: 1024x768
-              PNG. Stores the file in Cloudinary and uses it exactly like an
-              AI-generated creative.
+              Upload a finished editorial magazine ad graphic. Recommended: 1080x1350 PNG; square or landscape files are accepted and render uncropped.
             </span>
             <input
               className="mt-3 w-full"
@@ -1395,7 +1115,7 @@ function AdStudioPanel({
               <PreviewCard creative={selectedCreative} />
             ) : (
               <p className="rounded-2xl border-2 border-dashed border-ink p-8 text-center font-black uppercase">
-                Generate one locked 4:3 sponsor card image.
+                Generate one full editorial ad image that renders uncropped.
               </p>
             )}
             {apiStatus ? <StatusPanel diagnostic={apiStatus} /> : null}
@@ -1748,16 +1468,15 @@ function PreviewCard({ creative }: { creative: GeneratedCreative }) {
   return (
     <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal">
       <p className="mb-2 text-xs font-black uppercase tracking-widest text-stallPurple">
-        Preview: max 720px desktop / 100% mobile · 1024×768 PNG ·{" "}
-        {AD_FORMAT_LABEL}
+        Editorial ad preview — final image renders uncropped in the issue.
       </p>
       <div
-        className={`${sizes[creative.adSize].className} w-full overflow-hidden rounded-2xl border-4 border-ink bg-[#050018]`}
+        className={`${sizes[creative.adSize].className} w-full rounded-2xl bg-transparent`}
         style={{ width: "min(100%, 720px)", height: "auto" }}
       >
         {creative.imageUrl ? (
           <img
-            className="h-full w-full object-contain"
+            className="block h-auto w-full object-contain"
             src={creative.imageUrl}
             alt={`${creative.adSize} generated ad`}
           />
@@ -1936,7 +1655,7 @@ function PublishedHistoryPanel({
                   <img
                     src={item.imageUrl}
                     alt={`${item.businessName} published ad thumbnail`}
-                    className="aspect-[4/3] h-16 rounded border border-ink bg-[#050018] object-contain"
+                    className="h-16 w-16 rounded border border-ink bg-white object-contain"
                   />
                 ) : null}
               </div>

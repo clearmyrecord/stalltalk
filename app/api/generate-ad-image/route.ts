@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@/lib/auth";
 import { AD_FORMAT_LABEL, AD_IMAGE_GENERATION_SIZE } from "@/lib/ad-config";
 
-type AdSize = "4:3 Sponsor Card";
+type AdSize = "Editorial Magazine Ad";
 type Diagnostic = {
   apiStatus: "ok" | "failed";
   openAiStatus: "connected" | "failed" | "not_configured";
@@ -27,15 +27,15 @@ const ALLOWED_ORIGINS = [
   "http://localhost:8080",
 ];
 
-const SPONSOR_CARD_SIZE = {
+const EDITORIAL_AD_SIZE = {
   apiSize: AD_IMAGE_GENERATION_SIZE,
   composition:
-    "premium 4:3 Potty Favor sponsor card with one clear visual hierarchy, magazine-style composition, generous padding, and protected readable text areas",
+    "premium full-page Potty Favor editorial magazine advertisement with one clear visual hierarchy, generous padding, and all copy inside the image",
   cssSafeArea: AD_FORMAT_LABEL,
 };
 
-const sizeMap: Record<AdSize, typeof SPONSOR_CARD_SIZE> = {
-  "4:3 Sponsor Card": SPONSOR_CARD_SIZE,
+const sizeMap: Record<AdSize, typeof EDITORIAL_AD_SIZE> = {
+  "Editorial Magazine Ad": EDITORIAL_AD_SIZE,
 };
 
 function safe(value: unknown, fallback: string) {
@@ -50,7 +50,7 @@ function limitText(value: string, max: number) {
 }
 
 function normalizeSize(_value: unknown): AdSize {
-  return "4:3 Sponsor Card";
+  return "Editorial Magazine Ad";
 }
 
 function currentModel(body: Record<string, unknown> = {}) {
@@ -180,23 +180,20 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
     promptUsed: safe(
       body.prompt,
       [
-        "Create a premium sponsor card advertisement background for Potty Favor, not a thin banner. Design for a 4:3 magazine-style ad card.",
-        "No words.",
-        "No letters.",
-        "No numbers.",
-        "No logos.",
-        "No coupon.",
-        "No CTA button.",
-        "No readable text.",
-        "Leave clean open space for text overlays. All important text, offer, logo, coupon, and CTA must fit inside the full card.",
-        "Use premium commercial lighting, relevant background imagery, and strong contrast.",
-        "The final visible ad will be 1024x768.",
-        "Generate background/art only. The app will add all business name, headline, subheadline, coupon, CTA, and logo overlays later.",
-        `Creative brief for background only: ${creativeBrief}. Business category: ${category}. Audience: ${copy.audience}.`,
-        `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors for atmosphere only: ${brandColors}. Venue/city atmosphere: ${venueVibe}.`,
-        `Canvas requested from OpenAI: ${size.apiSize}. Keep the complete useful background inside a 4:3 1024x768 sponsor card composition. Use generous padding and no content near edges.`,
+        "Create a premium full-page magazine advertisement for Potty Favor.",
+        "Design for a 1080x1350 editorial magazine placement.",
+        "The advertisement itself is the final deliverable.",
+        `Include all text, branding, offer, coupon code, CTA button, business name, and visual design inside the composition. Business name: ${copy.businessName}. Offer: ${copy.offer}. CTA button text: ${copy.ctaText}. Coupon code: ${copy.couponCode || "none"}.`,
+        "Use a luxury Las Vegas hospitality publication aesthetic.",
+        "Do not design for a banner.",
+        "Do not design for a rigid sponsor card box.",
+        "Do not require external text overlays.",
+        "Keep all important text safely inside the image edges with generous padding.",
+        `Creative brief: ${creativeBrief}. Business category: ${category}. Audience: ${copy.audience}.`,
+        `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors: ${brandColors}. Venue/city atmosphere: ${venueVibe}.`,
+        `Required text: ${requiredText}. Disclaimer: ${disclaimer}. Canvas requested from OpenAI: ${size.apiSize}.`,
         logoInstruction,
-        "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, fake UI chrome, design-process annotations, and any text-like markings. Return clean commercial background artwork only.",
+        "Avoid mockup frames, lorem ipsum, watermarks, UI screenshots, fake app screens, fake UI chrome, and design-process annotations. Return one finished full creative image.",
       ]
         .filter(Boolean)
         .join(" "),
