@@ -8,6 +8,17 @@ export { hashPassword, verifyPassword } from "./passwords";
 const SESSION_COOKIE = "potty_favor_session";
 const SESSION_DAYS = 14;
 
+export const PORTAL_ROLES = ["ADMIN", "ADVERTISER", "VENUE_MANAGER", "DISTRIBUTOR"] as const;
+export type PortalRole = (typeof PORTAL_ROLES)[number];
+
+export function dashboardForRole(role: Role) {
+  if (role === "ADMIN") return "/admin";
+  if (role === "ADVERTISER") return "/portal/advertiser";
+  if (role === "VENUE_MANAGER") return "/portal/venue";
+  if (role === "DISTRIBUTOR") return "/portal/distributor";
+  return "/signin?error=role";
+}
+
 export function authEnvStatus() {
   return {
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
@@ -56,18 +67,19 @@ export async function signOut() {
 
 export async function requireRole(roles: Role[]) {
   const user = await currentUser();
-  if (!user || !roles.includes(user.role)) redirect("/signin?error=admin_required");
+  if (!user) redirect("/signin?error=admin_required");
+  if (!roles.includes(user.role)) redirect(`/signin?error=role&dashboard=${encodeURIComponent(dashboardForRole(user.role))}`);
   return user;
 }
 
 export async function requireAdmin() {
-  return requireRole(["SUPER_ADMIN", "ADMIN"] as Role[]);
+  return requireRole(["ADMIN"] as Role[]);
 }
 
 export async function requireVenueManager() {
-  return requireRole(["VENUE_MANAGER", "VENUE", "SUPER_ADMIN", "ADMIN"] as Role[]);
+  return requireRole(["VENUE_MANAGER", "ADMIN"] as Role[]);
 }
 
 export function isVenueManagerRole(role: Role) {
-  return role === "VENUE_MANAGER" || role === "VENUE";
+  return role === "VENUE_MANAGER";
 }

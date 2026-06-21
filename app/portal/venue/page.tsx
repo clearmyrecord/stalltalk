@@ -1,103 +1,29 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createVenueContentDraft, createVenueMediaAsset, signOutAction } from "@/lib/actions";
-import { authEnvStatus, currentUser } from "@/lib/auth";
-import { money } from "@/lib/format";
+import { signOutAction } from "@/lib/actions";
+import { authEnvStatus, currentUser, dashboardForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
 
 export const dynamic = "force-dynamic";
 
-const metricTypes = [
-  ["QR scans", "SCAN"],
-  ["Issue views", "ISSUE_VIEW"],
-  ["Ad impressions", "AD_IMPRESSION"],
-  ["Ad clicks", "AD_CLICK"],
-  ["Coupon clicks", "COUPON_CLICK"],
-  ["Website visits", "WEBSITE_VISIT"]
-] as const;
-
-function badge(status: string) {
-  return `rounded-full border-2 border-ink px-2 py-1 text-xs font-black uppercase ${status === "PUBLISHED" || status === "APPROVED" ? "bg-green-100" : status === "REJECTED" ? "bg-stallRed text-white" : "bg-stallYellow"}`;
-}
-
-function startFor(filter: string) {
-  const now = new Date();
-  if (filter === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (filter === "7") return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  if (filter === "30") return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  return new Date(now.getFullYear(), now.getMonth(), 1);
-}
-
-export default async function VenuePortalPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  const params = await searchParams;
-  const range = params.range || "30";
+export default async function VenuePortalPage() {
   const auth = authEnvStatus();
   const user = await currentUser();
-  if (auth.isConfigured && (!user || (user.role !== "VENUE_MANAGER" && user.role !== "VENUE" && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN"))) redirect("/signin?error=role");
-  const where = (user?.role === "VENUE_MANAGER" || user?.role === "VENUE") && user.venueId ? { id: user.venueId } : {};
+  if (auth.isConfigured && !user) redirect("/signin?error=admin_required");
+  if (user && user.role !== "VENUE_MANAGER" && user.role !== "ADMIN") return <WrongPortal role={user.role} />;
   try {
-const venues = await prisma.venue.findMany({
-  where,
-  include: {
-    restrooms: true,
-    qrCodes: true,
-    issues: {
-      orderBy: [
-        { year: "desc" },
-        { issueNumber: "desc" }
-      ],
-      take: 2
-    },
-    events: {
-      where: {
-        createdAt: {
-          gte: startFor(range)
-        }
-      }
-    },
-    mediaAssets: {
-      orderBy: {
-        createdAt: "desc"
-      }
-    },
-    toiletLocations: {
-      include: {
-        restroom: true,
-        qrCode: true
-      }
-    },
-    venueContentDrafts: {
-      orderBy: {
-        createdAt: "desc"
-      }
-    },
-    adSlotInventories: {
-      include: {
-        campaigns: {
-          include: {
-            advertiser: true
-          },
-          where: {
-            OR: [
-              { status: "ACTIVE" },
-              {
-                status: "PAID",
-                approvalStatus: "APPROVED"
-              }
-            ]
-          }
-        },
-        restroom: true,
-        qrCode: true
-      }
+    const venue = user?.venueId ? await prisma.venue.findUnique({ where: { id: user.venueId }, include: { restrooms: true, qrCodes: true, events: true } }) : null;
+    if (user?.role === "VENUE_MANAGER" && !venue) {
+      return <main className="min-h-screen bg-paper p-8 text-ink"><ProfileOnboarding title="Complete your venue profile" endpoint="/api/portal/venue/profile" button="Save Venue Profile" fields={[{ name: "venueName", label: "Venue name" }, { name: "address", label: "Address" }, { name: "city", label: "City" }, { name: "state", label: "State" }, { name: "website", label: "Website", required: false }, { name: "phone", label: "Phone", required: false }]} /></main>;
     }
-  },
-  orderBy: {
-    name: "asc"
-  }
-});
+    return <main className="min-h-screen bg-paper p-8 text-ink"><header className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black uppercase tracking-[.25em] text-stallRed">Venue Portal</p><h1 className="font-display text-6xl uppercase">{venue?.name || "Venue Dashboard"}</h1></div><form action={signOutAction}><button className="rounded-xl bg-ink px-4 py-3 font-black uppercase text-white">Sign out</button></form></header><section className="mt-6 grid gap-4 md:grid-cols-3">{[["Restrooms", venue?.restrooms.length || 0], ["QR Codes", venue?.qrCodes.length || 0], ["Analytics Events", venue?.events.length || 0]].map(([label, value]) => <div key={label} className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">{label}</p><p className="font-display text-5xl uppercase">{value}</p></div>)}</section></main>;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error || "");
-    if (!/does not exist|P2021|VenueContentDraft|AdCampaign|VenueMediaAsset/i.test(message)) throw error;
-    return <main className="min-h-screen bg-paper p-8 text-ink"><h1 className="font-display text-7xl uppercase">Venue Dashboard</h1><p className="mt-4 rounded-2xl border-4 border-ink bg-stallYellow p-5 font-black shadow-brutal">Run Prisma migrations to enable the venue management portal tables.</p></main>;
+    return <main className="min-h-screen bg-paper p-8 text-ink"><div className="rounded-2xl border-4 border-ink bg-stallRed p-5 font-black text-white shadow-brutal">{error instanceof Error ? error.message : "Unable to load venue portal."}</div></main>;
   }
+}
+
+function WrongPortal({ role }: { role: any }) {
+  const dashboard = dashboardForRole(role);
+  return <main className="min-h-screen bg-paper p-8 text-ink"><section className="rounded-2xl border-4 border-ink bg-white p-6 shadow-brutal"><h1 className="font-display text-5xl uppercase">Wrong dashboard</h1><p className="mt-3 font-black">That account cannot access the venue dashboard.</p><Link href={dashboard} className="mt-4 inline-block rounded-xl bg-ink px-4 py-3 font-black uppercase text-white">Go to your dashboard</Link></section></main>;
 }

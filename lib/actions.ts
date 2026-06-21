@@ -445,9 +445,12 @@ export async function signIn(formData: FormData) {
     console.error("[auth-signin]", { context: "session_create", table: "AuthSession", query: "create", prismaCode: (error as { code?: string })?.code, errorName: (error as { name?: string })?.name, meta: (error as { meta?: unknown })?.meta });
     redirect("/signin?error=setup");
   }
-  if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") redirect("/admin/dashboard");
+  if (user.role === "ADMIN") redirect("/admin");
+  if (user.role === "ADVERTISER") redirect("/portal/advertiser");
+  if (user.role === "VENUE_MANAGER") redirect("/portal/venue");
+  if (user.role === "DISTRIBUTOR") redirect("/portal/distributor");
 
-  redirect("/portal/advertiser");
+  redirect("/signin?error=role");
 }
 
 export async function signOutAction() {
@@ -464,7 +467,7 @@ export async function createAdSlotInventory(formData: FormData) {
 }
 
 export async function createAdvertiserCampaign(formData: FormData) {
-  const user = await requireRole(["ADVERTISER", "ADMIN", "SUPER_ADMIN"] as any);
+  const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
   const inventoryIds = formData.getAll("inventoryIds").map(String).filter(Boolean);
   const singleInventoryId = text(formData, "inventoryId");
   const placements = [...new Set(inventoryIds.length ? inventoryIds : singleInventoryId ? [singleInventoryId] : [])];
@@ -568,8 +571,8 @@ async function publishPaidCampaign(campaignId: string) {
 }
 
 async function requireAssignedVenue(venueId: string) {
-  const user = await requireRole(["VENUE_MANAGER", "VENUE", "SUPER_ADMIN", "ADMIN"]);
-  if ((user.role === "VENUE_MANAGER" || user.role === "VENUE") && user.venueId !== venueId) throw new Error("Venue managers can only manage their assigned venue.");
+  const user = await requireRole(["VENUE_MANAGER", "ADMIN"]);
+  if ((user.role === "VENUE_MANAGER") && user.venueId !== venueId) throw new Error("Venue managers can only manage their assigned venue.");
   return user;
 }
 
@@ -616,7 +619,7 @@ export async function rejectVenueContentDraft(id: string, formData?: FormData) {
 }
 
 export async function updateAdvertiserCampaign(id: string, formData: FormData) {
-  const user = await requireRole(["ADVERTISER", "ADMIN", "SUPER_ADMIN"] as any);
+  const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
   const existing = await prisma.adCampaign.findUnique({ where: { id } });
 
   if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) {
@@ -669,7 +672,7 @@ export async function archiveAdvertiserCampaign(id: string) {
 }
 
 async function advertiserCampaignStatus(id: string, status: any, extra: any) {
-  const user = await requireRole(["ADVERTISER", "ADMIN", "SUPER_ADMIN"] as any);
+  const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
   const existing = await prisma.adCampaign.findUnique({ where: { id } });
 
   if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) {

@@ -30,7 +30,7 @@ async function collectDiagnostics() {
     prisma.advertiser.count(),
     prisma.venue.count(),
     prisma.qrCode.count(),
-    prisma.user.count({ where: { role: { in: ["SUPER_ADMIN", "ADMIN"] as any } } })
+    prisma.user.count({ where: { role: { in: ["ADMIN"] as any } } })
   ]);
   const databaseUrl = databaseUrlDiagnostic();
   return { bootstrap, counts: { userCount, issueCount, advertiserCount, venueCount, qrCount, adminCount }, databaseUrl };

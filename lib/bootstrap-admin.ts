@@ -74,7 +74,7 @@ export async function ensureBootstrapAdmin(): Promise<BootstrapAdminResult> {
     }
 
     const [adminCountResult, userCount] = await Promise.all([
-      prisma.$queryRaw<{ count: bigint }[]>`SELECT COUNT(*)::bigint AS count FROM "User" WHERE role::text IN ('SUPER_ADMIN', 'ADMIN')`,
+      prisma.$queryRaw<{ count: bigint }[]>`SELECT COUNT(*)::bigint AS count FROM "User" WHERE role::text IN ('ADMIN')`,
       prisma.user.count()
     ]);
     const adminCount = Number(adminCountResult[0]?.count ?? 0);
