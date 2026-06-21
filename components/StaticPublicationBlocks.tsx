@@ -146,7 +146,19 @@ function DidYouKnowBlock() {
     </section>
   );
 }
-function WordOfDayBlock() { return <section className="publication-content-block word-card panel"><h2>Word-of-the-Day</h2><strong>{publishedIssue.wordOfTheDay}</strong><p>{publishedIssue.wordDefinition}</p></section>; }
+function WordOfDayBlock() {
+  return (
+    <section className="publication-content-block word-card panel">
+      <p className="word-eyebrow">DAILY DISCOVERY</p>
+      <h2>WORD OF THE DAY</h2>
+      <div className="word-divider" />
+      <strong>{publishedIssue.wordOfTheDay}</strong>
+      <p className="word-part">noun</p>
+      <p className="word-definition">{publishedIssue.wordDefinition}</p>
+      <p className="word-example">“Use today’s word before dessert and sound instantly more interesting.”</p>
+    </section>
+  );
+}
 function StaticRestaurantBlock() { return <section className="publication-content-block restaurant-review panel"><p className="card-label">Restaurant Review</p><img src="/images/restaurant-review.jpg" alt="Featured local restaurant" className="review-photo review-hero" /><div className="review-content"><h2>Worth the Stop</h2><h3>Featured Local Restaurant</h3><p className="review-rating">★★★★½ 4.5/5</p><p>This month’s pick is a local spot with strong atmosphere, good service, and food that makes it worth coming back for. Perfect for a casual lunch, date night, or a quick bite before heading back out.</p><p className="review-address">Las Vegas, NV</p><div className="review-actions"><a href="https://pottyfavor.com/advertise" className="review-button">Visit Website</a><a href="#ad-5" className="review-button secondary">Read Full Review</a></div></div></section>; }
 function CalendarBlock() { const days = Array.from({ length: 35 }, (_, index) => index + 1); return <section className="publication-content-block calendar-card panel" id="calendar"><h2>Calendar / Event Spotlight</h2><div className="calendar-layout"><div><div className="calendar-grid" aria-label="Published event calendar">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span className="calendar-weekday" key={day}>{day}</span>)}{days.map((day) => <span key={day}>{day <= 30 ? day : ""}</span>)}</div><p>{publishedIssue.calendarText}</p></div><aside className="event-spotlight"><strong>Event Spotlight</strong><p>Submit local happenings to keep the monthly calendar moving.</p></aside></div></section>; }
 function SubmitEventForm() {

@@ -427,6 +427,7 @@ model RestaurantReview {
   venueId          String?     @map("venue_id")
   venueIds         String[]    @default([]) @map("venue_ids")
   featuredImageUrl String?     @map("featured_image_url")
+  photoUrl         String?     @map("photo_url")
   starRating       Decimal     @default(5.0) @map("star_rating")
   cuisineType      String?     @map("cuisine_type")
   address          String?
