@@ -5,7 +5,7 @@ import { ensureBootstrapAdmin } from "@/lib/bootstrap-admin";
 
 export const dynamic = "force-dynamic";
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; setup?: string; signup?: string; dashboard?: string }> }) {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; setup?: string; signup?: string; dashboard?: string; reset?: string }> }) {
   const params = await searchParams;
   const auth = authEnvStatus();
   const bootstrap = auth.hasDatabaseUrl ? await ensureBootstrapAdmin() : null;
@@ -20,6 +20,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         {params.error === "setup" ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">Sign in is temporarily unavailable while the database finishes setup. Please try again shortly.</p> : null}
         {params.setup === "auth" ? <p className="mt-4 rounded-xl bg-stallYellow p-3 font-black">Login is disabled until AUTH_SECRET and DATABASE_URL are configured.</p> : null}
         {params.signup === "success" ? <p className="mt-4 rounded-xl bg-green-100 p-3 font-black">Account created. Sign in to continue.</p> : null}
+        {params.reset === "success" ? <p className="mt-4 rounded-xl bg-green-100 p-3 font-black">Password reset. Sign in with your new password.</p> : null}
         {params.dashboard ? <p className="mt-4 rounded-xl bg-stallYellow p-3 font-black">Use your assigned dashboard: <Link className="underline" href={params.dashboard}>open dashboard</Link>.</p> : null}
         {bootstrap?.created ? <p className="mt-4 rounded-xl bg-stallYellow p-3 font-black">Emergency bootstrap admin created for admin@pottyfavor.com. Change the password after signing in.</p> : null}
         {bootstrap?.error ? <p className="mt-4 rounded-xl bg-stallRed p-3 font-black text-white">{bootstrap.error}</p> : null}
@@ -27,6 +28,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <label className="grid gap-1 font-black uppercase">Email<input name="email" type="email" required className="rounded border-2 border-ink p-3" /></label>
           <label className="grid gap-1 font-black uppercase">Password<input name="password" type="password" required className="rounded border-2 border-ink p-3" /></label>
           <button className="rounded-xl bg-ink px-5 py-3 font-black uppercase text-white">Sign in</button>
+          <Link href="/forgot-password" className="font-black uppercase text-stallRed underline">Forgot your password?</Link>
         </form>
         <p className="mt-4 text-sm font-bold">Use the account credentials created by your Potty Favor administrator.</p>
         <Link href="/signup" className="mt-3 inline-block font-black uppercase text-stallRed underline">Create advertiser or venue account</Link>
