@@ -61,11 +61,11 @@ export function AdPlaceholder({ slotNumber, chip = false }: { slotNumber: number
 }
 
 function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: number; compact: boolean; chip: boolean }) {
-  const frame = "ad-creative-frame relative aspect-[3/1] overflow-hidden rounded-xl border-2 border-ink bg-ink shadow-inner";
+  const frame = "ad-creative-frame relative aspect-[4/3] overflow-hidden rounded-xl border-2 border-ink bg-ink shadow-inner";
   const linkedArtwork = ad.targetUrl && ad.targetUrl !== "#";
 
   if (ad.creativeType === "VIDEO" && ad.videoUrl) {
-    return <div className={frame}><video className="h-full w-full object-cover" src={ad.videoUrl} autoPlay muted loop playsInline /></div>;
+    return <div className={frame}><video className="h-full w-full object-contain" src={ad.videoUrl} autoPlay muted loop playsInline /></div>;
   }
 
   if (ad.creativeType === "HTML" && ad.htmlCreative) {
@@ -73,10 +73,10 @@ function CreativeFrame({ ad, slotNumber, compact, chip }: { ad: Ad; slotNumber: 
   }
 
   if (ad.artworkUrl) {
-    return linkedArtwork ? <a className={frame} href={ad.targetUrl} target="_blank" rel="noopener noreferrer"><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></a> : <div className={frame}><img className="h-full w-full object-cover" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
+    return linkedArtwork ? <a className={frame} href={ad.targetUrl} target="_blank" rel="noopener noreferrer"><img className="h-full w-full object-contain" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></a> : <div className={frame}><img className="h-full w-full object-contain" src={ad.artworkUrl} alt={`${ad.businessName} advertisement`} /></div>;
   }
 
-  return <a className="grid aspect-[3/1] place-items-center rounded-xl bg-white p-3 text-center font-black text-ink no-underline" href={ad.targetUrl || "https://pottyfavor.com/advertise"}><span className="text-[10px] uppercase tracking-widest text-stallPurple">Sponsored</span><strong className="uppercase">YOUR BUSINESS HERE</strong><span className="text-xs">Reach thousands of monthly readers from inside Las Vegas venues.</span></a>;
+  return <a className="grid aspect-[4/3] place-items-center rounded-xl bg-white p-3 text-center font-black text-ink no-underline" href={ad.targetUrl || "https://pottyfavor.com/advertise"}><span className="text-[10px] uppercase tracking-widest text-stallPurple">Sponsored</span><strong className="uppercase">YOUR BUSINESS HERE</strong><span className="text-xs">Reach thousands of monthly readers from inside Las Vegas venues.</span></a>;
 }
 
 function TrackingButton({ label, type, ad, issueId, publisherId, venueId, restroomId, qrCodeId, slotNumber, dark = false }: { label: string; type: string; ad: Ad; issueId: string; publisherId?: string | null; venueId?: string | null; restroomId?: string | null; qrCodeId?: string | null; slotNumber: number; dark?: boolean }) {

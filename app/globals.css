@@ -1201,3 +1201,62 @@ body:has(.public-page) { background: #000; }
     max-width: 100% !important;
   }
 }
+
+/* Final canonical native 4:3 sponsor card rendering. Existing 3:1 ads are contained against a dark fill without cropping. */
+:root { --ad-width: min(100%, 720px); --ad-aspect-ratio: 4 / 3; --ad-radius: 18px; }
+[data-ad-slot="content-ad"],
+.ad-card[data-ad-slot="content-ad"],
+.inline-ad[data-ad-slot="content-ad"] {
+  width: 100% !important;
+  max-width: 720px !important;
+  height: auto !important;
+  aspect-ratio: 4 / 3 !important;
+  margin: 48px auto !important;
+  padding: 0 !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  background: #050018 !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,.18) !important;
+}
+[data-ad-slot="content-ad"] .generated-ad-link,
+[data-ad-slot="content-ad"] .published-ad-link,
+[data-ad-slot="content-ad"] .ad-placeholder-link,
+[data-ad-slot="content-ad"] > a.published-ad-link {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  aspect-ratio: 4 / 3 !important;
+  margin: 0 !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+}
+[data-ad-slot="content-ad"] img,
+[data-ad-slot="content-ad"] .generated-ad-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background: #050018 !important;
+  border-radius: 18px !important;
+}
+[data-ad-slot="content-ad"] .ad-placeholder-link {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  padding: 40px !important;
+  color: #fff !important;
+  text-align: center !important;
+  background: radial-gradient(circle at 18% 12%, rgba(255,216,76,.36), transparent 26%), linear-gradient(135deg,#13091f,#33206f 52%,#0f5a78) !important;
+}
+@media (max-width: 640px) {
+  [data-ad-slot="content-ad"],
+  .ad-card[data-ad-slot="content-ad"],
+  .inline-ad[data-ad-slot="content-ad"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
