@@ -60,6 +60,9 @@ type SavedCampaign = {
   publishedAt?: string | null;
   targetLabel?: string | null;
   targetType?: string | null;
+  viewCount?: number;
+  clickCount?: number;
+  lastClickedAt?: string | null;
 };
 
 type Props = {
@@ -108,6 +111,9 @@ type CampaignHistoryItem = GeneratedCreative & {
   publishedAt?: string | null;
   targetLabel?: string | null;
   targetType?: string | null;
+  viewCount?: number;
+  clickCount?: number;
+  lastClickedAt?: string | null;
 };
 
 const audienceOptions = [
@@ -1583,6 +1589,7 @@ function PublishedHistoryPanel({ items }: { items: CampaignHistoryItem[] }) {
               <p className="text-xs font-black uppercase text-stallPurple">
                 {item.targetLabel || "Default Public Issue"}
               </p>
+              <p className="text-xs font-black uppercase">Views: {item.viewCount || 0} • Clicks: {item.clickCount || 0} • CTR: {item.viewCount ? `${Math.round(((item.clickCount || 0) / item.viewCount) * 1000) / 10}%` : "0%"} • Last clicked: {item.lastClickedAt ? new Date(item.lastClickedAt).toLocaleString() : "Never"}</p>
               <div className="mt-2 flex items-center gap-3 rounded-lg border border-ink/20 bg-white p-2">
                 <span
                   className={`text-xs font-black uppercase ${item.imageUrl ? "text-green-700" : "text-stallRed"}`}

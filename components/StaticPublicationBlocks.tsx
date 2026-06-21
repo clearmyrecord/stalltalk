@@ -23,6 +23,7 @@ export type PublicationAdLike = Partial<StaticAd> & {
   slotImageUrl?: string | null;
   campaignImage?: string | null;
   campaignImageUrl?: string | null;
+  campaignId?: string | null;
 };
 
 const activeFallbackAds: PublicationAdLike[] = publishedAds.filter(
@@ -44,17 +45,22 @@ export function getPublicationAds(
 export function PublicationAdFallback({
   ad,
   slotNumber,
+  qrCode,
   primary = false,
 }: {
   ad?: PublicationAdLike | null;
   slotNumber: number;
+  qrCode?: string | null;
   primary?: boolean;
 }) {
   const fallback = activeFallbackAds[slotNumber - 1] || activeFallbackAds[0];
   const displayAd = ad || fallback;
   const sponsor =
     displayAd.businessName || displayAd.advertiserName || "Potty Favor Sponsor";
-  const href = displayAd.targetUrl || "https://pottyfavor.com/advertise";
+  const targetUrl = displayAd.targetUrl || "https://pottyfavor.com/advertise";
+  const href = displayAd.id
+    ? `/api/ads/click/${encodeURIComponent(displayAd.id)}?slot=${slotNumber}${qrCode ? `&qr=${encodeURIComponent(qrCode)}` : ""}&target=${encodeURIComponent(targetUrl)}`
+    : targetUrl;
   const image =
     displayAd.imageUrl ||
     displayAd.artworkUrl ||
@@ -149,10 +155,12 @@ export function StaticArticle({
 
 export function StaticPublicationBlocks({
   ads,
+  qrCode,
   mainFeature,
   secondaryFeature,
 }: {
   ads: PublicationAdLike[];
+  qrCode?: string | null;
   mainFeature?: { title: string; body: string };
   secondaryFeature?: { title: string; body: string };
 }) {
@@ -160,28 +168,28 @@ export function StaticPublicationBlocks({
   return (
     <>
       <StaticHumor />
-      <PublicationAdFallback ad={publicationAds[1]} slotNumber={2} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[1]} slotNumber={2} />
       <StaticArticle
         title={mainFeature?.title || publishedIssue.mainFeatureTitle}
         body={mainFeature?.body || publishedIssue.mainFeatureBody}
         variant="feature-card"
       />
-      <PublicationAdFallback ad={publicationAds[2]} slotNumber={3} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[2]} slotNumber={3} />
       <QuotesBlock />
-      <PublicationAdFallback ad={publicationAds[3]} slotNumber={4} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[3]} slotNumber={4} />
       <StaticRestaurantBlock />
-      <PublicationAdFallback ad={publicationAds[4]} slotNumber={5} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[4]} slotNumber={5} />
       <DidYouKnowBlock />
-      <PublicationAdFallback ad={publicationAds[5]} slotNumber={6} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[5]} slotNumber={6} />
       <WordOfDayBlock />
       <StaticArticle
         title={secondaryFeature?.title || publishedIssue.secondaryFeatureTitle}
         body={secondaryFeature?.body || publishedIssue.secondaryFeatureBody}
         variant="secondary-card"
       />
-      <PublicationAdFallback ad={publicationAds[6]} slotNumber={7} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[6]} slotNumber={7} />
       <CalendarBlock />
-      <PublicationAdFallback ad={publicationAds[7]} slotNumber={8} />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[7]} slotNumber={8} />
       <SubmitEventForm />
     </>
   );
