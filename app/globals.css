@@ -1108,3 +1108,68 @@ body:has(.public-page) { background: #000; }
     padding: 24px;
   }
 }
+
+/* Premium editorial Word of the Day redesign */
+.word-card.panel {
+  align-items: center;
+  max-width: 980px;
+  margin-inline: auto;
+  padding: 56px !important;
+  border-radius: 28px !important;
+  text-align: center;
+  background: linear-gradient(180deg, #fffdf8 0%, #fff8e7 100%);
+  box-shadow: 0 18px 48px rgba(13, 27, 123, .10) !important;
+  gap: 18px !important;
+}
+.word-card .word-eyebrow {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .25em;
+  color: #c99b2d;
+}
+.word-card h2 {
+  margin: 0;
+  color: #0d1b7b;
+  font-size: clamp(28px, 4vw, 56px);
+  font-weight: 800;
+  line-height: .95;
+}
+.word-card .word-divider {
+  width: min(520px, 75%);
+  height: 1px;
+  margin: 8px auto 12px;
+  background: linear-gradient(90deg, transparent, rgba(201,155,45,.7), transparent);
+}
+.word-card strong {
+  margin: 0;
+  color: #0d1b7b;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1;
+}
+.word-card .word-part {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(13, 27, 123, .65);
+}
+.word-card .word-definition {
+  max-width: 760px;
+  margin: 10px auto 0;
+  font-size: 20px;
+  line-height: 1.7;
+}
+.word-card .word-example {
+  max-width: 720px;
+  margin: 14px auto 0;
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.7;
+  opacity: .85;
+}
+@media (max-width: 640px) {
+  .word-card.panel { padding: 34px 22px !important; border-radius: 22px !important; }
+  .word-card .word-definition { font-size: 18px; }
+}
