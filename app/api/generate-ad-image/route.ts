@@ -121,7 +121,7 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
   return {
     ...copy,
     promptUsed: safe(body.prompt, [
-      `Create a finished, high-quality commercial advertisement for the business name "${copy.businessName}" with premium visual composition, commercial lighting, strong hierarchy, clean spacing, and polished final artwork.`,
+      `Create a premium luxury magazine advertisement suitable for Potty Favor for the business name "${copy.businessName}". The design should resemble a Las Vegas hotel publication. Use professional typography, strong hierarchy, and a large CTA button. No stock watermark. No placeholder labels. No sponsor badges. No black panels. No split layouts. The artwork itself must fill the entire frame.`,
       `Creative brief: ${creativeBrief}.`,
       `Keep the business name visually separate from the offer headline. Include the business name "${copy.businessName}", the offer headline "${copy.headline}", CTA "${copy.ctaText}", and coupon code "${copy.couponCode || "omit coupon"}" if provided.`,
       `Business category: ${category}. Audience: ${copy.audience}. Subheadline: "${copy.subheadline}".`,

@@ -8,9 +8,13 @@ export function renderCampaign(container, campaign) {
   container.style.setProperty("--ad-aspect-ratio", getSlotAspectRatio(campaign.slot_id));
   container.classList.add("has-published-ad");
 
+  const sponsored = document.createElement("span");
+  sponsored.className = "sponsored-label";
+  sponsored.textContent = "Sponsored";
+
   const link = document.createElement("a");
   link.className = "published-ad-link";
-  link.href = campaign.click_url || "#";
+  link.href = campaign.click_url || "https://pottyfavor.com/advertise";
   link.target = campaign.click_url ? "_blank" : "_self";
   link.rel = campaign.click_url ? "noopener sponsored" : "";
 
@@ -18,11 +22,15 @@ export function renderCampaign(container, campaign) {
   image.src = campaign.image_url;
   image.alt = campaign.name || campaign.business_name || "Published advertisement";
   image.loading = "eager";
-  image.width = campaign.width || 600;
-  image.height = campaign.height || 180;
+  image.width = campaign.width || 900;
+  image.height = campaign.height || 300;
 
-  link.append(image);
-  container.append(link);
+  const cta = document.createElement("span");
+  cta.className = "ad-cta-button";
+  cta.textContent = campaign.cta_text || campaign.cta || "Learn More";
+
+  link.append(image, cta);
+  container.append(sponsored, link);
 }
 
 export async function renderPublishedAds({ venueId } = {}) {
