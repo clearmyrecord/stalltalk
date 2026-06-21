@@ -1,15 +1,38 @@
-import type { Ad, AdScope, Issue, IssueAdSlot, Restroom, Venue } from "@prisma/client";
+import type {
+  Ad,
+  AdScope,
+  Issue,
+  IssueAdSlot,
+  Restroom,
+  Venue,
+} from "@prisma/client";
 import { prisma } from "./prisma";
 
-type Context = Issue & { venue: Venue | null; restroom: Restroom | null; adSlots?: Array<IssueAdSlot & { ad: Ad }> };
+type Context = Issue & {
+  venue: Venue | null;
+  restroom: Restroom | null;
+  adSlots?: Array<IssueAdSlot & { ad: Ad }>;
+};
 export type ServedAd = (Ad & { source: AdScope; slotNumber: number }) | null;
 
 export async function getServedAds(issue: Context): Promise<ServedAd[]> {
   const now = new Date();
   const activeManualSlots = new Map(
     (issue.adSlots || [])
-      .filter((slot) => isActive(slot.ad, now) && isPublishedCampaignAd(slot.ad) && matchesScope(slot.ad, issue, slot.ad.scope))
-      .map((slot) => [slot.slotNumber, { ...slot.ad, source: slot.source || slot.ad.scope, slotNumber: slot.slotNumber }])
+      .filter(
+        (slot) =>
+          isActive(slot.ad, now) &&
+          isPublishedCampaignAd(slot.ad) &&
+          matchesScope(slot.ad, issue, slot.ad.scope),
+      )
+      .map((slot) => [
+        slot.slotNumber,
+        {
+          ...slot.ad,
+          source: slot.source || slot.ad.scope,
+          slotNumber: slot.slotNumber,
+        },
+      ]),
   );
   const ads = await prisma.ad.findMany({
     where: {
@@ -17,14 +40,24 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
       status: "ACTIVE",
       campaignHistory: { some: { publishStatus: "PUBLISHED" } },
       OR: [{ campaignStartsAt: null }, { campaignStartsAt: { lte: now } }],
-      AND: [{ OR: [{ campaignEndsAt: null }, { campaignEndsAt: { gte: now } }] }]
+      AND: [
+        { OR: [{ campaignEndsAt: null }, { campaignEndsAt: { gte: now } }] },
+      ],
     },
-    orderBy: [{ scope: "desc" }, { createdAt: "asc" }]
+    orderBy: [{ scope: "desc" }, { createdAt: "asc" }],
+    include: { campaignHistory: true },
   });
 
   const priority: AdScope[] = ["RESTROOM", "VENUE", "CITY", "GLOBAL"];
-  const scoped = priority.flatMap((scope) => ads.filter((ad) => matchesScope(ad, issue, scope)).map((ad) => ({ ...ad, source: scope })));
-  const deduped = scoped.filter((ad, index, list) => list.findIndex((candidate) => candidate.id === ad.id) === index);
+  const scoped = priority.flatMap((scope) =>
+    ads
+      .filter((ad) => matchesScope(ad, issue, scope))
+      .map((ad) => ({ ...ad, source: scope })),
+  );
+  const deduped = scoped.filter(
+    (ad, index, list) =>
+      list.findIndex((candidate) => candidate.id === ad.id) === index,
+  );
   let rotationIndex = 0;
 
   return Array.from({ length: 8 }, (_, index) => {
@@ -39,18 +72,34 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
 }
 
 function isActive(ad: Ad, now: Date) {
-  return ad.status === "ACTIVE" && (!ad.campaignStartsAt || ad.campaignStartsAt <= now) && (!ad.campaignEndsAt || ad.campaignEndsAt >= now);
+  return (
+    ad.status === "ACTIVE" &&
+    (!ad.campaignStartsAt || ad.campaignStartsAt <= now) &&
+    (!ad.campaignEndsAt || ad.campaignEndsAt >= now)
+  );
 }
 
 function matchesScope(ad: Ad, issue: Context, scope: AdScope) {
   if (ad.scope !== scope) return false;
-  if (scope === "RESTROOM") return Boolean(issue.restroomId && ad.restroomId === issue.restroomId);
-  if (scope === "VENUE") return ad.venueId === issue.venueId || Boolean(issue.venueId && ad.venueIds.includes(issue.venueId));
-  if (scope === "CITY") return Boolean(issue.venue && ad.city === issue.venue.city && ad.state === issue.venue.state);
+  if (scope === "RESTROOM")
+    return Boolean(issue.restroomId && ad.restroomId === issue.restroomId);
+  if (scope === "VENUE")
+    return (
+      ad.venueId === issue.venueId ||
+      Boolean(issue.venueId && ad.venueIds.includes(issue.venueId))
+    );
+  if (scope === "CITY")
+    return Boolean(
+      issue.venue &&
+      ad.city === issue.venue.city &&
+      ad.state === issue.venue.state,
+    );
   return scope === "GLOBAL";
 }
 
 function isPublishedCampaignAd(ad: Ad) {
-  const history = (ad as Ad & { campaignHistory?: Array<{ publishStatus: string }> }).campaignHistory;
+  const history = (
+    ad as Ad & { campaignHistory?: Array<{ publishStatus: string }> }
+  ).campaignHistory;
   return !history || history.some((item) => item.publishStatus === "PUBLISHED");
 }
