@@ -744,3 +744,49 @@ export async function createVenueMediaAsset(formData: FormData) {
 
   revalidatePath("/portal/venue");
 }
+
+export async function submitFinishedAdvertiserAd(formData: FormData) {
+  const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
+  const advertiserId = user.role === "ADVERTISER" ? user.advertiserId : nullableText(formData, "advertiserId");
+  if (!advertiserId) throw new Error("An advertiser profile is required before submitting an ad.");
+  const businessName = text(formData, "businessName");
+  const targetUrl = text(formData, "targetUrl", "#");
+  const image = formData.get("creativeImage");
+  const imageName = image instanceof File ? image.name : "uploaded-ad-image";
+  await prisma.adCampaign.create({
+    data: {
+      advertiserId,
+      name: `${businessName} finished ad upload`,
+      businessName,
+      headline: `${businessName} finished ad`,
+      body: `Uploaded finished 3:1 ad image: ${imageName}`,
+      creativeUrl: imageName,
+      targetUrl,
+      ctaText: "Learn More",
+      status: "SUBMITTED",
+      approvalStatus: "SUBMITTED",
+      submittedAt: new Date(),
+      creatives: { create: [{ advertiserId, kind: "BANNER" as any, imageUrl: imageName, headline: `${businessName} finished ad`, body: "Finished 3:1 ad submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
+    }
+  });
+  revalidatePath("/portal/advertiser");
+  revalidatePath("/portal/advertiser/upload");
+  revalidatePath("/portal/advertiser/campaigns");
+  redirect("/portal/advertiser/campaigns?submitted=1");
+}
+
+export async function updateAdvertiserPortalProfile(formData: FormData) {
+  const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
+  const advertiserId = user.role === "ADVERTISER" ? user.advertiserId : nullableText(formData, "advertiserId");
+  if (!advertiserId) throw new Error("An advertiser profile is required before updating profile details.");
+  const businessName = text(formData, "businessName");
+  await prisma.advertiser.update({
+    where: { id: advertiserId },
+    data: {
+      name: businessName,
+      portalNote: JSON.stringify({ website: text(formData, "website"), phone: text(formData, "phone"), category: text(formData, "category") })
+    }
+  });
+  revalidatePath("/portal/advertiser");
+  revalidatePath("/portal/advertiser/profile");
+}

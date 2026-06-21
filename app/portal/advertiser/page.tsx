@@ -10,13 +10,13 @@ export const dynamic = "force-dynamic";
 
 const allowedRoles: Role[] = ["ADVERTISER", "ADMIN"] as Role[];
 const navItems = [
-  "Create AI Ad",
-  "Upload Finished Ad",
-  "Campaigns",
-  "Payments",
-  "Published Ads",
-  "Profile",
-];
+  ["Create AI Ad", "/portal/advertiser/ad-studio"],
+  ["Upload Finished Ad", "/portal/advertiser/upload"],
+  ["Campaigns", "/portal/advertiser/campaigns"],
+  ["Payments", "/portal/advertiser/payments"],
+  ["Published Ads", "/portal/advertiser/published"],
+  ["Profile", "/portal/advertiser/profile"],
+] as const;
 
 type PortalErrorDetail =
   | "missing advertiser profile"
@@ -132,10 +132,10 @@ export default async function AdvertiserPortalPage() {
           ))}
         </section>
         <nav className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {navItems.map((item) => (
+          {navItems.map(([item, href]) => (
             <Link
-              key={item}
-              href="#"
+              key={href}
+              href={href}
               className="rounded-2xl border-4 border-ink bg-stallYellow p-5 font-display text-3xl uppercase shadow-brutal"
             >
               {item}
