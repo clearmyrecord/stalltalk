@@ -121,27 +121,23 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
   return {
     ...copy,
     promptUsed: safe(body.prompt, [
-      "Create a premium horizontal 3:1 sponsor banner advertisement for Potty Favor.",
-      "Final visible ad must be 1536px wide by 512px tall.",
-      "Design as a magazine sponsor banner, not a poster, flyer, square social ad, or vertical billboard.",
-      "Use this layout hierarchy: logo/business name, headline, offer, subheadline, coupon, CTA button.",
-      "All important text and CTA must stay inside the center safe area with at least 8% padding from every edge.",
-      "No oversized typography that touches or crosses edges.",
-      "No important text near the bottom edge.",
-      "No black split panels.",
-      "No sponsor badges.",
-      "No placeholder labels.",
-      "No watermarks.",
-      "If OpenAI requires 1536x1024, compose the complete ad only inside the TOP 1536x512 area. The lower 1536x512 area must contain only non-essential background and no text.",
-      `Business name/logo text: "${copy.businessName}". Headline: "${copy.headline}". Offer: "${copy.offer}". Subheadline: "${copy.subheadline}". Coupon: "${copy.couponCode || "omit coupon"}". CTA button: "${copy.ctaText}".`,
-      `Creative brief: ${creativeBrief}. Business category: ${category}. Audience: ${copy.audience}.`,
-      `Tone: ${tone}. Match the selected visual style: ${visualStyle}. Brand colors: ${brandColors}. Match the venue/city atmosphere: ${venueVibe}.`,
-      `Canvas requested from OpenAI: ${size.apiSize}. The final exported banner will be the top 1536x512 pixels only, so treat that top half as the complete visible sponsor banner.`,
-      `Required text: ${requiredText}. Optional disclaimer: ${disclaimer}.`,
+      "Create a premium horizontal 3:1 advertising background for Potty Favor.",
+      "No words.",
+      "No letters.",
+      "No numbers.",
+      "No logos.",
+      "No coupon.",
+      "No CTA button.",
+      "No readable text.",
+      "Leave clean open space for text overlays.",
+      "Use premium commercial lighting, relevant background imagery, and strong contrast.",
+      "The final banner will be 1536x512.",
+      "Generate background/art only. The app will add all business name, headline, subheadline, coupon, CTA, and logo overlays later.",
+      `Creative brief for background only: ${creativeBrief}. Business category: ${category}. Audience: ${copy.audience}.`,
+      `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors for atmosphere only: ${brandColors}. Venue/city atmosphere: ${venueVibe}.`,
+      `Canvas requested from OpenAI: ${size.apiSize}. Keep the complete useful background inside a 3:1 horizontal 1536x512 composition.`,
       logoInstruction,
-      website ? `Include website ${website} only if it remains readable within the safe area.` : "",
-      phone ? `Include phone ${phone} only if it remains readable within the safe area.` : "",
-      "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, unfinished layouts, fake UI chrome, web page mockups, clipped words, design-process annotations, and unreadable microcopy. Return publish-ready commercial advertisement artwork only."
+      "Avoid mockup frames, placeholder text, lorem ipsum, watermarks, UI screenshots, fake app screens, fake UI chrome, design-process annotations, and any text-like markings. Return clean commercial background artwork only."
     ].filter(Boolean).join(" "))
   };
 }

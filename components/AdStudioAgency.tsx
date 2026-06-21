@@ -176,6 +176,81 @@ function shortenLabel(value: string, max = 28) {
     : `${normalized.slice(0, max - 1).trim()}…`;
 }
 
+function drawRoundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
+}
+
+function wrapCanvasText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+) {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (context.measureText(test).width <= maxWidth) {
+      current = test;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+      if (lines.length === maxLines) break;
+    }
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  if (lines.length === maxLines) {
+    while (
+      lines[maxLines - 1] &&
+      context.measureText(lines[maxLines - 1]).width > maxWidth
+    )
+      lines[maxLines - 1] = lines[maxLines - 1].slice(0, -2).trim() + "…";
+  }
+  return lines;
+}
+
+function fitCanvasText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+  maxFont: number,
+  minFont: number,
+  weight = 900,
+  family = "Arial Black, Arial, sans-serif",
+) {
+  for (let size = maxFont; size >= minFont; size -= 2) {
+    context.font = `${weight} ${size}px ${family}`;
+    const lines = wrapCanvasText(context, text, maxWidth, maxLines);
+    if (
+      lines.length <= maxLines &&
+      lines.every((line) => context.measureText(line).width <= maxWidth)
+    )
+      return { size, lines, lineHeight: Math.round(size * 1.08) };
+  }
+  context.font = `${weight} ${minFont}px ${family}`;
+  return {
+    size: minFont,
+    lines: wrapCanvasText(context, text, maxWidth, maxLines),
+    lineHeight: Math.round(minFont * 1.08),
+  };
+}
+
 function fileSafe(value: string | undefined, fallback = "business") {
   return (
     (value || "")
@@ -418,22 +493,123 @@ function AdStudioPanel({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function finalizeSponsorBannerImage(imageUrl: string) {
-    if (
-      !imageUrl ||
-      typeof window === "undefined" ||
-      typeof document === "undefined"
-    )
-      return imageUrl;
-    const baseImage = await loadCanvasImage(imageUrl);
+  async function composeSponsorBannerImage(imageUrl?: string) {
+    if (typeof window === "undefined" || typeof document === "undefined")
+      return imageUrl || "";
     const canvas = document.createElement("canvas");
     canvas.width = AD_FINAL_WIDTH;
     canvas.height = AD_FINAL_HEIGHT;
     const context = canvas.getContext("2d");
-    if (!context) return imageUrl;
-    const sourceWidth = Math.min(baseImage.width, AD_FINAL_WIDTH);
-    const sourceHeight = Math.min(baseImage.height, AD_FINAL_HEIGHT);
-    context.drawImage(baseImage, 0, 0, sourceWidth, sourceHeight, 0, 0, AD_FINAL_WIDTH, AD_FINAL_HEIGHT);
+    if (!context) return imageUrl || "";
+
+    const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, "#17002f");
+    gradient.addColorStop(0.45, "#5b2cff");
+    gradient.addColorStop(1, "#ff2d55");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "rgba(255,212,0,.18)";
+    context.beginPath();
+    context.arc(1250, 120, 280, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "rgba(255,255,255,.10)";
+    context.beginPath();
+    context.arc(260, 450, 220, 0, Math.PI * 2);
+    context.fill();
+
+    if (imageUrl) {
+      try {
+        const baseImage = await loadCanvasImage(imageUrl);
+        const scale = Math.max(canvas.width / baseImage.width, canvas.height / baseImage.height);
+        const width = baseImage.width * scale;
+        const height = baseImage.height * scale;
+        context.drawImage(baseImage, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+      } catch {
+        // Keep styled gradient fallback when OpenAI output cannot be loaded.
+      }
+    }
+
+    const shade = context.createLinearGradient(0, 0, canvas.width, 0);
+    shade.addColorStop(0, "rgba(5,0,24,.82)");
+    shade.addColorStop(0.48, "rgba(5,0,24,.56)");
+    shade.addColorStop(1, "rgba(5,0,24,.28)");
+    context.fillStyle = shade;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    const padding = 64;
+    const business = safe(form.businessName, "Your Business");
+    const headline = safe(form.offer, "Limited-Time Offer");
+    const subheadline = `For ${activeAudience}`;
+    const cta = safe(form.ctaText, "Claim Offer");
+    const coupon = safe(form.couponCode, "");
+
+    let logoRight = padding;
+    if (form.logoBase64) {
+      try {
+        const logoImage = await loadCanvasImage(form.logoBase64);
+        const logoMaxWidth = 220;
+        const logoMaxHeight = 96;
+        const scale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height, 1);
+        const logoWidth = logoImage.width * scale;
+        const logoHeight = logoImage.height * scale;
+        drawRoundRect(context, padding, padding, logoWidth + 28, logoHeight + 28, 24);
+        context.fillStyle = "rgba(255,255,255,.94)";
+        context.fill();
+        context.drawImage(logoImage, padding + 14, padding + 14, logoWidth, logoHeight);
+        logoRight = padding + logoWidth + 48;
+      } catch {
+        logoRight = padding;
+      }
+    }
+
+    context.textBaseline = "top";
+    context.fillStyle = "#ffffff";
+    const businessFit = fitCanvasText(context, business, 430, 2, 42, 24, 900);
+    context.font = `900 ${businessFit.size}px Arial Black, Arial, sans-serif`;
+    businessFit.lines.forEach((line, index) => context.fillText(line, logoRight, padding + index * businessFit.lineHeight));
+
+    const headlineMaxWidth = 860;
+    const headlineFit = fitCanvasText(context, headline, headlineMaxWidth, 2, 82, 42, 900);
+    const headlineY = 178 - (headlineFit.lines.length - 1) * 26;
+    context.shadowColor = "rgba(0,0,0,.42)";
+    context.shadowBlur = 14;
+    context.font = `900 ${headlineFit.size}px Arial Black, Arial, sans-serif`;
+    headlineFit.lines.forEach((line, index) => context.fillText(line, padding, headlineY + index * headlineFit.lineHeight));
+    context.shadowBlur = 0;
+
+    const subFit = fitCanvasText(context, subheadline, 760, 1, 34, 22, 800, "Arial, sans-serif");
+    context.font = `800 ${subFit.size}px Arial, sans-serif`;
+    context.fillStyle = "#fff7b8";
+    context.fillText(subFit.lines[0] || "", padding, headlineY + headlineFit.lines.length * headlineFit.lineHeight + 18);
+
+    const ctaWidth = 300;
+    const ctaHeight = 78;
+    const ctaX = canvas.width - padding - ctaWidth;
+    const ctaY = canvas.height - padding - ctaHeight;
+    drawRoundRect(context, ctaX, ctaY, ctaWidth, ctaHeight, 28);
+    context.fillStyle = "#ffd400";
+    context.fill();
+    const ctaFit = fitCanvasText(context, cta, ctaWidth - 42, 1, 32, 20, 900);
+    context.font = `900 ${ctaFit.size}px Arial Black, Arial, sans-serif`;
+    context.fillStyle = "#111111";
+    const ctaLine = ctaFit.lines[0] || cta;
+    context.fillText(ctaLine, ctaX + (ctaWidth - context.measureText(ctaLine).width) / 2, ctaY + (ctaHeight - ctaFit.size) / 2 - 2);
+
+    if (coupon) {
+      const badgeWidth = 340;
+      const badgeHeight = 64;
+      const badgeX = ctaX - badgeWidth - 28;
+      const badgeY = canvas.height - padding - badgeHeight;
+      drawRoundRect(context, badgeX, badgeY, badgeWidth, badgeHeight, 22);
+      context.fillStyle = "rgba(255,255,255,.94)";
+      context.fill();
+      const couponFit = fitCanvasText(context, `CODE ${coupon}`, badgeWidth - 36, 1, 28, 18, 900);
+      context.font = `900 ${couponFit.size}px Arial Black, Arial, sans-serif`;
+      context.fillStyle = "#5b2cff";
+      const couponLine = couponFit.lines[0] || coupon;
+      context.fillText(couponLine, badgeX + (badgeWidth - context.measureText(couponLine).width) / 2, badgeY + (badgeHeight - couponFit.size) / 2 - 2);
+    }
+
     return canvas.toDataURL("image/png");
   }
 
@@ -592,6 +768,7 @@ function AdStudioPanel({
         const message = diagnosticMessage(data);
         generated.push({
           ...fallbackCreative(adSize, message, data),
+          imageUrl: await composeSponsorBannerImage(),
           campaignId: campaignBatchId,
           parentCampaignId,
           versionNumber: nextVersion,
@@ -602,9 +779,7 @@ function AdStudioPanel({
         generated.push({
           adSize,
           imageUrl: await uploadImageUrlToCloudinary(
-            await overlayLogoOnImage(
-              await finalizeSponsorBannerImage(data.imageUrl),
-            ),
+            await composeSponsorBannerImage(data.imageUrl),
           ),
           promptUsed: data.promptUsed,
           headline: data.headline,
@@ -629,6 +804,7 @@ function AdStudioPanel({
         caught instanceof Error ? caught.message : "Image generation failed.";
       generated.push({
         ...fallbackCreative(adSize, message),
+        imageUrl: await composeSponsorBannerImage(),
         campaignId: campaignBatchId,
         parentCampaignId,
         versionNumber: nextVersion,
@@ -685,6 +861,21 @@ function AdStudioPanel({
       );
     setStep(5);
     setIsGenerating(false);
+  }
+
+
+  async function deleteCampaignFromHistory(item: CampaignHistoryItem, publishedOnly = false) {
+    if (item.publishStatus === "PUBLISHED" && !window.confirm("This campaign is published. Delete and unpublish it from the homepage?")) return;
+    const endpoint = publishedOnly ? `/api/ad-studio/published/${encodeURIComponent(item.campaignId)}` : `/api/ad-studio/campaigns/${encodeURIComponent(item.campaignId)}`;
+    const response = await fetch(endpoint, { method: "DELETE" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.error) {
+      setPublishError(result.error || `Delete failed (${response.status})`);
+      return;
+    }
+    setHistory((items) => items.filter((current) => current.campaignId !== item.campaignId));
+    setCreatives((items) => items.filter((current) => current.campaignId !== item.campaignId));
+    setPublishMessage("Campaign deleted.");
   }
 
   function downloadSelectedCreative() {
@@ -1257,6 +1448,7 @@ function AdStudioPanel({
             if (item.targetUrl) update("website", item.targetUrl);
             setStep(5);
           }}
+          onDelete={(item) => void deleteCampaignFromHistory(item)}
         />
         <div className="rounded-2xl border-4 border-ink bg-white p-4">
           <h3 className="font-display text-4xl uppercase">
@@ -1264,6 +1456,7 @@ function AdStudioPanel({
           </h3>
           <PublishedHistoryPanel
             items={history.filter((item) => item.publishStatus === "PUBLISHED")}
+            onDelete={(item) => void deleteCampaignFromHistory(item, true)}
           />
         </div>
       </div>
@@ -1549,7 +1742,7 @@ function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
   );
 }
 
-function PublishedHistoryPanel({ items }: { items: CampaignHistoryItem[] }) {
+function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem[]; onDelete: (item: CampaignHistoryItem) => void }) {
   async function campaignAction(
     campaignId: string,
     action: "unpublish" | "archive",
@@ -1623,6 +1816,12 @@ function PublishedHistoryPanel({ items }: { items: CampaignHistoryItem[] }) {
                 >
                   Archive
                 </button>
+                <button
+                  className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white"
+                  onClick={() => onDelete(item)}
+                >
+                  Delete
+                </button>
               </div>
             </article>
           );
@@ -1640,10 +1839,12 @@ function HistoryPanel({
   title,
   items,
   onLoad,
+  onDelete,
 }: {
   title: string;
   items: CampaignHistoryItem[];
   onLoad: (item: CampaignHistoryItem) => void;
+  onDelete: (item: CampaignHistoryItem) => void;
 }) {
   async function campaignAction(
     campaignId: string,
@@ -1699,6 +1900,12 @@ function HistoryPanel({
                   onClick={() => campaignAction(item.campaignId, "archive")}
                 >
                   Archive
+                </button>
+                <button
+                  className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white"
+                  onClick={() => onDelete(item)}
+                >
+                  Delete
                 </button>
               </div>
             </article>

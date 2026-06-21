@@ -97,7 +97,7 @@ function historySelect(item: any) {
 export async function GET() {
   await requireAdmin();
   const campaigns = await prisma.stalltalkCampaignHistory.findMany({
-    where: { publishStatus: { not: "ARCHIVED" } },
+    where: { publishStatus: { notIn: ["ARCHIVED", "DELETED"] } },
     include: {
       ad: {
         include: {
