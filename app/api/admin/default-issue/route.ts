@@ -22,10 +22,15 @@ export async function PATCH(request: Request) {
   const body = await request.json();
   const issue = await getDefaultGlobalIssue({ createIfMissing: true });
   if (!issue) return NextResponse.json({ ok: false, error: "Default issue unavailable" }, { status: 404 });
+  const blocks = body.blocks || [];
+  const assignedTypes = blocks.map((block: any) => block.type).filter(Boolean);
+  if (new Set(assignedTypes).size !== assignedTypes.length) return NextResponse.json({ ok: false, error: "Content type already assigned." }, { status: 400 });
+  const layoutKeys = blocks.map((block: any) => block.layout?.key).filter(Boolean);
+  if (new Set(layoutKeys).size !== layoutKeys.length) return NextResponse.json({ ok: false, error: "Content type already assigned." }, { status: 400 });
   const status = body.action === "publish" ? "PUBLISHED" : body.status;
   const scheduledAt = scheduledAtFrom(body);
   await prisma.issue.update({ where: { id: issue.id }, data: { title: body.title || "Potty Favor", month: body.month || "June", year: Number(body.year) || new Date().getFullYear(), status, scheduledAt, publishedAt: status === "PUBLISHED" ? new Date() : issue.publishedAt } });
-  for (const block of body.blocks || []) {
+  for (const block of blocks) {
     await prisma.issueContentBlock.upsert({
       where: { id: block.id || "missing" },
       update: { title: block.title || "Untitled", body: block.body || "", imageUrl: block.imageUrl || null, layout: block.layout || {} },

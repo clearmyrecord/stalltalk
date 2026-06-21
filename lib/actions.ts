@@ -313,10 +313,15 @@ function issueSaveError(error: unknown): IssueSaveState {
 }
 
 async function saveContentBlocks(issueId: string, formData: FormData, db: any = prisma) {
-  const blocks = Array.from({ length: 8 }, (_, index) => {
+  const blocks = Array.from({ length: 9 }, (_, index) => {
     const row = index + 1;
-    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: row, layout: { zone: `slot-${row}`, locked: false } };
+    const layoutKey = text(formData, `blockLayoutKey${row}`, `slot-${row}`);
+    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: row, layout: { key: layoutKey, zone: `slot-${row}`, locked: false } };
   }).filter((block) => block.title || block.body || block.articleId);
+  const types = blocks.map((block) => block.type);
+  if (new Set(types).size !== types.length) throw new Error("Content type already assigned.");
+  const keys = blocks.map((block) => (block.layout as any).key).filter(Boolean);
+  if (new Set(keys).size !== keys.length) throw new Error("Content type already assigned.");
   if (blocks.length) await db.issueContentBlock.createMany({ data: blocks });
 }
 

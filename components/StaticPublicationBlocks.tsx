@@ -117,10 +117,12 @@ export function StaticArticle({
   title,
   body,
   variant,
+  subtitle,
 }: {
   title: string;
   body: string;
   variant: "feature-card" | "secondary-card";
+  subtitle?: string;
 }) {
   return (
     <section className={`publication-content-block panel ${variant}`}>
@@ -137,6 +139,8 @@ export function StaticArticle({
           How a desert railroad stop became one of the world's most visited
           cities.
         </p>
+      ) : subtitle ? (
+        <p className="feature-subtitle">{subtitle}</p>
       ) : null}
       <div className="article-copy">
         {body.split("\n\n").map((paragraph) => (
@@ -166,6 +170,13 @@ export function StaticPublicationBlocks({
     <>
       <StaticHumor block={block("funny")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[1]} slotNumber={2} />
+      <StaticArticle
+        title={block("feature")?.title || mainFeature?.title || publishedIssue.mainFeatureTitle}
+        subtitle={block("feature")?.layout?.subtitle || "The world's only city built entirely around entertainment."}
+        body={block("feature")?.body || mainFeature?.body || publishedIssue.mainFeatureBody}
+        variant="feature-card"
+      />
+      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[6]} slotNumber={7} />
       <StaticRestaurantBlock block={block("restaurant")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[2]} slotNumber={3} />
       <CalendarBlock block={block("events")} />
@@ -174,12 +185,6 @@ export function StaticPublicationBlocks({
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[4]} slotNumber={5} />
       <DidYouKnowBlock block={block("trivia")} />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[5]} slotNumber={6} />
-      <StaticArticle
-        title={mainFeature?.title || publishedIssue.mainFeatureTitle}
-        body={mainFeature?.body || publishedIssue.mainFeatureBody}
-        variant="feature-card"
-      />
-      <PublicationAdFallback qrCode={qrCode} ad={publicationAds[6]} slotNumber={7} />
       <SubmitEventForm />
       <PublicationAdFallback qrCode={qrCode} ad={publicationAds[7]} slotNumber={8} />
     </>
@@ -249,7 +254,7 @@ function DidYouKnowBlock({ block }: { block?: { title: string; body: string } })
       <div className="did-card-inner">
         <header className="did-card-header">
           <p className="editorial-kicker">Magazine Notes</p>
-          <h2>{block?.title || "Did You Know?"}</h2>
+          <h2 className="did-you-know-title trivia-title magazine-notes-title">{block?.title || "Did You Know?"}</h2>
         </header>
         <ol className="did-list">
           {(block?.body ? block.body.split("\n").filter(Boolean) : publishedIssue.didYouKnow).map((fact, index) => (
