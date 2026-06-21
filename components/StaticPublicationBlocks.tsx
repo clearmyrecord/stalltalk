@@ -4,6 +4,7 @@ import { AD_DESKTOP_HEIGHT, AD_DESKTOP_WIDTH } from "@/lib/ad-config";
 
 type StaticAd = (typeof publishedAds)[number];
 export type PublicationAdLike = Partial<StaticAd> & {
+  id?: string;
   businessName?: string;
   advertiserName?: string;
   title?: string;

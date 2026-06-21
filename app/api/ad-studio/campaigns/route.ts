@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { AdScope, AdStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { DEFAULT_PUBLIC_ISSUE_ID, DEFAULT_PUBLIC_ISSUE_LABEL, isDefaultPublicIssue } from "@/lib/default-public-issue";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ function int(body: Record<string, unknown>, key: string, fallback = 0) {
 }
 function historySelect(item: any) {
   const issueSlot = item.ad?.issueSlots?.[0];
+  const isDefaultTarget = item.targetType === DEFAULT_PUBLIC_ISSUE_ID || (item.publishStatus === "PUBLISHED" && !issueSlot && item.slotPublished);
   return {
     campaignId: item.campaignId,
     parentCampaignId: item.parentCampaignId,
@@ -38,9 +40,11 @@ function historySelect(item: any) {
     logoBase64: item.logoBase64,
     publishStatus: item.publishStatus,
     publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
-    issueId: issueSlot?.issueId || null,
-    issueTitle: issueSlot?.issue?.title || null,
-    venueName: issueSlot?.issue?.venue?.name || null,
+    issueId: issueSlot?.issueId || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_ID : null),
+    issueTitle: item.targetLabel || issueSlot?.issue?.title || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : null),
+    venueName: isDefaultTarget ? "Public" : issueSlot?.issue?.venue?.name || null,
+    targetType: item.targetType || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_ID : null),
+    targetLabel: item.targetLabel || (isDefaultTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : null),
     viewCount: item.viewCount || 0,
     clickCount: item.clickCount || 0
   };
@@ -106,8 +110,9 @@ async function publishCampaign(body: Record<string, unknown>) {
   const issueId = str(body, "issueId");
   const slotNumber = int(body, "slotNumber");
   if (!issueId || slotNumber < 1 || slotNumber > 8) return NextResponse.json({ error: "issueId and slotNumber 1-8 are required" }, { status: 400 });
-  const issue = await prisma.issue.findUnique({ where: { id: issueId }, include: { venue: true } });
-  if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
+  const defaultPublicTarget = isDefaultPublicIssue(issueId);
+  const issue = defaultPublicTarget ? null : await prisma.issue.findUnique({ where: { id: issueId }, include: { venue: true } });
+  if (!defaultPublicTarget && !issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
   const scope = str(body, "scope", "GLOBAL") as AdScope;
   const advertiserId = body.advertiserId ? str(body, "advertiserId") || null : null;
   const publisherId = body.publisherId ? str(body, "publisherId") || null : null;
@@ -117,22 +122,32 @@ async function publishCampaign(body: Record<string, unknown>) {
   const publisher = publisherId
     ? await prisma.publisher.findUnique({ where: { id: publisherId } })
     : null;
-  const resolvedBody = { ...body, advertiserId: advertiser?.id ?? null, publisherId: publisher?.id ?? null };
+  const targetType = defaultPublicTarget ? DEFAULT_PUBLIC_ISSUE_ID : "issue";
+  const targetLabel = defaultPublicTarget ? DEFAULT_PUBLIC_ISSUE_LABEL : issue?.title || str(body, "targetLabel", issueId);
+  const resolvedBody = { ...body, advertiserId: advertiser?.id ?? null, publisherId: publisher?.id ?? null, targetType, targetLabel };
   const ad = await prisma.ad.create({ data: { publisherId: publisher?.id ?? null, advertiserId: advertiser?.id ?? null, businessName: str(body, "businessName"), title: str(body, "title"), offer: str(body, "offer"), artworkUrl: nullable(body, "artworkUrl"), creativeType: "IMAGE", promptUsed: nullable(body, "promptUsed"), generatedHeadline: nullable(body, "generatedHeadline"), generatedSubheadline: nullable(body, "generatedSubheadline"), adSize: "3:1 sponsor banner", ctaText: str(body, "ctaText", "Claim Offer"), targetUrl: str(body, "targetUrl", "#"), phone: nullable(body, "phone"), couponCode: nullable(body, "couponCode"), status: "ACTIVE" as AdStatus, scope, venueId: scope === "VENUE" ? nullable(body, "venueId") : null, restroomId: scope === "RESTROOM" ? nullable(body, "restroomId") : null } });
-  const previousSlot = await prisma.issueAdSlot.findUnique({ where: { issueId_slotNumber: { issueId, slotNumber } }, include: { ad: true } });
-  if (previousSlot?.adId) {
-    await prisma.ad.update({ where: { id: previousSlot.adId }, data: { status: "PAUSED" } });
-    await prisma.stalltalkCampaignHistory.updateMany({ where: { adId: previousSlot.adId }, data: { publishStatus: "SUPERSEDED" } });
+  if (defaultPublicTarget) {
+    const previousSlot = await prisma.stalltalkAdSlot.findUnique({ where: { slotNumber }, include: { ad: true } });
+    if (previousSlot?.adId) {
+      await prisma.ad.update({ where: { id: previousSlot.adId }, data: { status: "PAUSED" } });
+      await prisma.stalltalkCampaignHistory.updateMany({ where: { adId: previousSlot.adId }, data: { publishStatus: "SUPERSEDED" } });
+    }
+  } else {
+    const previousSlot = await prisma.issueAdSlot.findUnique({ where: { issueId_slotNumber: { issueId, slotNumber } }, include: { ad: true } });
+    if (previousSlot?.adId) {
+      await prisma.ad.update({ where: { id: previousSlot.adId }, data: { status: "PAUSED" } });
+      await prisma.stalltalkCampaignHistory.updateMany({ where: { adId: previousSlot.adId }, data: { publishStatus: "SUPERSEDED" } });
+    }
+    await prisma.issueAdSlot.upsert({ where: { issueId_slotNumber: { issueId, slotNumber } }, update: { adId: ad.id, source: scope }, create: { issueId, adId: ad.id, slotNumber, source: scope } });
   }
-  await prisma.issueAdSlot.upsert({ where: { issueId_slotNumber: { issueId, slotNumber } }, update: { adId: ad.id, source: scope }, create: { issueId, adId: ad.id, slotNumber, source: scope } });
   await prisma.stalltalkAdSlot.upsert({ where: { slotNumber }, update: { adId: ad.id, business: ad.businessName, image: ad.artworkUrl, headline: ad.generatedHeadline || ad.title, subheadline: ad.generatedSubheadline || ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, targetUrl: ad.targetUrl, phone: ad.phone, publisherId: ad.publisherId }, create: { slotNumber, adId: ad.id, business: ad.businessName, image: ad.artworkUrl, headline: ad.generatedHeadline || ad.title, subheadline: ad.generatedSubheadline || ad.offer, ctaText: ad.ctaText, couponCode: ad.couponCode, targetUrl: ad.targetUrl, phone: ad.phone, publisherId: ad.publisherId } });
   const campaignId = str(body, "campaignId", ad.id);
   const parentCampaignId = str(body, "parentCampaignId", campaignId);
   await prisma.stalltalkCampaignHistory.updateMany({ where: { parentCampaignId, NOT: { campaignId } }, data: { publishStatus: "SUPERSEDED" } });
-  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
+  const history = await prisma.stalltalkCampaignHistory.upsert({ where: { campaignId }, update: { ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() }, create: { campaignId, ...historyData(resolvedBody, parentCampaignId), adId: ad.id, publishStatus: "PUBLISHED", targetType, targetLabel, slotPublished: slotNumber, selectedSlot: slotNumber, publishedAt: new Date() } });
   revalidatePath("/");
   revalidatePath("/issue");
-  if (issue.venue?.slug) revalidatePath(`/issue/${issue.venue.slug}`);
+  if (issue?.venue?.slug) revalidatePath(`/issue/${issue.venue.slug}`);
   revalidatePath("/admin/ad-studio");
   return NextResponse.json({ ok: true, adId: ad.id, message: "Campaign published successfully.", campaign: historySelect(history) });
 }
@@ -154,5 +169,5 @@ async function updateStatus(campaignId: string, publishStatus: string) {
   return NextResponse.json({ ok: true, message: `Campaign ${publishStatus.toLowerCase()}.`, campaign: historySelect(item) });
 }
 function historyData(body: Record<string, unknown>, parentCampaignId: string) {
-  return { parentCampaignId, publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
+  return { parentCampaignId, targetType: nullable(body, "targetType"), targetLabel: nullable(body, "targetLabel"), publisherId: nullable(body, "publisherId"), advertiserId: nullable(body, "advertiserId"), versionNumber: int(body, "versionNumber", 1), business: str(body, "businessName", str(body, "business_name", "Untitled Campaign")), image: nullable(body, "artworkUrl") || nullable(body, "imageUrl") || nullable(body, "image_url"), prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")), headline: nullable(body, "generatedHeadline") || nullable(body, "headline") || nullable(body, "title"), subheadline: nullable(body, "generatedSubheadline") || nullable(body, "subheadline") || nullable(body, "offer"), ctaText: nullable(body, "ctaText") || nullable(body, "cta"), couponCode: nullable(body, "couponCode"), adSize: "3:1 Sponsor Banner", logoBase64: nullable(body, "logoBase64"), targetUrl: nullable(body, "targetUrl") || nullable(body, "click_url"), selectedSlot: int(body, "slotNumber", int(body, "selectedSlot", int(body, "placement", 1))), publishStatus: str(body, "publishStatus", "DRAFT") };
 }

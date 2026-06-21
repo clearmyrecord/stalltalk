@@ -2,12 +2,13 @@
 
 import { Component, type ReactNode, useEffect, useState, useTransition } from "react";
 import { AD_DESKTOP_HEIGHT, AD_DESKTOP_WIDTH, AD_FORMAT_LABEL } from "@/lib/ad-config";
+import { DEFAULT_PUBLIC_ISSUE_ID, DEFAULT_PUBLIC_ISSUE_LABEL } from "@/lib/default-public-issue";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
 type VenueOption = { id: string; name: string; city: string; state: string };
 type RestroomOption = { id: string; name: string; venueName: string };
-type IssueOption = { id: string; title: string; venueName: string; status: string };
+type IssueOption = { id: string; title: string; label?: string; venueName: string; status: string; isDefault?: boolean; targetType?: string };
 type RecentCampaign = { id: string; businessName: string; title: string; offer: string; ctaText: string; couponCode: string | null; createdAt: string };
 type SavedCampaign = { campaignId: string; parentCampaignId?: string | null; versionNumber?: number | null; businessName: string; headline: string; subheadline: string; ctaText: string; couponCode: string; adSize: "3:1 Sponsor Banner"; imageUrl: string; promptUsed: string; createdAt: string; slotPublished?: number | null; selectedSlot?: number | null; targetUrl?: string | null; logoBase64?: string | null; publishStatus?: string | null };
 
@@ -167,7 +168,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     brandColors: "#ff2d55, #ffd400, #5b2cff",
     publisherId: publishers[0]?.id ?? "",
     advertiserId: advertisers[0]?.id ?? "",
-    issueId: issues[0]?.id ?? "",
+    issueId: issues[0]?.id ?? DEFAULT_PUBLIC_ISSUE_ID,
     scope: "GLOBAL"
   });
 
@@ -382,6 +383,8 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
     formData.set("status", "ACTIVE");
     formData.set("scope", form.scope);
     formData.set("issueId", form.issueId);
+    formData.set("targetType", form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_ID : "issue");
+    formData.set("targetLabel", form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.label || issues.find((issue) => issue.id === form.issueId)?.title || form.issueId);
     formData.set("slotNumber", slotNumber);
     formData.set("monthlyPriceDollars", "0");
     formData.set("action", "publish");
@@ -394,7 +397,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
           return result;
         })
         .then((result) => {
-          setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to Issue ${issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`);
+          setPublishMessage(result?.message || `Published campaign ${safe(form.businessName, "Your Business")} to ${form.issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === form.issueId)?.title || form.issueId} Slot ${slotNumber}`);
           setCreatives((items) => items.map((item, index) => ({ ...item, publishStatus: index === selectedCreativeIndex ? "PUBLISHED" : item.parentCampaignId === (selectedCreative.parentCampaignId || campaignRootId) ? "SUPERSEDED" : item.publishStatus })));
         })
         .catch((caught) => setPublishError(caught instanceof Error ? caught.message : "Unable to publish generated ad."));
@@ -430,7 +433,7 @@ function AdStudioPanel({ createAd, publishers, advertisers, venues, restrooms, i
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <p className="text-xs font-black uppercase tracking-widest text-stallRed">Publish Target</p>
           <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={form.issueId} onChange={(event) => update("issueId", event.target.value)}>
-            {issues.map((issue) => <option key={issue.id} value={issue.id}>{issue.title} • {issue.venueName}</option>)}
+            {issues.map((issue) => <option key={issue.id} value={issue.id}>{issue.isDefault ? issue.label || issue.title : `${issue.title} • ${issue.venueName}`}</option>)}
           </select>
           <select className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold" value={slotNumber} onChange={(event) => setSlotNumber(event.target.value)}>
             {Array.from({ length: 8 }, (_, index) => <option key={index + 1} value={index + 1}>Slot {index + 1}</option>)}

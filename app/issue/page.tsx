@@ -6,6 +6,7 @@ import { getServedAds } from "@/lib/ad-serving";
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
 import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
+import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,11 @@ export default async function IssueQueryPage({
       }
     }
 
+    const hasDefaultPublicAds = await prisma.stalltalkCampaignHistory.findFirst({ where: { targetType: DEFAULT_PUBLIC_ISSUE_ID, publishStatus: "PUBLISHED", ad: { status: "ACTIVE" } }, select: { id: true } });
+    if (hasDefaultPublicAds) {
+      return <StaticIssuePage />;
+    }
+
     const latestPublishedIssue = await prisma.issue.findFirst({
       where: { status: "PUBLISHED" },
       orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
@@ -81,12 +87,32 @@ export default async function IssueQueryPage({
   return <StaticIssuePage />;
 }
 
-function StaticIssuePage() {
-  const ads = getPublicationAds(publishedAds.filter((ad) => ad.active !== false));
+async function StaticIssuePage() {
+  const defaultCampaigns = await prisma.stalltalkCampaignHistory.findMany({ where: { targetType: DEFAULT_PUBLIC_ISSUE_ID, publishStatus: "PUBLISHED", ad: { status: "ACTIVE" } }, include: { ad: true }, orderBy: [{ slotPublished: "asc" }, { publishedAt: "desc" }] }).catch((error) => {
+    console.error("Default public issue published ad load failed; using static ad JSON fallback.", error);
+    return [];
+  });
+  const dbAds = defaultCampaigns.reduce<PublicationAdLike[]>((items, campaign) => {
+    if (!campaign.slotPublished || !campaign.ad) return items;
+    items[campaign.slotPublished - 1] = {
+      id: campaign.ad.id,
+      businessName: campaign.ad.businessName || campaign.business,
+      title: campaign.ad.title || campaign.headline || undefined,
+      offer: campaign.ad.offer || campaign.subheadline || undefined,
+      generatedHeadline: campaign.ad.generatedHeadline || campaign.headline || undefined,
+      generatedSubheadline: campaign.ad.generatedSubheadline || campaign.subheadline || undefined,
+      ctaText: campaign.ad.ctaText || campaign.ctaText || undefined,
+      targetUrl: campaign.ad.targetUrl || campaign.targetUrl || undefined,
+      couponCode: campaign.ad.couponCode || campaign.couponCode || undefined,
+      artworkUrl: campaign.ad.artworkUrl || campaign.image || undefined
+    };
+    return items;
+  }, []);
+  const ads = getPublicationAds(dbAds.length ? dbAds : publishedAds.filter((ad) => ad.active !== false));
 
   return (
     <main className="public-page">
-      <article className="publication" aria-label="Potty Favor monthly issue">
+      <article className="publication" aria-label="Potty Favor monthly issue" data-issue-id={DEFAULT_PUBLIC_ISSUE_ID}>
         <PublicationHeader monthYear={publishedIssue.issueMonthYear} />
         <section className="print-grid">
           <MissionCard missionText={publishedIssue.missionText} />
