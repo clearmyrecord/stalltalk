@@ -25,7 +25,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <label className="grid gap-1 font-black uppercase">Password<input name="password" type="password" required className="rounded border-2 border-ink p-3" /></label>
           <button className="rounded-xl bg-ink px-5 py-3 font-black uppercase text-white">Sign in</button>
         </form>
-        <p className="mt-4 text-sm font-bold">Seed users: admin@pottyfavor.com / admin-password-change-me, advertiser@pottyfavor.com / advertiser-password-change-me, venue@pottyfavor.com / venue-password-change-me, and distributor@pottyfavor.com / distributor-password-change-me. Admin publish tokens remain server-side or in local browser settings only.</p>
+        <p className="mt-4 text-sm font-bold">Use the account credentials created by your Potty Favor administrator.</p>
       </section>
     </main>
   );
