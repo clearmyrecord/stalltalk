@@ -1,9 +1,9 @@
-export const AD_ASPECT_RATIO = 4 / 3;
-export const AD_DESKTOP_WIDTH = 720;
-export const AD_DESKTOP_HEIGHT = 540;
-export const AD_FINAL_WIDTH = 1024;
-export const AD_FINAL_HEIGHT = 768;
+export const AD_ASPECT_RATIO = 4 / 5;
+export const AD_DESKTOP_WIDTH = 1080;
+export const AD_DESKTOP_HEIGHT = 1350;
+export const AD_FINAL_WIDTH = 1080;
+export const AD_FINAL_HEIGHT = 1350;
 export const AD_MOBILE_WIDTH = 320;
-export const AD_MOBILE_HEIGHT = 240;
+export const AD_MOBILE_HEIGHT = 400;
 export const AD_IMAGE_GENERATION_SIZE = "1024x1024";
-export const AD_FORMAT_LABEL = "4:3 sponsor card";
+export const AD_FORMAT_LABEL = "editorial magazine ad";

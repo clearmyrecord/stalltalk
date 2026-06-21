@@ -199,7 +199,7 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
     subheadline: nullableText(formData, "generatedSubheadline") || text(formData, "offer"),
     ctaText: text(formData, "ctaText", "Claim Offer"),
     couponCode: nullableText(formData, "couponCode"),
-    adSize: text(formData, "adSize", "4:3 Sponsor Card"),
+    adSize: text(formData, "adSize", "Editorial Magazine Ad"),
     logoBase64: nullableText(formData, "logoBase64"),
     logoUrl: nullableText(formData, "logoUrl"),
     targetUrl: text(formData, "targetUrl", "#"),
@@ -760,14 +760,14 @@ export async function submitFinishedAdvertiserAd(formData: FormData) {
       name: `${businessName} finished ad upload`,
       businessName,
       headline: `${businessName} finished ad`,
-      body: `Uploaded finished 4:3 sponsor panel image: ${imageName}`,
+      body: `Uploaded finished editorial ad image: ${imageName}`,
       creativeUrl: imageName,
       targetUrl,
       ctaText: "Learn More",
       status: "SUBMITTED",
       approvalStatus: "SUBMITTED",
       submittedAt: new Date(),
-      creatives: { create: [{ advertiserId, kind: "BANNER" as any, imageUrl: imageName, headline: `${businessName} finished ad`, body: "Finished 4:3 sponsor panel submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
+      creatives: { create: [{ advertiserId, kind: "IMAGE" as any, imageUrl: imageName, headline: `${businessName} finished ad`, body: "Finished editorial ad submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
     }
   });
   revalidatePath("/portal/advertiser");

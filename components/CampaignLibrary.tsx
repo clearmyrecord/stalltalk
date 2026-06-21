@@ -40,7 +40,7 @@ export function CampaignLibrary({ campaigns, issues }: { campaigns: Campaign[]; 
 
   return (
     <section className="grid gap-5">
-      <div><p className="font-black uppercase tracking-[.25em] text-stallRed">AI Ad Studio</p><h1 className="font-display text-7xl uppercase">Campaign Library</h1><p className="font-bold">Draft, preview, version, publish, unpublish, archive, and download 4:3 sponsor card content-ad campaigns. Publish targets include Default Public Issue plus saved issue records.</p></div>
+      <div><p className="font-black uppercase tracking-[.25em] text-stallRed">AI Ad Studio</p><h1 className="font-display text-7xl uppercase">Campaign Library</h1><p className="font-bold">Draft, preview, version, publish, unpublish, archive, and download editorial ad campaigns. Publish targets include Default Public Issue plus saved issue records.</p></div>
       <div className="overflow-x-auto rounded-2xl border-4 border-ink bg-stallYellow p-4 shadow-brutal">
         <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left">
           <thead className="text-xs font-black uppercase"><tr>{headers.map((h) => <th key={h} className="p-2">{h}</th>)}</tr></thead>

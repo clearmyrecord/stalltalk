@@ -1,66 +1,37 @@
-import { AD_SLOTS, getSlotAspectRatio, normalizePlacement } from "./ad-slots.js";
-import { fetchPublishedCampaigns } from "./campaign-service.js";
+import { getAdSlot } from './ad-slots.js';
 
-export function renderCampaign(container, campaign) {
+export function renderPublishedAd(container, campaign) {
   if (!container || !campaign?.image_url) return;
-
+  const slot = getAdSlot(campaign.slot_id);
+  container.classList.add("has-published-ad", "issue-ad-placement");
+  container.dataset.adSlot = campaign.slot_id || slot.id;
+  container.style.removeProperty("--ad-aspect-ratio");
   container.innerHTML = "";
-  container.style.setProperty("--ad-aspect-ratio", getSlotAspectRatio(campaign.slot_id));
-  container.classList.add("has-published-ad");
-
-  const sponsored = document.createElement("span");
-  sponsored.className = "sponsored-label";
-  sponsored.textContent = "Sponsored";
 
   const link = document.createElement("a");
   link.className = "published-ad-link";
-  link.href = campaign.click_url || "https://pottyfavor.com/advertise";
-  link.target = campaign.click_url ? "_blank" : "_self";
-  link.rel = campaign.click_url ? "noopener sponsored" : "";
+  link.href = campaign.target_url || "https://pottyfavor.com/advertise";
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
 
   const image = document.createElement("img");
+  image.className = "generated-ad-image";
   image.src = campaign.image_url;
-  image.alt = campaign.name || campaign.business_name || "Published advertisement";
-  image.loading = "eager";
-  image.width = campaign.width || 900;
-  image.height = campaign.height || 300;
+  image.alt = `${campaign.business_name || "Sponsor"} advertisement`;
 
-  const cta = document.createElement("span");
-  cta.className = "ad-cta-button";
-  cta.textContent = campaign.cta_text || campaign.cta || "Learn More";
-
-  link.append(image, cta);
-  container.append(sponsored, link);
+  link.appendChild(image);
+  container.appendChild(link);
 }
 
-export async function renderPublishedAds({ venueId } = {}) {
-  if (typeof document === "undefined") return [];
-  const resolvedVenueId = venueId ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("venue_id") || "" : "");
-  const containers = reserveAdSlots();
-  const campaigns = await fetchPublishedCampaigns({ venueId: resolvedVenueId });
-  containers.forEach((container) => {
-    const slotId = container.dataset.adSlot;
-    const placement = normalizePlacement(container.dataset.placement);
-    const campaign = campaigns.find((candidate) => candidate.slot_id === slotId && normalizePlacement(candidate.placement) === placement);
-    if (campaign) renderCampaign(container, campaign);
-  });
-  return campaigns;
-}
-
-function reserveAdSlots() {
-  const containers = [];
-  AD_SLOTS.forEach((slot) => {
-    document.querySelectorAll(slot.selector).forEach((container) => {
-      container.style.setProperty("--ad-aspect-ratio", `${slot.width} / ${slot.height}`);
-      container.setAttribute("aria-label", container.getAttribute("aria-label") || slot.label);
-      containers.push(container);
-    });
-  });
-  return containers;
-}
-
-if (typeof document !== "undefined") {
-  document.addEventListener("DOMContentLoaded", () => {
-    renderPublishedAds().catch((error) => console.warn("Published ads could not be loaded", error));
-  });
+export function renderAdPlaceholder(container) {
+  if (!container) return;
+  container.classList.add("issue-ad-placement", "is-empty");
+  container.style.removeProperty("--ad-aspect-ratio");
+  container.innerHTML = `
+    <a class="ad-placeholder-link" href="https://pottyfavor.com/advertise">
+      <strong>Advertise Here</strong>
+      <span>Full-width editorial magazine ad placement inside Potty Favor.</span>
+      <em>Claim This Spot</em>
+    </a>
+  `;
 }

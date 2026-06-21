@@ -620,7 +620,7 @@ body:has(.public-page) { background: #000; }
   :root { --ad-width: 100%; --ad-radius: 22px; --ad-spacing: 16px; }
 }
 
-/* Homepage publication readability and sponsor banner rendering refresh. */
+/* Homepage publication readability and legacy ad rendering refresh. */
 :root { --ad-width: min(100%, 320px); --ad-aspect-ratio: 320 / 100; --ad-radius: 14px; }
 .publication-content-block.panel,
 .humor-card.panel,
@@ -756,7 +756,7 @@ body:has(.public-page) { background: #000; }
   display: none !important;
 }
 
-/* Potty Favor canonical 3:1 sponsor banner sizing. */
+/* Legacy content ad sizing overridden by editorial placements below. */
 :root { --ad-width: min(100%, 600px); --ad-aspect-ratio: 3 / 1; --ad-radius: 18px; }
 [data-ad-slot="content-ad"],
 .ad-card[data-ad-slot="content-ad"],
@@ -1174,7 +1174,7 @@ body:has(.public-page) { background: #000; }
   .word-card .word-definition { font-size: 18px; }
 }
 
-/* Final canonical native 3:1 sponsor banner rendering. */
+/* Legacy native content ad rendering overridden by editorial placements below. */
 [data-ad-slot="content-ad"],
 .ad-card[data-ad-slot="content-ad"],
 .inline-ad[data-ad-slot="content-ad"] {
@@ -1202,7 +1202,7 @@ body:has(.public-page) { background: #000; }
   }
 }
 
-/* Final canonical native 4:3 sponsor card rendering. Existing 3:1 ads are contained against a dark fill without cropping. */
+/* Legacy fixed content ad rendering overridden by editorial placements below. */
 :root { --ad-width: min(100%, 720px); --ad-aspect-ratio: 4 / 3; --ad-radius: 18px; }
 [data-ad-slot="content-ad"],
 .ad-card[data-ad-slot="content-ad"],
@@ -1259,4 +1259,82 @@ body:has(.public-page) { background: #000; }
     min-width: 0 !important;
     max-width: 100% !important;
   }
+}
+
+/* Editorial magazine ad placements: final creative renders uncropped. */
+.issue-ad-placement,
+[data-ad-slot="content-ad"].issue-ad-placement {
+  width: 100% !important;
+  max-width: 1080px !important;
+  margin: 40px auto !important;
+  padding: 0 16px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.issue-ad-placement a,
+.issue-ad-placement .published-ad-link,
+.issue-ad-placement .generated-ad-link {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+  overflow: visible !important;
+  border-radius: 24px !important;
+  background: transparent !important;
+}
+
+.issue-ad-placement img,
+.issue-ad-placement .generated-ad-image,
+[data-ad-slot="content-ad"].issue-ad-placement img {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  border-radius: 24px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+.issue-ad-placement .ad-placeholder-link {
+  display: grid !important;
+  min-height: 360px !important;
+  place-items: center !important;
+  gap: 16px !important;
+  padding: 48px 24px !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  color: #17110f !important;
+  border: 3px dashed #17110f !important;
+  border-radius: 24px !important;
+  background: linear-gradient(135deg, #fff 0%, #fff8d9 100%) !important;
+}
+
+.issue-ad-placement .ad-placeholder-link strong {
+  font-family: Georgia, 'Times New Roman', serif !important;
+  font-size: clamp(2.5rem, 8vw, 6rem) !important;
+  line-height: .95 !important;
+  text-transform: uppercase !important;
+}
+
+.issue-ad-placement .ad-placeholder-link span {
+  max-width: 680px !important;
+  font-weight: 800 !important;
+}
+
+.issue-ad-placement .ad-placeholder-link em {
+  border-radius: 999px !important;
+  background: #17110f !important;
+  color: #fff !important;
+  padding: 12px 22px !important;
+  font-style: normal !important;
+  font-weight: 900 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
 }

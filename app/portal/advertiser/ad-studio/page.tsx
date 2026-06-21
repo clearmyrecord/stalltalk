@@ -135,7 +135,7 @@ export default async function AdvertiserAdStudioPage() {
           subheadline: campaign.subheadline || "",
           ctaText: campaign.ctaText || "Claim Offer",
           couponCode: campaign.couponCode || "",
-          adSize: "4:3 Sponsor Card",
+          adSize: "Editorial Magazine Ad",
           imageUrl: campaign.image || "",
           promptUsed: campaign.prompt || "",
           createdAt: campaign.createdAt.toISOString(),

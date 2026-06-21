@@ -1,6 +1,5 @@
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
-import { AD_DESKTOP_HEIGHT, AD_DESKTOP_WIDTH } from "@/lib/ad-config";
 import { sponsorPlacementLabel, sponsorPlacementSection } from "@/lib/sponsor-placements";
 
 type StaticAd = (typeof publishedAds)[number];
@@ -70,57 +69,47 @@ export function PublicationAdFallback({
     displayAd.campaignImage ||
     displayAd.campaignImageUrl ||
     displayAd.image;
+  const placementLabel = sponsorPlacementLabel(slotNumber);
+  const placementSection = sponsorPlacementSection(slotNumber);
+
   if (!image)
     console.warn("Published ad missing imageUrl", {
       adId: displayAd.id,
       slotNumber,
     });
 
-  const ctaText = displayAd.ctaText || displayAd.cta || "Learn More";
-  const placementLabel = sponsorPlacementLabel(slotNumber);
-  const placementSection = sponsorPlacementSection(slotNumber);
-
   return (
-    <article
-      className={`ad-card inline-ad ${primary ? "inline-ad-primary" : ""} ${image ? "" : "is-empty"}`}
+    <section
+      className={`issue-ad-placement ${image ? "" : "is-empty"}`}
       id={`ad-${slotNumber}`}
       data-ad-slot="content-ad"
       data-placement={slotNumber}
       data-sponsor-placement={placementLabel}
       data-section={placementSection}
+      aria-label={placementLabel}
     >
-      <span className="sponsored-label">{placementLabel}</span>
       {image ? (
         <a
           className="published-ad-link generated-ad-link"
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`${sponsor} ${placementLabel} advertisement`}
+          aria-label={`${sponsor} advertisement`}
         >
           <img
             className="generated-ad-image"
-            width={AD_DESKTOP_WIDTH}
-            height={AD_DESKTOP_HEIGHT}
             src={image}
-            alt={`${sponsor} ${placementLabel} advertisement`}
+            alt={`${sponsor} advertisement`}
           />
-          <span className="ad-cta-button">{ctaText}</span>
         </a>
       ) : (
         <a className="ad-placeholder-link" href={href}>
-          <strong>YOUR BUSINESS HERE</strong>
-          <span>
-            Reach thousands of monthly readers from inside Las Vegas venues.
-          </span>
-          <small>
-            Restaurants • Bars • Casinos • Attractions • Local Businesses
-          </small>
-          <em>BECOME AN ADVERTISER</em>
-          <b>pottyfavor.com/advertise</b>
+          <strong>Advertise Here</strong>
+          <span>Full-width editorial magazine ad placement inside Potty Favor.</span>
+          <em>Claim This Spot</em>
         </a>
       )}
-    </article>
+    </section>
   );
 }
 
