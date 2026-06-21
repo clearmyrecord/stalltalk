@@ -6,6 +6,7 @@ import { getServedAds } from "@/lib/ad-serving";
 import publishedIssue from "@/data/published-issue.json";
 import publishedAds from "@/data/published-ads.json";
 import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
+import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,11 @@ export default async function IssueQueryPage({
       }
     }
 
+    const hasDefaultPublicAds = await prisma.stalltalkAdSlot.findFirst({ where: { ad: { status: "ACTIVE" } }, select: { id: true } });
+    if (hasDefaultPublicAds) {
+      return <StaticIssuePage />;
+    }
+
     const latestPublishedIssue = await prisma.issue.findFirst({
       where: { status: "PUBLISHED" },
       orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
@@ -81,12 +87,31 @@ export default async function IssueQueryPage({
   return <StaticIssuePage />;
 }
 
-function StaticIssuePage() {
-  const ads = getPublicationAds(publishedAds.filter((ad) => ad.active !== false));
+async function StaticIssuePage() {
+  const dbSlots = await prisma.stalltalkAdSlot.findMany({ where: { ad: { status: "ACTIVE" } }, include: { ad: true }, orderBy: { slotNumber: "asc" } }).catch((error) => {
+    console.error("Default public issue ad slot load failed; using static ad JSON fallback.", error);
+    return [];
+  });
+  const dbAds = dbSlots.reduce<PublicationAdLike[]>((items, slot) => {
+    items[slot.slotNumber - 1] = {
+      id: slot.ad?.id || slot.adId || slot.id,
+      businessName: slot.ad?.businessName || slot.business,
+      title: slot.ad?.title || slot.headline || undefined,
+      offer: slot.ad?.offer || slot.subheadline || undefined,
+      generatedHeadline: slot.ad?.generatedHeadline || slot.headline || undefined,
+      generatedSubheadline: slot.ad?.generatedSubheadline || slot.subheadline || undefined,
+      ctaText: slot.ad?.ctaText || slot.ctaText || undefined,
+      targetUrl: slot.ad?.targetUrl || slot.targetUrl || undefined,
+      couponCode: slot.ad?.couponCode || slot.couponCode || undefined,
+      artworkUrl: slot.ad?.artworkUrl || slot.image || undefined
+    };
+    return items;
+  }, []);
+  const ads = getPublicationAds(dbAds.length ? dbAds : publishedAds.filter((ad) => ad.active !== false));
 
   return (
     <main className="public-page">
-      <article className="publication" aria-label="Potty Favor monthly issue">
+      <article className="publication" aria-label="Potty Favor monthly issue" data-issue-id={DEFAULT_PUBLIC_ISSUE_ID}>
         <PublicationHeader monthYear={publishedIssue.issueMonthYear} />
         <section className="print-grid">
           <MissionCard missionText={publishedIssue.missionText} />
