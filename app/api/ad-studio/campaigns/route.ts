@@ -2,7 +2,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import type { AdScope, AdStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
+import type { User } from "@prisma/client";
 import {
   DEFAULT_PUBLIC_ISSUE_ID,
   DEFAULT_PUBLIC_ISSUE_LABEL,
@@ -96,9 +97,9 @@ function historySelect(item: any) {
 }
 
 export async function GET() {
-  await requireAdmin();
+  const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
   const campaigns = await prisma.stalltalkCampaignHistory.findMany({
-    where: { publishStatus: { notIn: ["ARCHIVED", "DELETED"] } },
+    where: campaignWhereForUser(user),
     include: {
       ad: {
         include: {
@@ -117,17 +118,26 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  await requireAdmin();
-  const body = (await request.json()) as Record<string, unknown>;
+  const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  const body = normalizeBodyForUser(
+    (await request.json()) as Record<string, unknown>,
+    user,
+  );
   const action = str(body, "action", "save");
-  if (action === "publish") return publishCampaignSafe(body);
-  if (action === "duplicate") return duplicateCampaign(body);
-  return saveCampaign(body);
+  if (action === "publish") {
+    if (user.role === "ADVERTISER") return submitCampaignForReview(body, user);
+    return publishCampaignSafe(body);
+  }
+  if (action === "duplicate") return duplicateCampaign(body, user);
+  return saveCampaign(body, user);
 }
 
 export async function PATCH(request: Request) {
-  await requireAdmin();
-  const body = (await request.json()) as Record<string, unknown>;
+  const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  const body = normalizeBodyForUser(
+    (await request.json()) as Record<string, unknown>,
+    user,
+  );
   const action = str(body, "action");
   const campaignId = str(body, "campaignId");
   if (!campaignId)
@@ -135,27 +145,68 @@ export async function PATCH(request: Request) {
       { error: "campaignId is required" },
       { status: 400 },
     );
-  if (action === "unpublish") return unpublishCampaign(campaignId);
-  if (action === "archive") return updateStatus(campaignId, "ARCHIVED");
-  if (action === "publish") return publishCampaignSafe(body);
-  return saveCampaign(body);
+  if (user.role === "ADVERTISER" && !["archive", "publish"].includes(action))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (action === "unpublish")
+    return user.role === "ADMIN"
+      ? unpublishCampaign(campaignId)
+      : NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (action === "archive") return updateStatus(campaignId, "ARCHIVED", user);
+  if (action === "publish")
+    return user.role === "ADVERTISER"
+      ? submitCampaignForReview(body, user)
+      : publishCampaignSafe(body);
+  return saveCampaign(body, user);
 }
 
 export async function DELETE(request: Request) {
-  await requireAdmin();
-  const body = (await request.json()) as Record<string, unknown>;
+  const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  const body = normalizeBodyForUser(
+    (await request.json()) as Record<string, unknown>,
+    user,
+  );
   const campaignId = str(body, "campaignId");
   if (!campaignId)
     return NextResponse.json(
       { error: "campaignId is required" },
       { status: 400 },
     );
-  return updateStatus(campaignId, "ARCHIVED");
+  return updateStatus(campaignId, "ARCHIVED", user);
 }
 
-async function saveCampaign(body: Record<string, unknown>) {
+function campaignWhereForUser(user: User) {
+  return user.role === "ADVERTISER"
+    ? {
+        advertiserId: user.advertiserId || "__missing__",
+        publishStatus: { notIn: ["DELETED"] },
+      }
+    : { publishStatus: { notIn: ["ARCHIVED", "DELETED"] } };
+}
+
+function normalizeBodyForUser(body: Record<string, unknown>, user: User) {
+  if (user.role !== "ADVERTISER") return body;
+  return {
+    ...body,
+    advertiserId: user.advertiserId || "",
+    publishStatus: str(body, "publishStatus", "DRAFT"),
+  };
+}
+
+async function assertOwnCampaign(campaignId: string, user: User) {
+  if (user.role !== "ADVERTISER") return true;
+  if (!user.advertiserId) return false;
+  const campaign = await prisma.stalltalkCampaignHistory.findUnique({
+    where: { campaignId },
+    select: { advertiserId: true },
+  });
+  return !campaign || campaign.advertiserId === user.advertiserId;
+}
+
+async function saveCampaign(body: Record<string, unknown>, user?: User) {
   const campaignId = str(body, "campaignId") || crypto.randomUUID();
   const parentCampaignId = str(body, "parentCampaignId", campaignId);
+  if (user && !(await assertOwnCampaign(campaignId, user)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   let item;
   try {
     item = await prisma.stalltalkCampaignHistory.upsert({
@@ -177,12 +228,17 @@ async function saveCampaign(body: Record<string, unknown>) {
   });
 }
 
-async function duplicateCampaign(body: Record<string, unknown>) {
+async function duplicateCampaign(body: Record<string, unknown>, user?: User) {
   const source = await prisma.stalltalkCampaignHistory.findUnique({
     where: { campaignId: str(body, "campaignId") },
   });
   if (!source)
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+  if (
+    user?.role === "ADVERTISER" &&
+    (!user.advertiserId || source.advertiserId !== user.advertiserId)
+  )
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const copyId = crypto.randomUUID();
   const copy = await prisma.stalltalkCampaignHistory.create({
     data: {
@@ -214,6 +270,58 @@ async function duplicateCampaign(body: Record<string, unknown>) {
     ok: true,
     message: "Campaign duplicated as a new draft.",
     campaign: historySelect(copy),
+  });
+}
+
+async function submitCampaignForReview(
+  body: Record<string, unknown>,
+  user: User,
+) {
+  if (!user.advertiserId)
+    return NextResponse.json(
+      { error: "Advertiser profile required" },
+      { status: 403 },
+    );
+  const campaignId = str(body, "campaignId") || crypto.randomUUID();
+  if (!(await assertOwnCampaign(campaignId, user)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const parentCampaignId = str(body, "parentCampaignId", campaignId);
+  const item = await prisma.stalltalkCampaignHistory.upsert({
+    where: { campaignId },
+    update: {
+      ...historyData(
+        {
+          ...body,
+          advertiserId: user.advertiserId,
+          publishStatus: "PENDING_REVIEW",
+        },
+        parentCampaignId,
+      ),
+      publishStatus: "PENDING_REVIEW",
+      publishedToHomepage: false,
+      slotPublished: null,
+    },
+    create: {
+      campaignId,
+      ...historyData(
+        {
+          ...body,
+          advertiserId: user.advertiserId,
+          publishStatus: "PENDING_REVIEW",
+        },
+        parentCampaignId,
+      ),
+      publishStatus: "PENDING_REVIEW",
+      publishedToHomepage: false,
+      slotPublished: null,
+    },
+  });
+  revalidatePath("/portal/advertiser/ad-studio");
+  revalidatePath("/admin/ad-studio");
+  return NextResponse.json({
+    ok: true,
+    message: "Campaign submitted for admin review.",
+    campaign: historySelect(item),
   });
 }
 
@@ -448,7 +556,13 @@ async function unpublishCampaign(campaignId: string) {
     campaign: historySelect(item),
   });
 }
-async function updateStatus(campaignId: string, publishStatus: string) {
+async function updateStatus(
+  campaignId: string,
+  publishStatus: string,
+  user?: User,
+) {
+  if (user && !(await assertOwnCampaign(campaignId, user)))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const item = await prisma.stalltalkCampaignHistory.update({
     where: { campaignId },
     data: { publishStatus },

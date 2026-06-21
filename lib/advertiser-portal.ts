@@ -10,7 +10,6 @@ export async function requireAdvertiserPortalUser() {
 }
 
 export async function advertiserForPortalUser(user: User) {
-  if (user.role === "ADVERTISER" && !user.advertiserId) redirect("/portal/advertiser");
   if (!user.advertiserId) return null;
   return prisma.advertiser.findUnique({ where: { id: user.advertiserId } });
 }

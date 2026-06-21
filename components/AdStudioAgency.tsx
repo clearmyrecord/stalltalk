@@ -16,7 +16,10 @@ import {
   DEFAULT_PUBLIC_ISSUE_ID,
   DEFAULT_PUBLIC_ISSUE_LABEL,
 } from "@/lib/default-public-issue";
-import { SPONSOR_PLACEMENTS, sponsorPlacementLabel } from "@/lib/sponsor-placements";
+import {
+  SPONSOR_PLACEMENTS,
+  sponsorPlacementLabel,
+} from "@/lib/sponsor-placements";
 
 type PublisherOption = { id: string; name: string };
 type AdvertiserOption = { id: string; name: string };
@@ -78,6 +81,7 @@ type Props = {
   recentCampaigns: RecentCampaign[];
   savedCampaigns: SavedCampaign[];
   serverWarning?: string;
+  mode?: "admin" | "advertiser";
 };
 
 type AdSize = "4:3 Sponsor Card";
@@ -354,6 +358,7 @@ function AdStudioPanel({
   recentCampaigns,
   savedCampaigns,
   serverWarning,
+  mode = "admin",
 }: Props) {
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
@@ -416,6 +421,7 @@ function AdStudioPanel({
       ? safe(form.customAudience, "custom audience")
       : form.audience;
   const activeIssue = issues.find((issue) => issue.id === form.issueId);
+  const isAdvertiserMode = mode === "advertiser";
   const publishTargetContext =
     form.issueId === DEFAULT_PUBLIC_ISSUE_ID
       ? "Default publish target: Default Public Issue"
@@ -423,7 +429,9 @@ function AdStudioPanel({
 
   async function uploadFinishedAd(file: File | undefined) {
     if (!file) return;
-    setUploadMessage("Composing finished 4:3 sponsor card and uploading to Cloudinary...");
+    setUploadMessage(
+      "Composing finished 4:3 sponsor card and uploading to Cloudinary...",
+    );
     let objectUrl = "";
     try {
       objectUrl = URL.createObjectURL(file);
@@ -494,7 +502,12 @@ function AdStudioPanel({
     const context = canvas.getContext("2d");
     if (!context) return imageUrl || "";
 
-    const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+    const gradient = context.createLinearGradient(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     gradient.addColorStop(0, "#17002f");
     gradient.addColorStop(0.45, "#5b2cff");
     gradient.addColorStop(1, "#ff2d55");
@@ -512,10 +525,19 @@ function AdStudioPanel({
     if (imageUrl) {
       try {
         const baseImage = await loadCanvasImage(imageUrl);
-        const scale = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
+        const scale = Math.min(
+          canvas.width / baseImage.width,
+          canvas.height / baseImage.height,
+        );
         const width = baseImage.width * scale;
         const height = baseImage.height * scale;
-        context.drawImage(baseImage, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+        context.drawImage(
+          baseImage,
+          (canvas.width - width) / 2,
+          (canvas.height - height) / 2,
+          width,
+          height,
+        );
       } catch {
         // Keep styled gradient fallback when OpenAI output cannot be loaded.
       }
@@ -541,13 +563,30 @@ function AdStudioPanel({
         const logoImage = await loadCanvasImage(form.logoBase64);
         const logoMaxWidth = 220;
         const logoMaxHeight = 96;
-        const scale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height, 1);
+        const scale = Math.min(
+          logoMaxWidth / logoImage.width,
+          logoMaxHeight / logoImage.height,
+          1,
+        );
         const logoWidth = logoImage.width * scale;
         const logoHeight = logoImage.height * scale;
-        drawRoundRect(context, padding, padding, logoWidth + 28, logoHeight + 28, 24);
+        drawRoundRect(
+          context,
+          padding,
+          padding,
+          logoWidth + 28,
+          logoHeight + 28,
+          24,
+        );
         context.fillStyle = "rgba(255,255,255,.94)";
         context.fill();
-        context.drawImage(logoImage, padding + 14, padding + 14, logoWidth, logoHeight);
+        context.drawImage(
+          logoImage,
+          padding + 14,
+          padding + 14,
+          logoWidth,
+          logoHeight,
+        );
         logoRight = padding + logoWidth + 48;
       } catch {
         logoRight = padding;
@@ -558,21 +597,54 @@ function AdStudioPanel({
     context.fillStyle = "#ffffff";
     const businessFit = fitCanvasText(context, business, 430, 2, 42, 24, 900);
     context.font = `900 ${businessFit.size}px Arial Black, Arial, sans-serif`;
-    businessFit.lines.forEach((line, index) => context.fillText(line, logoRight, padding + index * businessFit.lineHeight));
+    businessFit.lines.forEach((line, index) =>
+      context.fillText(
+        line,
+        logoRight,
+        padding + index * businessFit.lineHeight,
+      ),
+    );
 
     const headlineMaxWidth = canvas.width - padding * 2;
-    const headlineFit = fitCanvasText(context, headline, headlineMaxWidth, 3, 78, 38, 900);
+    const headlineFit = fitCanvasText(
+      context,
+      headline,
+      headlineMaxWidth,
+      3,
+      78,
+      38,
+      900,
+    );
     const headlineY = 250 - (headlineFit.lines.length - 1) * 18;
     context.shadowColor = "rgba(0,0,0,.42)";
     context.shadowBlur = 14;
     context.font = `900 ${headlineFit.size}px Arial Black, Arial, sans-serif`;
-    headlineFit.lines.forEach((line, index) => context.fillText(line, padding, headlineY + index * headlineFit.lineHeight));
+    headlineFit.lines.forEach((line, index) =>
+      context.fillText(
+        line,
+        padding,
+        headlineY + index * headlineFit.lineHeight,
+      ),
+    );
     context.shadowBlur = 0;
 
-    const subFit = fitCanvasText(context, subheadline, canvas.width - padding * 2, 2, 34, 22, 800, "Arial, sans-serif");
+    const subFit = fitCanvasText(
+      context,
+      subheadline,
+      canvas.width - padding * 2,
+      2,
+      34,
+      22,
+      800,
+      "Arial, sans-serif",
+    );
     context.font = `800 ${subFit.size}px Arial, sans-serif`;
     context.fillStyle = "#fff7b8";
-    context.fillText(subFit.lines[0] || "", padding, headlineY + headlineFit.lines.length * headlineFit.lineHeight + 18);
+    context.fillText(
+      subFit.lines[0] || "",
+      padding,
+      headlineY + headlineFit.lines.length * headlineFit.lineHeight + 18,
+    );
 
     const ctaWidth = 280;
     const ctaHeight = 76;
@@ -585,7 +657,11 @@ function AdStudioPanel({
     context.font = `900 ${ctaFit.size}px Arial Black, Arial, sans-serif`;
     context.fillStyle = "#111111";
     const ctaLine = ctaFit.lines[0] || cta;
-    context.fillText(ctaLine, ctaX + (ctaWidth - context.measureText(ctaLine).width) / 2, ctaY + (ctaHeight - ctaFit.size) / 2 - 2);
+    context.fillText(
+      ctaLine,
+      ctaX + (ctaWidth - context.measureText(ctaLine).width) / 2,
+      ctaY + (ctaHeight - ctaFit.size) / 2 - 2,
+    );
 
     if (coupon) {
       const badgeWidth = 300;
@@ -595,11 +671,23 @@ function AdStudioPanel({
       drawRoundRect(context, badgeX, badgeY, badgeWidth, badgeHeight, 22);
       context.fillStyle = "rgba(255,255,255,.94)";
       context.fill();
-      const couponFit = fitCanvasText(context, `CODE ${coupon}`, badgeWidth - 36, 1, 28, 18, 900);
+      const couponFit = fitCanvasText(
+        context,
+        `CODE ${coupon}`,
+        badgeWidth - 36,
+        1,
+        28,
+        18,
+        900,
+      );
       context.font = `900 ${couponFit.size}px Arial Black, Arial, sans-serif`;
       context.fillStyle = "#5b2cff";
       const couponLine = couponFit.lines[0] || coupon;
-      context.fillText(couponLine, badgeX + (badgeWidth - context.measureText(couponLine).width) / 2, badgeY + (badgeHeight - couponFit.size) / 2 - 2);
+      context.fillText(
+        couponLine,
+        badgeX + (badgeWidth - context.measureText(couponLine).width) / 2,
+        badgeY + (badgeHeight - couponFit.size) / 2 - 2,
+      );
     }
 
     return canvas.toDataURL("image/png");
@@ -630,10 +718,19 @@ function AdStudioPanel({
     if (!context) return imageUrl;
     context.fillStyle = "#050018";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    const baseScale = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
+    const baseScale = Math.min(
+      canvas.width / baseImage.width,
+      canvas.height / baseImage.height,
+    );
     const baseWidth = baseImage.width * baseScale;
     const baseHeight = baseImage.height * baseScale;
-    context.drawImage(baseImage, (canvas.width - baseWidth) / 2, (canvas.height - baseHeight) / 2, baseWidth, baseHeight);
+    context.drawImage(
+      baseImage,
+      (canvas.width - baseWidth) / 2,
+      (canvas.height - baseHeight) / 2,
+      baseWidth,
+      baseHeight,
+    );
     const logoMaxWidth = canvas.width * 0.34;
     const logoMaxHeight = canvas.height * 0.16;
     const logoScale = Math.min(
@@ -860,18 +957,32 @@ function AdStudioPanel({
     setIsGenerating(false);
   }
 
-
-  async function deleteCampaignFromHistory(item: CampaignHistoryItem, publishedOnly = false) {
-    if (item.publishStatus === "PUBLISHED" && !window.confirm("This campaign is published. Delete and unpublish it from the homepage?")) return;
-    const endpoint = publishedOnly ? `/api/ad-studio/published/${encodeURIComponent(item.campaignId)}` : `/api/ad-studio/campaigns/${encodeURIComponent(item.campaignId)}`;
+  async function deleteCampaignFromHistory(
+    item: CampaignHistoryItem,
+    publishedOnly = false,
+  ) {
+    if (
+      item.publishStatus === "PUBLISHED" &&
+      !window.confirm(
+        "This campaign is published. Delete and unpublish it from the homepage?",
+      )
+    )
+      return;
+    const endpoint = publishedOnly
+      ? `/api/ad-studio/published/${encodeURIComponent(item.campaignId)}`
+      : `/api/ad-studio/campaigns/${encodeURIComponent(item.campaignId)}`;
     const response = await fetch(endpoint, { method: "DELETE" });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result.error) {
       setPublishError(result.error || `Delete failed (${response.status})`);
       return;
     }
-    setHistory((items) => items.filter((current) => current.campaignId !== item.campaignId));
-    setCreatives((items) => items.filter((current) => current.campaignId !== item.campaignId));
+    setHistory((items) =>
+      items.filter((current) => current.campaignId !== item.campaignId),
+    );
+    setCreatives((items) =>
+      items.filter((current) => current.campaignId !== item.campaignId),
+    );
     setPublishMessage("Campaign deleted.");
   }
 
@@ -905,11 +1016,15 @@ function AdStudioPanel({
     }
     try {
       if (!(await isFinalSponsorCardImage(selectedCreative.imageUrl))) {
-        setPublishError("Final ad must be a 1024x768 4:3 sponsor card before publishing.");
+        setPublishError(
+          "Final ad must be a 1024x768 4:3 sponsor card before publishing.",
+        );
         return;
       }
     } catch {
-      setPublishError("Final ad must be a 1024x768 4:3 sponsor card before publishing.");
+      setPublishError(
+        "Final ad must be a 1024x768 4:3 sponsor card before publishing.",
+      );
       return;
     }
     const formData = new FormData();
@@ -1063,15 +1178,14 @@ function AdStudioPanel({
             Campaign Builder
           </h1>
           <p className="mt-2 max-w-3xl text-lg font-bold">
-            AI ad generator from a creative brief: enter business info, offer,
-            audience, and creative direction, then generate ad copy plus a
-            graphic through the existing /api/generate-ad-image route before
-            publishing to a Stall Talk sponsor placement.
+            {isAdvertiserMode
+              ? "Advertiser-safe AI ad generator: create drafts, generate sponsor card creative, and submit finished campaigns for admin review."
+              : "AI ad generator from a creative brief: enter business info, offer, audience, and creative direction, then generate ad copy plus a graphic through the existing /api/generate-ad-image route before publishing to a Stall Talk sponsor placement."}
           </p>
         </div>
         <div className="rounded-2xl border-4 border-ink bg-paper p-4">
           <p className="text-xs font-black uppercase tracking-widest text-stallRed">
-            Publish Target
+            {isAdvertiserMode ? "Review Target" : "Publish Target"}
           </p>
           <select
             className="mt-2 w-full rounded-xl border-2 border-ink p-2 font-bold"
@@ -1230,8 +1344,8 @@ function AdStudioPanel({
           <label className="lg:col-span-2 rounded-2xl border-2 border-ink bg-paper p-4 font-black uppercase">
             Upload finished 4:3 sponsor card graphic
             <span className="mt-2 block text-sm normal-case text-ink/70">
-              Upload finished 4:3 sponsor card graphic. Recommended: 1024x768 PNG.
-              Stores the file in Cloudinary and uses it exactly like an
+              Upload finished 4:3 sponsor card graphic. Recommended: 1024x768
+              PNG. Stores the file in Cloudinary and uses it exactly like an
               AI-generated creative.
             </span>
             <input
@@ -1370,7 +1484,13 @@ function AdStudioPanel({
                     disabled={isPending}
                     onClick={() => void publish()}
                   >
-                    {isPending ? "Publishing..." : "Publish This Version"}
+                    {isPending
+                      ? isAdvertiserMode
+                        ? "Submitting..."
+                        : "Publishing..."
+                      : isAdvertiserMode
+                        ? "Submit for Review"
+                        : "Publish This Version"}
                   </button>
                   <button
                     className="w-full whitespace-normal rounded-xl border-4 border-ink bg-stallPurple px-4 py-3 text-center text-sm font-black uppercase leading-tight text-white shadow-brutal disabled:opacity-50"
@@ -1436,7 +1556,12 @@ function AdStudioPanel({
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
         <HistoryPanel
-          title="Database Campaign History"
+          mode={mode}
+          title={
+            isAdvertiserMode
+              ? "My Drafts / Pending Review / Published Ads / Rejected or Archived"
+              : "Database Campaign History"
+          }
           items={history}
           onLoad={(item) => {
             setCreatives([item]);
@@ -1452,6 +1577,7 @@ function AdStudioPanel({
             Published Ad History
           </h3>
           <PublishedHistoryPanel
+            mode={mode}
             items={history.filter((item) => item.publishStatus === "PUBLISHED")}
             onDelete={(item) => void deleteCampaignFromHistory(item, true)}
           />
@@ -1622,7 +1748,8 @@ function PreviewCard({ creative }: { creative: GeneratedCreative }) {
   return (
     <article className="rounded-[2rem] border-4 border-ink bg-white p-4 shadow-brutal">
       <p className="mb-2 text-xs font-black uppercase tracking-widest text-stallPurple">
-        Preview: max 720px desktop / 100% mobile · 1024×768 PNG · {AD_FORMAT_LABEL}
+        Preview: max 720px desktop / 100% mobile · 1024×768 PNG ·{" "}
+        {AD_FORMAT_LABEL}
       </p>
       <div
         className={`${sizes[creative.adSize].className} w-full overflow-hidden rounded-2xl border-4 border-ink bg-[#050018]`}
@@ -1739,7 +1866,15 @@ function StatusPanel({ diagnostic }: { diagnostic: ApiDiagnostic }) {
   );
 }
 
-function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem[]; onDelete: (item: CampaignHistoryItem) => void }) {
+function PublishedHistoryPanel({
+  items,
+  onDelete,
+  mode = "admin",
+}: {
+  items: CampaignHistoryItem[];
+  onDelete: (item: CampaignHistoryItem) => void;
+  mode?: "admin" | "advertiser";
+}) {
   async function campaignAction(
     campaignId: string,
     action: "unpublish" | "archive",
@@ -1771,15 +1906,26 @@ function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem
                 {item.publishedAt
                   ? new Date(item.publishedAt).toLocaleString()
                   : "Published"}{" "}
-                • {sponsorPlacementLabel(item.slotPublished || item.selectedSlot)} •{" "}
-                {item.publishStatus || "PUBLISHED"}
+                •{" "}
+                {sponsorPlacementLabel(item.slotPublished || item.selectedSlot)}{" "}
+                • {item.publishStatus || "PUBLISHED"}
               </p>
               <h4 className="font-black uppercase">{item.businessName}</h4>
               <p className="text-sm font-bold">{item.headline}</p>
               <p className="text-xs font-black uppercase text-stallPurple">
                 {item.targetLabel || "Default Public Issue"}
               </p>
-              <p className="text-xs font-black uppercase">Views: {item.viewCount || 0} • Clicks: {item.clickCount || 0} • CTR: {item.viewCount ? `${Math.round(((item.clickCount || 0) / item.viewCount) * 1000) / 10}%` : "0%"} • Last clicked: {item.lastClickedAt ? new Date(item.lastClickedAt).toLocaleString() : "Never"}</p>
+              <p className="text-xs font-black uppercase">
+                Views: {item.viewCount || 0} • Clicks: {item.clickCount || 0} •
+                CTR:{" "}
+                {item.viewCount
+                  ? `${Math.round(((item.clickCount || 0) / item.viewCount) * 1000) / 10}%`
+                  : "0%"}{" "}
+                • Last clicked:{" "}
+                {item.lastClickedAt
+                  ? new Date(item.lastClickedAt).toLocaleString()
+                  : "Never"}
+              </p>
               <div className="mt-2 flex items-center gap-3 rounded-lg border border-ink/20 bg-white p-2">
                 <span
                   className={`text-xs font-black uppercase ${item.imageUrl ? "text-green-700" : "text-stallRed"}`}
@@ -1801,24 +1947,30 @@ function PublishedHistoryPanel({ items, onDelete }: { items: CampaignHistoryItem
                 >
                   View on issue
                 </a>
-                <button
-                  className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
-                  onClick={() => campaignAction(item.campaignId, "unpublish")}
-                >
-                  Unpublish
-                </button>
-                <button
-                  className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
-                  onClick={() => campaignAction(item.campaignId, "archive")}
-                >
-                  Archive
-                </button>
-                <button
-                  className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white"
-                  onClick={() => onDelete(item)}
-                >
-                  Delete
-                </button>
+                {mode === "admin" ? (
+                  <>
+                    <button
+                      className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
+                      onClick={() =>
+                        campaignAction(item.campaignId, "unpublish")
+                      }
+                    >
+                      Unpublish
+                    </button>
+                    <button
+                      className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
+                      onClick={() => campaignAction(item.campaignId, "archive")}
+                    >
+                      Archive
+                    </button>
+                    <button
+                      className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white"
+                      onClick={() => onDelete(item)}
+                    >
+                      Delete
+                    </button>
+                  </>
+                ) : null}
               </div>
             </article>
           );
@@ -1837,11 +1989,13 @@ function HistoryPanel({
   items,
   onLoad,
   onDelete,
+  mode = "admin",
 }: {
   title: string;
   items: CampaignHistoryItem[];
   onLoad: (item: CampaignHistoryItem) => void;
   onDelete: (item: CampaignHistoryItem) => void;
+  mode?: "admin" | "advertiser";
 }) {
   async function campaignAction(
     campaignId: string,
@@ -1886,24 +2040,30 @@ function HistoryPanel({
                 >
                   Duplicate
                 </button>
-                <button
-                  className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
-                  onClick={() => campaignAction(item.campaignId, "unpublish")}
-                >
-                  Unpublish
-                </button>
-                <button
-                  className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
-                  onClick={() => campaignAction(item.campaignId, "archive")}
-                >
-                  Archive
-                </button>
-                <button
-                  className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white"
-                  onClick={() => onDelete(item)}
-                >
-                  Delete
-                </button>
+                {mode === "admin" ? (
+                  <>
+                    <button
+                      className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
+                      onClick={() =>
+                        campaignAction(item.campaignId, "unpublish")
+                      }
+                    >
+                      Unpublish
+                    </button>
+                    <button
+                      className="rounded bg-white px-2 py-1 text-xs font-black uppercase"
+                      onClick={() => campaignAction(item.campaignId, "archive")}
+                    >
+                      Archive
+                    </button>
+                    <button
+                      className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white"
+                      onClick={() => onDelete(item)}
+                    >
+                      Delete
+                    </button>
+                  </>
+                ) : null}
               </div>
             </article>
           ))
