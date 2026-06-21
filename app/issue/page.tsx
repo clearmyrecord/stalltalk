@@ -65,6 +65,21 @@ export default async function IssueQueryPage({
       }
     }
 
+    if (qr) {
+      const qrRecord = await prisma.qrCode.findUnique({
+        where: { qrSlug: qr },
+        include: { venue: true },
+      });
+      if (qrRecord?.venue?.slug) {
+        return (
+          <IssueByVenuePage
+            params={Promise.resolve({ venueSlug: qrRecord.venue.slug })}
+            searchParams={Promise.resolve({ qr })}
+          />
+        );
+      }
+    }
+
     if (venue) {
       const match = await prisma.venue.findFirst({
         where: { slug: venue, isActive: true },
