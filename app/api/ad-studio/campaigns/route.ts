@@ -21,6 +21,7 @@ function readableDatabaseError(error: unknown) {
     "slotPublished",
     "selectedSlot",
     "publishStatus",
+    "creativeBrief",
   ]) {
     if (message.includes(column))
       return `Database schema is missing ${column}. Run the latest migration.`;
@@ -70,6 +71,7 @@ function historySelect(item: any) {
     adSize: "Editorial Magazine Ad",
     imageUrl: item.image || "",
     promptUsed: item.prompt || "",
+    creativeBrief: item.creativeBrief || "",
     createdAt: item.createdAt.toISOString(),
     slotPublished: item.slotPublished,
     selectedSlot: item.selectedSlot,
@@ -250,6 +252,7 @@ async function duplicateCampaign(body: Record<string, unknown>, user?: User) {
       business: `${source.business} Copy`,
       image: source.image,
       prompt: source.prompt,
+      creativeBrief: source.creativeBrief,
       headline: source.headline,
       subheadline: source.subheadline,
       ctaText: source.ctaText,
@@ -395,6 +398,7 @@ async function publishCampaign(body: Record<string, unknown>) {
       artworkUrl: imageUrl,
       creativeType: "IMAGE",
       promptUsed: nullable(body, "promptUsed"),
+      creativeBrief: nullable(body, "creativeBrief"),
       generatedHeadline: nullable(body, "generatedHeadline"),
       generatedSubheadline: nullable(body, "generatedSubheadline"),
       adSize: "editorial magazine ad",
@@ -596,6 +600,7 @@ function historyData(body: Record<string, unknown>, parentCampaignId: string) {
     ),
     image: imageUrl,
     prompt: str(body, "promptUsed", str(body, "prompt", "Saved campaign")),
+    creativeBrief: nullable(body, "creativeBrief"),
     headline:
       nullable(body, "generatedHeadline") ||
       nullable(body, "headline") ||
