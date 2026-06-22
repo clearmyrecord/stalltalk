@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AdminNav } from "@/components/AdminNav";
-import { getDefaultGlobalIssue } from "@/lib/default-global-issue";
+import { getDefaultIssue } from "@/lib/default-issue";
 import { prisma } from "@/lib/prisma";
 import { DefaultIssueEditor } from "./DefaultIssueEditor";
 import { getDefaultIssueDiagnostics, type DefaultIssueDiagnostics } from "@/lib/default-issue-diagnostics";
@@ -28,7 +28,7 @@ async function loadDefaultIssuePageState(): Promise<PageState> {
   let error: string | null = null;
 
   try {
-    issue = await getDefaultGlobalIssue({ createIfMissing: true });
+    issue = await getDefaultIssue({ createIfMissing: true });
   } catch (caught) {
     error = normalizeError(caught);
   }
@@ -50,7 +50,7 @@ function ErrorPanel({ error }: { error: string }) {
     <p className="font-black">The page did not render blank. The editor could not load because the database/schema check failed.</p>
     <pre className="whitespace-pre-wrap rounded-xl border-2 border-red-800 bg-white p-3 font-mono text-sm">{error}</pre>
     {missingSchema ? <p className="font-black">Missing table/column detected: <code>{missingSchema}</code></p> : <p className="font-black">Missing table/column: not detected from the error text.</p>}
-    <p className="font-black">Run database migration: apply <code>scripts/neon-default-issue-migration.sql</code> against Neon, then redeploy/regenerate Prisma if needed.</p>
+    <p className="font-black">Run database migration: deploy <code>prisma/migrations/20260622000000_default_issue_neon/migration.sql</code> against Neon, then redeploy/regenerate Prisma if needed.</p>
     <Link href="/admin/ad-studio" className="w-fit rounded bg-ink px-4 py-3 font-black uppercase text-white">Back to Ad Studio</Link>
   </div>;
 }

@@ -12,7 +12,7 @@ export function DefaultIssueEditor({ issue, ads }: { issue: any; ads: any[] }) {
   const block = (key: string) => data.contentBlocks.find((b: any) => b.layout?.key === key);
   const updateBlock = (id: string, patch: any) => setData((d: any) => ({ ...d, contentBlocks: d.contentBlocks.map((b: any) => b.id === id ? { ...b, ...patch, layout: { ...(b.layout || {}), ...(patch.layout || {}) } } : b) }));
   async function save(action = "draft") {
-    const res = await fetch("/api/admin/default-issue", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...data, action, publishDate, publishTime, timezone, blocks: data.contentBlocks, slots: Object.fromEntries(SPONSOR_PLACEMENTS.map((p) => [p.number, data.adSlots.find((s: any) => s.slotNumber === p.number)?.adId || ""])) }) });
+    const res = await fetch("/api/default-issue", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...data, action, publishDate, publishTime, timezone, blocks: data.contentBlocks, slots: Object.fromEntries(SPONSOR_PLACEMENTS.map((p) => [p.number, data.adSlots.find((s: any) => s.slotNumber === p.number)?.adId || ""])) }) });
     const json = await res.json();
     setMessage(json.ok ? "Saved default global issue." : json.error || "Save failed");
   }

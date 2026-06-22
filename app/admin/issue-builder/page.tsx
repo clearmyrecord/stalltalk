@@ -1,38 +1,44 @@
 import Link from "next/link";
 import { contentLabels } from "@/lib/format";
-import { prisma } from "@/lib/prisma";
+import { getDefaultIssue } from "@/lib/default-issue";
 import { SPONSOR_PLACEMENTS, sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 export const dynamic = "force-dynamic";
 
 export default async function IssueBuilderPage() {
-  const issue = await prisma.issue.findFirst({ include: { venue: true, contentBlocks: { orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true } } }, orderBy: { createdAt: "desc" } });
+  let issue = null;
+  let error = null;
+  try {
+    issue = await getDefaultIssue({ createIfMissing: true });
+  } catch (caught) {
+    error = caught instanceof Error ? caught.message : String(caught);
+  }
 
   return (
     <section>
       <h1 className="font-display text-7xl uppercase">Issue Builder</h1>
       <p className="max-w-4xl font-bold">Drag-and-drop planning surface for monthly restroom issues. The MVP stores block order and layout JSON; use Edit Issue to persist each drop-zone assignment.</p>
-      {issue ? (
+      {error ? <p className="mt-8 rounded-2xl border-4 border-red-800 bg-red-100 p-5 font-black text-red-950 shadow-brutal">Issue Builder could not load the Neon default issue: {error}</p> : issue ? (
         <>
           <div className="mt-4 flex gap-3">
-            <Link className="rounded bg-ink px-4 py-3 font-black uppercase text-white" href={`/admin/issues/${issue.id}/edit`}>Edit {issue.title}</Link>
-            <Link className="rounded bg-stallYellow px-4 py-3 font-black uppercase" href={issue.venue ? `/issue/${issue.venue.slug}` : "/issue"}>Preview</Link>
+            <Link className="rounded bg-ink px-4 py-3 font-black uppercase text-white" href="/admin/default-issue">Edit {issue.title}</Link>
+            <Link className="rounded bg-stallYellow px-4 py-3 font-black uppercase" href="/issue">Preview</Link>
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
             <div className="grid gap-4 md:grid-cols-2">
-              {issue.contentBlocks.map((block, index) => <article key={block.id} draggable className="cursor-grab rounded-2xl border-4 border-dashed border-ink bg-white p-5 shadow-brutal"><p className="text-xs font-black uppercase text-stallRed">Drop zone {index + 1} • {contentLabels[block.type]}</p><h2 className="font-display text-4xl uppercase">{block.title}</h2><p className="font-bold line-clamp-3">{block.body}</p></article>)}
+              {issue.contentBlocks.map((block, index) => <article key={block.id} draggable className="cursor-grab rounded-2xl border-4 border-dashed border-ink bg-white p-5 shadow-brutal"><p className="text-xs font-black uppercase text-stallRed">Drop zone {index + 1} • {contentLabels[block.type as keyof typeof contentLabels] || block.type}</p><h2 className="font-display text-4xl uppercase">{block.title}</h2><p className="font-bold line-clamp-3">{block.body}</p></article>)}
             </div>
             <aside className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal">
               <h2 className="font-display text-4xl uppercase">8 Premium Sponsor Panels</h2>
               {Array.from({ length: 8 }, (_, index) => {
                 const slot = issue.adSlots.find((candidate) => candidate.slotNumber === index + 1);
-                return <p key={index} className="mt-2 rounded bg-white p-3 font-black">{sponsorPlacementLabel(index + 1)}: {slot?.ad.businessName || "Auto serve"}</p>;
+                return <p key={index} className="mt-2 rounded bg-white p-3 font-black">{sponsorPlacementLabel(index + 1)}: {slot?.ad?.businessName || "Auto serve"}</p>;
               })}
             </aside>
           </div>
-          <InlineInventoryPreview slots={SPONSOR_PLACEMENTS.map((placement) => ({ slotNumber: placement.number, name: issue.adSlots.find((slot) => slot.slotNumber === placement.number)?.ad.businessName || "Premium inventory" }))} />
+          <InlineInventoryPreview slots={SPONSOR_PLACEMENTS.map((placement) => ({ slotNumber: placement.number, name: issue.adSlots.find((slot) => slot.slotNumber === placement.number)?.ad?.businessName || "Premium inventory" }))} />
         </>
-      ) : <p className="mt-8 rounded-2xl border-4 border-ink bg-white p-5 font-black shadow-brutal">Create an issue first.</p>}
+      ) : <p className="mt-8 rounded-2xl border-4 border-ink bg-white p-5 font-black shadow-brutal">No default issue exists yet. Refresh to auto-create the Potty Favor June Issue, or check Neon connectivity.</p>}
     </section>
   );
 }

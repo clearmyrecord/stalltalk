@@ -11,7 +11,7 @@ export const QR_STICKER_SIZE = 360;
 export const QR_QUIET_ZONE_MODULES = 4;
 
 export function publicBaseUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || "https://stalltalk.vercel.app";
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || "https://pottyfavor.com";
   const withProtocol = configured.startsWith("http://") || configured.startsWith("https://") ? configured : `https://${configured}`;
   return withProtocol.replace(/\/$/, "");
 }

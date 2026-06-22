@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS "DefaultIssue" (
+  "id" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "slug" TEXT NOT NULL,
+  "issueJson" JSONB NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "DefaultIssue_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "DefaultIssue_slug_key" ON "DefaultIssue"("slug");
