@@ -31,6 +31,7 @@ const requiredColumns = [
   "targetType",
   "targetLabel",
   "publishedToHomepage",
+  "creativeBrief",
 ];
 
 function AdvertiserOnboarding() {
@@ -138,6 +139,7 @@ export default async function AdvertiserAdStudioPage() {
           adSize: "Editorial Magazine Ad",
           imageUrl: campaign.image || "",
           promptUsed: campaign.prompt || "",
+          creativeBrief: campaign.creativeBrief || "",
           createdAt: campaign.createdAt.toISOString(),
           slotPublished: campaign.slotPublished,
           selectedSlot: campaign.selectedSlot,

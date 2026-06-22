@@ -91,6 +91,7 @@ function validateBrief(body: Record<string, unknown>) {
     return "JSON body must be an object.";
   if (!safe(body.businessName, "")) return "Business name is required.";
   if (!safe(body.offer, "")) return "Offer / promotion is required.";
+  if (!safe(body.creativeBrief || body.brief, "")) return "Creative brief is required to generate an ad.";
   return "";
 }
 
@@ -142,62 +143,47 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
     body.category || body.businessCategory,
     "local business",
   );
-  const tone = safe(body.tone || body.style, "Professional");
-  const visualStyle = safe(body.visualStyle, "Vegas Neon");
-  const website = safe(body.website, "");
-  const phone = safe(body.phone, "");
-  const brandColors = safe(
-    body.brandColors,
-    "brand-appropriate high contrast colors",
-  );
-  const venueVibe =
-    [
-      body.venueTargeting,
-      body.cityTargeting || body.city,
-      body.stateTargeting || body.state,
-    ]
-      .map((item) => safe(item, ""))
-      .filter(Boolean)
-      .join(", ") || "local venue/city vibe";
-  const creativeBrief = safe(
-    body.creativeBrief || body.brief,
-    "Create a high-converting local sponsor advertisement.",
-  );
-  const requiredText = safe(
-    body.requiredText,
-    "none beyond business name, offer, CTA, and coupon if provided",
-  );
-  const disclaimer = safe(body.optionalDisclaimer || body.disclaimer, "none");
-  const logoInstruction = safe(body.logoBase64, "")
-    ? "A private uploaded logo is included in the request; use it as visual inspiration, preserve the brand feel, and do not expose a logo URL."
-    : safe(body.logoUrl, "")
-      ? `Use the provided logo URL as visual brand inspiration only if accessible: ${safe(body.logoUrl, "")}.`
-      : "No logo was provided; do not invent a fake logo.";
+  const subheadline = safe(body.subheadline || body.generatedSubheadline, copy.subheadline);
+  const websiteOrPhone = [safe(body.website || body.targetUrl, ""), safe(body.phone, "")]
+    .filter(Boolean)
+    .join(" / ");
+  const creativeBrief = safe(body.creativeBrief || body.brief, "");
   const size = sizeMap[adSize];
+  const promptUsed = [
+      "You are creating a finished editorial magazine advertisement for Potty Favor.",
+      "",
+      `Business:\n${copy.businessName}`,
+      "",
+      `Category:\n${category}`,
+      "",
+      `Offer:\n${copy.offer}`,
+      "",
+      `Subheadline:\n${subheadline}`,
+      "",
+      `Coupon:\n${copy.couponCode || "none"}`,
+      "",
+      `CTA:\n${copy.ctaText}`,
+      "",
+      `Website/Phone:\n${websiteOrPhone || "none"}`,
+      "",
+      `Creative Brief:\n${creativeBrief}`,
+      "",
+      "Create the ad exactly according to the Creative Brief.",
+      "The Creative Brief controls the visual concept, scene, mood, objects, setting, people, style, and composition.",
+      "Include the business name, offer, coupon, and CTA in the finished ad image.",
+      "Use a premium Las Vegas hospitality magazine style.",
+      "Keep text readable.",
+      "Keep all important content inside safe margins.",
+      "Do not ignore the brief.",
+      "Do not create unrelated generic artwork.",
+      `Design for ${size.apiSize} (${size.cssSafeArea}).`,
+    ].join("\n");
 
   return {
     ...copy,
-    promptUsed: safe(
-      body.prompt,
-      [
-        "Create a premium full-page magazine advertisement for Potty Favor.",
-        "Design for a 1080x1350 editorial magazine placement.",
-        "The advertisement itself is the final deliverable.",
-        `Include all text, branding, offer, coupon code, CTA button, business name, and visual design inside the composition. Business name: ${copy.businessName}. Offer: ${copy.offer}. CTA button text: ${copy.ctaText}. Coupon code: ${copy.couponCode || "none"}.`,
-        "Use a luxury Las Vegas hospitality publication aesthetic.",
-        "Do not design for a banner.",
-        "Do not design for a rigid sponsor card box.",
-        "Do not require external text overlays.",
-        "Keep all important text safely inside the image edges with generous padding.",
-        `Creative brief: ${creativeBrief}. Business category: ${category}. Audience: ${copy.audience}.`,
-        `Tone: ${tone}. Visual style: ${visualStyle}. Brand colors: ${brandColors}. Venue/city atmosphere: ${venueVibe}.`,
-        `Required text: ${requiredText}. Disclaimer: ${disclaimer}. Canvas requested from OpenAI: ${size.apiSize}.`,
-        logoInstruction,
-        "Avoid mockup frames, lorem ipsum, watermarks, UI screenshots, fake app screens, fake UI chrome, and design-process annotations. Return one finished full creative image.",
-      ]
-        .filter(Boolean)
-        .join(" "),
-    ),
+    subheadline: limitText(subheadline, 46),
+    creativeBrief,
+    promptUsed,
   };
 }
 
@@ -290,6 +276,7 @@ async function saveGeneratedCreative(
         publishedToHomepage: false,
         parentCampaignId,
         versionNumber,
+        creativeBrief: creative.creativeBrief || null,
         publishStatus: "DRAFT",
       },
       create: {
@@ -313,6 +300,7 @@ async function saveGeneratedCreative(
         publishedToHomepage: false,
         parentCampaignId,
         versionNumber,
+        creativeBrief: creative.creativeBrief || null,
         publishStatus: "DRAFT",
       },
     });
@@ -349,6 +337,7 @@ async function saveGeneratedCreative(
       "clickCount",
       "lastViewedAt",
       "lastClickedAt",
+      "creativeBrief",
     ].find((column) => rawMessage.includes(column));
     const message = missingColumn
       ? `Database schema is missing ${missingColumn}. Run the latest migration.`
@@ -451,6 +440,16 @@ export async function POST(request: Request) {
   }
 
   const requestBody = imageRequestBody(model, creative.promptUsed, adSize);
+  if (!requestBody.prompt.includes(creative.creativeBrief))
+    return json(
+      {
+        ...creative,
+        error: "Creative brief was not included in the generation request.",
+        diagnostic: diagnostic({ errorType: "invalid_input", model }),
+      },
+      request,
+      400,
+    );
 
   try {
     const response = await fetch(
@@ -554,6 +553,7 @@ export async function POST(request: Request) {
         cta: creative.ctaText,
         couponCode: creative.couponCode,
         businessName: creative.businessName,
+        creativeBrief: creative.creativeBrief,
         adSize,
         model,
         metadata: {
@@ -569,6 +569,7 @@ export async function POST(request: Request) {
           slot: Number(body.slot || 1),
           model,
           requestId,
+          creativeBrief: creative.creativeBrief,
           logoProvided: Boolean(
             safe(body.logoBase64, "") || safe(body.logoUrl, ""),
           ),

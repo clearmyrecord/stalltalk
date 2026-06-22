@@ -38,6 +38,7 @@ type RecentCampaign = {
   ctaText: string;
   couponCode: string | null;
   createdAt: string;
+  creativeBrief?: string | null;
 };
 type SavedCampaign = {
   campaignId: string;
@@ -63,6 +64,7 @@ type SavedCampaign = {
   viewCount?: number;
   clickCount?: number;
   lastClickedAt?: string | null;
+  creativeBrief?: string | null;
 };
 
 type Props = {
@@ -102,6 +104,7 @@ type GeneratedCreative = {
   parentCampaignId?: string;
   versionNumber?: number;
   publishStatus?: string | null;
+  creativeBrief?: string | null;
 };
 
 type CampaignHistoryItem = GeneratedCreative & {
@@ -146,6 +149,8 @@ const visualStyles = [
 const EDITORIAL_AD: AdSize = "Editorial Magazine Ad";
 const ENV_WARNING_MESSAGE =
   "Publishing is not fully configured. Add Cloudinary environment variables in Vercel.";
+const CREATIVE_BRIEF_PLACEHOLDER =
+  'Describe the ad you want created. Example: Create a luxury Las Vegas-style ad for United Painters Worldwide showing a painter applying a fresh coat in an upscale hotel suite, with a bold 10% off offer, coupon PAINT10, and a Get Free Quote CTA.';
 
 const isPublishingConfigured = Boolean(
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME &&
@@ -386,6 +391,7 @@ function AdStudioPanel({
     tone: "Professional",
     visualStyle: "Vegas Neon",
     brandColors: "#ff2d55, #ffd400, #5b2cff",
+    creativeBrief: "",
     publisherId: publishers[0]?.id ?? "",
     advertiserId: advertisers[0]?.id ?? "",
     issueId: issues[0]?.id ?? DEFAULT_PUBLIC_ISSUE_ID,
@@ -407,6 +413,7 @@ function AdStudioPanel({
         createdAt: item.createdAt,
         parentCampaignId: item.parentCampaignId || item.campaignId,
         versionNumber: item.versionNumber || 1,
+        creativeBrief: item.creativeBrief || "",
       })),
     );
   }, [savedCampaigns]);
@@ -506,7 +513,7 @@ function AdStudioPanel({
       imageUrl: "",
       promptUsed:
         data?.promptUsed ||
-        `Fallback styled editorial ad for ${safe(form.businessName, "Your Business")} using creative brief: ${safe(form.offer, "Limited-time offer")}.`,
+        `Fallback styled editorial ad for ${safe(form.businessName, "Your Business")} using creative brief: ${safe(form.creativeBrief, "Creative brief unavailable")}.`,
       headline,
       subheadline: limitText(
         safe(
@@ -531,11 +538,19 @@ function AdStudioPanel({
       historyError: data?.historyError,
       imageFallback: true,
       imageError: message,
+      creativeBrief: data?.creativeBrief || form.creativeBrief,
     };
   }
 
   async function generateCampaign(regenerate = false) {
-    if (!canGenerate) return;
+    if (!canGenerate) {
+      if (!form.creativeBrief.trim()) setError("Creative brief is required to generate an ad.");
+      return;
+    }
+    if (!form.creativeBrief.trim()) {
+      setError("Creative brief is required to generate an ad.");
+      return;
+    }
     setIsGenerating(true);
     setHasGenerated(false);
     setError("");
@@ -570,6 +585,11 @@ function AdStudioPanel({
           : "issue",
       targetLabel,
     };
+    if (!String(base.creativeBrief || "").trim()) {
+      setError("Creative brief was not included in the generation request.");
+      setIsGenerating(false);
+      return;
+    }
     const generated: GeneratedCreative[] = [];
 
     try {
@@ -604,6 +624,7 @@ function AdStudioPanel({
           parentCampaignId,
           versionNumber: nextVersion,
           publishStatus: "GENERATED",
+          creativeBrief: form.creativeBrief,
         });
         if (!error) setError(`Image generation fallback active. ${message}`);
       } else {
@@ -626,6 +647,7 @@ function AdStudioPanel({
           parentCampaignId: data.parentCampaignId || parentCampaignId,
           versionNumber: data.versionNumber || nextVersion,
           publishStatus: "GENERATED",
+          creativeBrief: form.creativeBrief,
         });
       }
     } catch (caught) {
@@ -638,6 +660,7 @@ function AdStudioPanel({
         parentCampaignId,
         versionNumber: nextVersion,
         publishStatus: "GENERATED",
+        creativeBrief: form.creativeBrief,
       });
       setError(`Image generation fallback active. ${message}`);
     }
@@ -649,6 +672,7 @@ function AdStudioPanel({
       createdAt: new Date().toISOString(),
       targetUrl: form.website || null,
       selectedSlot: Number(slotNumber),
+      creativeBrief: creative.creativeBrief || form.creativeBrief,
     }));
     await Promise.all(
       nextHistory
@@ -671,6 +695,7 @@ function AdStudioPanel({
               ctaText: creative.ctaText,
               couponCode: creative.couponCode,
               targetUrl: form.website || null,
+              creativeBrief: creative.creativeBrief || form.creativeBrief,
               publishStatus: "DRAFT",
             }),
           }).catch(() => undefined),
@@ -799,6 +824,7 @@ function AdStudioPanel({
     formData.set("phone", form.phone);
     formData.set("logoBase64", form.logoBase64);
     formData.set("couponCode", selectedCreative.couponCode);
+    formData.set("creativeBrief", selectedCreative.creativeBrief || form.creativeBrief);
     formData.set("status", "ACTIVE");
     formData.set("scope", form.scope);
     formData.set("issueId", form.issueId);
@@ -872,6 +898,7 @@ function AdStudioPanel({
   const missingRequired = [
     form.businessName.trim() ? "" : "business name",
     form.offer.trim() ? "" : "offer",
+    form.creativeBrief.trim() ? "" : "creative brief",
     form.audience === "Custom Audience" && !form.customAudience.trim()
       ? "custom audience"
       : "",
@@ -1056,6 +1083,14 @@ function AdStudioPanel({
             onChange={(value) => update("visualStyle", value)}
           />
           <div className="lg:col-span-2">
+            <TextAreaField
+              label="Creative Brief"
+              value={form.creativeBrief}
+              onChange={(value) => update("creativeBrief", value)}
+              placeholder={CREATIVE_BRIEF_PLACEHOLDER}
+            />
+          </div>
+          <div className="lg:col-span-2">
             <Field
               label="Brand Colors"
               value={form.brandColors}
@@ -1132,6 +1167,12 @@ function AdStudioPanel({
             </h3>
             {selectedCreative ? (
               <div className="mt-3 grid gap-3">
+                <TextAreaField
+                  label="Creative Brief"
+                  value={form.creativeBrief}
+                  onChange={(value) => update("creativeBrief", value)}
+                  placeholder={CREATIVE_BRIEF_PLACEHOLDER}
+                />
                 <Field
                   label="Headline"
                   value={selectedCreative.headline}
@@ -1288,6 +1329,7 @@ function AdStudioPanel({
             setSelectedCreativeIndex(0);
             if (item.selectedSlot) setSlotNumber(String(item.selectedSlot));
             if (item.targetUrl) update("website", item.targetUrl);
+            update("creativeBrief", item.creativeBrief || "");
             setStep(5);
           }}
           onDelete={(item) => void deleteCampaignFromHistory(item)}
@@ -1400,6 +1442,30 @@ function Field({
   );
 }
 
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block font-black uppercase">
+      {label}
+      <textarea
+        className="mt-2 min-h-40 w-full rounded-xl border-2 border-ink bg-white p-3 font-bold normal-case"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
 function ChoiceGroup({
   title,
   options,
@@ -1500,6 +1566,11 @@ function PreviewCard({ creative }: { creative: GeneratedCreative }) {
             {shortenLabel(creative.ctaText, 20)} •{" "}
             {shortenLabel(creative.couponCode, 18)}
           </p>
+          {creative.creativeBrief ? (
+            <p className="mt-2 text-xs font-black uppercase text-ink/70">
+              Brief: {shortenLabel(creative.creativeBrief, 90)}
+            </p>
+          ) : null}
           {creative.imageFallback ? (
             <p className="mt-2 text-xs font-black uppercase text-stallPurple">
               Styled fallback preview: {creative.imageError}
@@ -1634,6 +1705,11 @@ function PublishedHistoryPanel({
               <p className="text-xs font-black uppercase text-stallPurple">
                 {item.targetLabel || "Default Public Issue"}
               </p>
+              {item.creativeBrief ? (
+                <p className="mt-1 text-xs font-bold normal-case text-ink/70">
+                  Brief: {shortenLabel(item.creativeBrief, 120)}
+                </p>
+              ) : null}
               <p className="text-xs font-black uppercase">
                 Views: {item.viewCount || 0} • Clicks: {item.clickCount || 0} •
                 CTR:{" "}
@@ -1748,6 +1824,11 @@ function HistoryPanel({
                 </p>
                 <h4 className="font-black uppercase">{item.businessName}</h4>
                 <p className="text-sm font-bold">{item.headline}</p>
+              {item.creativeBrief ? (
+                <p className="mt-1 text-xs font-bold normal-case text-ink/70">
+                  Brief: {shortenLabel(item.creativeBrief, 120)}
+                </p>
+              ) : null}
                 <span className="mt-2 inline-block rounded-full bg-ink px-3 py-1 text-xs font-black uppercase text-white">
                   Reuse / Republish
                 </span>

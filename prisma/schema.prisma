@@ -523,6 +523,7 @@ model Ad {
   htmlCreative         String?
   videoUrl             String?
   promptUsed           String?
+  creativeBrief        String?
   generatedHeadline    String?
   generatedSubheadline String?
   adSize               String?
@@ -582,6 +583,7 @@ model StalltalkCampaignHistory {
   business            String
   image               String?
   prompt              String
+  creativeBrief       String?
   headline            String?
   subheadline         String?
   ctaText             String?
@@ -781,6 +783,7 @@ model AdCampaign {
   body                        String
   description                 String?
   creativeUrl                 String?
+  creativeBrief               String?
   targetUrl                   String                @default("#")
   ctaText                     String                @default("Learn More")
   months                      Int                   @default(1)
