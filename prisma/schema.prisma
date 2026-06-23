@@ -488,12 +488,21 @@ model Issue {
   restroomId    String?
   qrCodeId      String?
   title         String
+  slug          String?             @unique
   month         String
   year          Int
   issueNumber   Int
   status        IssueStatus         @default(DRAFT)
   scheduledAt   DateTime?
+  scheduledPublishAt DateTime?
+  timezone      String?             @default("America/Los_Angeles")
+  isScheduled   Boolean             @default(false)
+  isPublished   Boolean             @default(false)
+  isArchived    Boolean             @default(false)
+  replaceDefaultOnPublish Boolean   @default(true)
+  archivePreviousOnPublish Boolean  @default(true)
   publishedAt   DateTime?
+  archivedAt    DateTime?
   republishedAt DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt

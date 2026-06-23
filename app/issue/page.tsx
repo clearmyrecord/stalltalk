@@ -128,7 +128,7 @@ export default async function IssueQueryPage({
     }
 
     const latestPublishedIssue = await prisma.issue.findFirst({
-      where: { status: "PUBLISHED" },
+      where: { status: "PUBLISHED", isArchived: false },
       orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
       include: {
         venue: true,

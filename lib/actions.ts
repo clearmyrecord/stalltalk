@@ -290,16 +290,19 @@ function revalidateIssuePaths(id: string) {
 
 async function issueData(formData: FormData, existing?: { status: IssueStatus; publishedAt: Date | null }) {
   const status = text(formData, "status", "DRAFT") as IssueStatus;
-  const scheduledText = nullableText(formData, "scheduledAt");
-  if (status !== "DRAFT" && !scheduledText) throw new Error("Schedule ISO is required before scheduling or publishing an issue. Draft issues can be saved without it.");
+  const scheduleDate = nullableText(formData, "publishDate");
+  const scheduleTime = nullableText(formData, "publishTime");
+  const timezone = text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles";
+  const scheduledText = nullableText(formData, "scheduledAt") || (scheduleDate && scheduleTime ? `${scheduleDate}T${scheduleTime}:00` : null);
   const scheduledAt = scheduledText ? new Date(scheduledText) : null;
-  if (scheduledText && Number.isNaN(scheduledAt?.getTime())) throw new Error("Schedule ISO must be a valid date/time when provided.");
+  if (scheduledText && Number.isNaN(scheduledAt?.getTime())) throw new Error("Publish date/time must be valid when provided.");
+  const autoPublish = text(formData, "autoPublish") === "on";
   const publisherId = text(formData, "publisherId") || (await prisma.publisher.findFirst({ select: { id: true } }))?.id;
   if (!publisherId) throw new Error("Create a publisher before saving an issue.");
   const now = new Date();
   const firstPublishedAt = existing?.publishedAt || (status === "PUBLISHED" ? now : null);
   const republishedAt = existing?.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : null;
-  return { publisherId, venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title", "Untitled issue") || "Untitled issue", month: text(formData, "month", new Date().toLocaleString("en-US", { month: "long" })) || new Date().toLocaleString("en-US", { month: "long" }), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt, publishedAt: firstPublishedAt, republishedAt };
+  return { publisherId, venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title", "Untitled issue") || "Untitled issue", slug: nullableText(formData, "slug") || undefined, month: text(formData, "month", new Date().toLocaleString("en-US", { month: "long" })) || new Date().toLocaleString("en-US", { month: "long" }), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt, scheduledPublishAt: scheduledAt, timezone, isScheduled: autoPublish || status === "SCHEDULED", isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
 }
 
 function logIssueSavePayload(mode: "create" | "update", formData: FormData, issueId?: string) {

@@ -1,0 +1,11 @@
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "slug" TEXT;
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "scheduledPublishAt" TIMESTAMP(3);
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "timezone" TEXT DEFAULT 'America/Los_Angeles';
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "isScheduled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "isPublished" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "isArchived" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "replaceDefaultOnPublish" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "archivePreviousOnPublish" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Issue" ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3);
+CREATE UNIQUE INDEX IF NOT EXISTS "Issue_slug_key" ON "Issue"("slug");
+CREATE INDEX IF NOT EXISTS "Issue_schedule_idx" ON "Issue"("isScheduled", "isPublished", "isArchived", "scheduledPublishAt");
