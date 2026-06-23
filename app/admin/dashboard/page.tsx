@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
 const adminLinks = [
   ["Content editor", "/admin/articles"],
   ["Restaurant review editor", "/admin/issues"],
+  ["Schedule Next Month", "/admin/schedule"],
   ["Venue management", "/admin/venues"],
   ["QR/toilet location management", "/admin/qr"],
   ["Sponsor placement inventory", "/admin/venues"],

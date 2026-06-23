@@ -14,6 +14,7 @@ const links = [
   ["/admin/issues", "Issues"],
   ["/admin/default-issue", "Default Global Issue"],
   ["/admin/issue-builder", "Issue Builder"],
+  ["/admin/schedule", "Schedule"],
   ["/admin/ads", "Ads"],
   ["/admin/ad-studio", "Ad Studio"],
   ["/admin/campaigns", "Campaigns"],

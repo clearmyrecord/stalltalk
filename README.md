@@ -563,3 +563,7 @@ Each campaign stores `flightStartMonth`, `flightEndMonth`, `flightMonths`, `pric
 * Approve/reject an advertiser campaign and a venue content draft from the admin dashboard, including rejection reasons.
 * Confirm a paid + approved advertiser campaign is eligible for public ad serving only during its flight dates and approved venue content appears on the matching public venue issue.
 * Run `npx prisma validate`, `npm run build`, `npm run smoke:site`, `node --check admin/admin.js`, and `node --check script.js` before release.
+
+## Issue scheduling cron
+
+Vercel calls `/api/scheduler/publish-issues` hourly (`0 * * * *`). Configure `CRON_SECRET` in environment variables; the scheduler endpoint requires `Authorization: Bearer $CRON_SECRET` for cron calls, while admin/manual mode requires an authenticated ADMIN.
