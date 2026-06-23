@@ -57,17 +57,20 @@ export default async function IssueBuilderPage() {
             </div>
             <aside className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal">
               <h2 className="font-display text-4xl uppercase">8 Premium Sponsor Panels</h2>
-              {Array.from({ length: 8 }, (_, index) => {
-                const slot = issue.adSlots.find((candidate) => candidate.slotNumber === index + 1);
-                return <p key={index} className="mt-2 rounded bg-white p-3 font-black">{sponsorPlacementLabel(index + 1)}: {slot?.ad?.businessName || "Auto serve"}</p>;
-              })}
-            </aside>
-          </div>
-          <InlineInventoryPreview slots={SPONSOR_PLACEMENTS.map((placement) => ({ slotNumber: placement.number, name: issue.adSlots.find((slot) => slot.slotNumber === placement.number)?.ad?.businessName || "Premium inventory" }))} />
-        </>
-      ) : <p className="mt-8 rounded-2xl border-4 border-ink bg-white p-5 font-black shadow-brutal">No default issue exists yet. Refresh to auto-create the Potty Favor June Issue, or check Neon connectivity.</p>}
-    </section>
-  );
+ {issue ? (
+  <>
+    <InlineInventoryPreview
+      slots={SPONSOR_PLACEMENTS.map((placement) => ({
+        slotNumber: placement.number,
+        name: placement.name,
+      }))}
+    />
+  </>
+) : (
+  <p className="mt-8 rounded-2xl border-4 border-ink bg-white p-5 font-black shadow-brutal">
+    No default issue available.
+  </p>
+)}
 }
 
 function InlineInventoryPreview({ slots }: { slots: Array<{ slotNumber: number; name: string }> }) {
