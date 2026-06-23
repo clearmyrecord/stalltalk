@@ -14,7 +14,7 @@ function ua(userAgent: string) {
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const url = new URL(request.url);
-  const qr = await prisma.qrCode.findUnique({ where: { qrSlug: slug }, include: { venue: true } });
+  const qr = await prisma.qrCode.findUnique({ where: { qrSlug: slug }, include: { venue: true, restroom: true } });
   if (!qr) return NextResponse.json({ error: "QR code not found" }, { status: 404 });
   const userAgent = request.headers.get("user-agent") || "";
   const parsed = ua(userAgent);
@@ -24,5 +24,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     prisma.analyticsEvent.create({ data: { publisherId: qr.publisherId, venueId: qr.venueId, restroomId: qr.restroomId, qrCodeId: qr.id, type: "SCAN", visitorId, path: qr.qrUrl, metadata: { campaignSource: qr.campaignSource, advertisementSource: qr.advertisementSource, promotionSource: qr.promotionSource, couponSource: qr.couponSource } } }),
     prisma.qrCode.update({ where: { id: qr.id }, data: { lastScanAt: new Date(), status: qr.status === "DRAFT" || qr.status === "PRINTED" ? "ACTIVE" : qr.status } })
   ]);
-  return NextResponse.redirect(new URL(`/issue/${qr.venue?.slug || ""}?qr=${qr.qrSlug}`, request.url));
+  const destination = qr.destinationUrl || qr.qrUrl || (qr.venue?.slug ? `/v/${qr.venue.slug}` : "/issue");
+  return NextResponse.redirect(new URL(destination, request.url));
 }

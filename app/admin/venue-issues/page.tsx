@@ -1,0 +1,21 @@
+import Link from "next/link";
+import { archiveIssue, cloneIssue, publishIssue } from "@/lib/actions";
+import { issuePublicPath } from "@/lib/issue-routing";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+export default async function VenueIssuesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const q = await searchParams;
+  const where: any = { venueId: { not: null } };
+  if (q.status) where.status = q.status;
+  if (q.venueId) where.venueId = q.venueId;
+  if (q.restroomId) where.restroomId = q.restroomId;
+  if (q.month) where.month = q.month;
+  if (q.year) where.year = Number(q.year);
+  const [issues, venues, restrooms] = await Promise.all([
+    prisma.issue.findMany({ where, include: { venue: true, restroom: true, qrCode: true }, orderBy: [{ year: "desc" }, { issueNumber: "desc" }] }),
+    prisma.venue.findMany({ orderBy: { name: "asc" } }),
+    prisma.restroom.findMany({ include: { venue: true }, orderBy: { name: "asc" } })
+  ]);
+  return <section className="grid gap-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black uppercase tracking-[.25em] text-stallRed">Admin</p><h1 className="font-display text-7xl uppercase">Venue Issues</h1><p className="font-bold">Search, filter, preview, publish, archive, and duplicate venue/location Potty Favor issues.</p></div><Link className="rounded-xl bg-ink px-4 py-3 font-black uppercase text-white" href="/admin/issues/new">Create venue issue</Link></div><form className="grid gap-3 rounded-2xl border-4 border-ink bg-white p-4 shadow-brutal md:grid-cols-5"><select name="venueId" defaultValue={q.venueId || ""} className="rounded border-2 border-ink p-3"><option value="">All venues</option>{venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select><select name="restroomId" defaultValue={q.restroomId || ""} className="rounded border-2 border-ink p-3"><option value="">All locations</option>{restrooms.map(r => <option key={r.id} value={r.id}>{r.venue.name} — {r.name}</option>)}</select><select name="status" defaultValue={q.status || ""} className="rounded border-2 border-ink p-3"><option value="">Any status</option><option>DRAFT</option><option>SCHEDULED</option><option>PUBLISHED</option><option>ARCHIVED</option></select><input name="month" defaultValue={q.month || ""} placeholder="Month" className="rounded border-2 border-ink p-3"/><input name="year" defaultValue={q.year || ""} placeholder="Year" className="rounded border-2 border-ink p-3"/><button className="rounded bg-stallYellow p-3 font-black uppercase md:col-span-5">Apply filters</button></form>{issues.length === 0 ? <p className="rounded-2xl border-4 border-ink bg-stallYellow p-5 font-black uppercase shadow-brutal">No venue/location issues found. If columns are missing, run the custom venue issues migration.</p> : <div className="grid gap-4">{issues.map(issue => <article key={issue.id} className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">{issue.status} • {issue.month} {issue.year} • {issue.restroom ? "Location" : "Venue-wide"}</p><h2 className="font-display text-5xl uppercase">{issue.venue?.name} {issue.restroom ? `— ${issue.restroom.name}` : "— Venue-wide"}</h2><p className="font-bold">Slug: {issue.slug || "migration required"}</p><p className="font-bold">QR destination: {(issue as any).qrCode?.destinationUrl || issue.qrCode?.qrUrl || issue.publicUrl || "No QR assigned"}</p><div className="mt-3 flex flex-wrap gap-2"><Link className="rounded bg-stallYellow px-3 py-2 font-black uppercase" href={issuePublicPath(issue as any)}>Preview</Link><Link className="rounded bg-ink px-3 py-2 font-black uppercase text-white" href={`/admin/issues/${issue.id}/edit`}>Edit</Link><form action={publishIssue.bind(null, issue.id)}><button className="rounded bg-green-600 px-3 py-2 font-black uppercase text-white">Publish</button></form><form action={archiveIssue.bind(null, issue.id)}><button className="rounded bg-stallRed px-3 py-2 font-black uppercase text-white">Archive</button></form><form action={cloneIssue.bind(null, issue.id)}><button className="rounded bg-white px-3 py-2 font-black uppercase">Duplicate next month</button></form></div></article>)}</div>}</section>;
+}

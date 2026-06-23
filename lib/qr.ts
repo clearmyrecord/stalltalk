@@ -17,7 +17,7 @@ export function publicBaseUrl() {
 }
 
 export function qrIssueUrl(qrCodeId: string) {
-  return `${publicBaseUrl()}/issue?qr=${encodeURIComponent(qrCodeId)}`;
+  return `${publicBaseUrl()}/scan/${encodeURIComponent(qrCodeId)}`;
 }
 
 export function normalizeQrUrl(qrCodeId: string, storedUrl?: string | null) {

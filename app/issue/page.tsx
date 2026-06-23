@@ -110,7 +110,7 @@ export default async function IssueQueryPage({
 
     const defaultGlobalIssue = await getDefaultGlobalIssue({ createIfMissing: true });
     if (defaultGlobalIssue?.status === "PUBLISHED") {
-      return <DatabaseIssuePage issue={defaultGlobalIssue as IssueWithAds} qrCode={qr} request={request} />;
+      return <DatabaseIssuePage issue={defaultGlobalIssue as unknown as IssueWithAds} qrCode={qr} request={request} />;
     }
 
     const hasDefaultPublicAds = await prisma.stalltalkCampaignHistory.findFirst(
