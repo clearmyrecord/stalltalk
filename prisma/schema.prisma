@@ -96,6 +96,14 @@ enum IssueStatus {
   ARCHIVED
 }
 
+enum EventStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  HIDDEN
+  PUBLISHED
+}
+
 enum VenueContentType {
   ANNOUNCEMENT
   PROMOTION
@@ -330,6 +338,7 @@ model Venue {
   id                       String              @id @default(cuid())
   publisherId              String
   distributorId            String?
+  defaultIssueId           String?
   name                     String
   slug                     String              @unique
   city                     String
@@ -343,6 +352,7 @@ model Venue {
   updatedAt                DateTime            @updatedAt
   publisher                Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
   distributor              Distributor?        @relation(fields: [distributorId], references: [id], onDelete: SetNull)
+  defaultIssue             DefaultIssue?        @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
   restrooms                Restroom[]
   issues                   Issue[]
   qrCodes                  QrCode[]
@@ -489,24 +499,35 @@ model RestaurantReview {
 }
 
 model DefaultIssue {
-  id        String   @id
-  title     String
-  slug      String   @unique
-  issueJson Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String                  @id @default(cuid())
+  slug          String                  @unique @default("default-public-issue")
+  title         String
+  description   String?
+  month         Int
+  year          Int
+  status        String                  @default("DRAFT")
+  publishedAt   DateTime?
+  issueJson     Json?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  issues        Issue[]
+  venues        Venue[]
+  campaigns     StalltalkCampaignHistory[]
+  contentBlocks IssueContentBlock[]
 }
 
 model Issue {
+model Issue {
   id                       String              @id @default(cuid())
-  publisherId              String
+  publisherId              String?
+  defaultIssueId           String?
   venueId                  String?
   restroomId               String?
   qrCodeId                 String?
   title                    String
   slug                     String?             @unique
   publicUrl                String?
-  isGlobalIssue            Boolean             @default(true)
+  isGlobalIssue            Boolean             @default(false)
   isVenueIssue             Boolean             @default(false)
   isLocationIssue          Boolean             @default(false)
   month                    String
@@ -526,15 +547,29 @@ model Issue {
   archivedAt               DateTime?
   createdAt                DateTime            @default(now())
   updatedAt                DateTime            @updatedAt
-  publisher                Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+
+  publisher                Publisher?          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  defaultIssue             DefaultIssue?       @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
   venue                    Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
   restroom                 Restroom?           @relation(fields: [restroomId], references: [id], onDelete: SetNull)
   qrCode                   QrCode?             @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
-  currentQrCodes           QrCode[]            @relation("CurrentIssueQr")
+
   contentBlocks            IssueContentBlock[]
   adSlots                  IssueAdSlot[]
   events                   AnalyticsEvent[]
   qrScans                  QrScan[]
+  currentQrCodes           QrCode[]            @relation("CurrentIssue")
+
+  @@index([publisherId])
+  @@index([defaultIssueId])
+  @@index([venueId])
+  @@index([restroomId])
+  @@index([qrCodeId])
+  @@index([slug])
+  @@index([status])
+  @@index([isScheduled, scheduledPublishAt])
+  @@index([isPublished, isArchived])
+}
 
   @@index([status, year, issueNumber])
   @@index([isScheduled, isPublished, isArchived, scheduledPublishAt])
@@ -544,6 +579,7 @@ model Issue {
 model IssueContentBlock {
   id        String           @id @default(cuid())
   issueId   String
+  defaultIssueId String?
   articleId String?
   type      ContentBlockType
   title     String
@@ -557,6 +593,7 @@ model IssueContentBlock {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   issue     Issue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  defaultIssue DefaultIssue?  @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
   article   Article?         @relation(fields: [articleId], references: [id], onDelete: SetNull)
 }
 
@@ -609,6 +646,34 @@ model Ad {
   adCampaigns          AdCampaign[]
 }
 
+model Event {
+  id          String      @id @default(cuid())
+  issueId     String?
+  title       String
+  date        DateTime
+  startTime   String?
+  endTime     String?
+  venue       String
+  address     String?
+  description String
+  category    String?
+  priceLabel  String?
+  sourceUrl   String
+  sourceName  String
+  imageUrl    String?
+  issueMonth  String
+  issueYear   Int
+  importedAt  DateTime    @default(now())
+  status      EventStatus @default(PENDING_REVIEW)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  issue       Issue?      @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@unique([title, date, venue])
+  @@index([issueMonth, issueYear, status])
+  @@index([issueId, status])
+}
+
 model IssueAdSlot {
   id         String  @id @default(cuid())
   issueId    String
@@ -624,6 +689,7 @@ model IssueAdSlot {
 model StalltalkCampaignHistory {
   id                  String      @id @default(cuid())
   publisherId         String?
+  defaultIssueId      String?
   advertiserId        String?
   adId                String?
   campaignId          String      @unique
@@ -658,6 +724,7 @@ model StalltalkCampaignHistory {
   lastClickedAt       DateTime?
   createdAt           DateTime    @default(now())
   publisher           Publisher?  @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  defaultIssue        DefaultIssue? @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
   advertiser          Advertiser? @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
   ad                  Ad?         @relation(fields: [adId], references: [id], onDelete: SetNull)
 

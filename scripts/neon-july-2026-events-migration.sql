@@ -1,0 +1,47 @@
+DO $$ BEGIN
+  CREATE TYPE "EventStatus" AS ENUM ('DRAFT', 'PENDING_REVIEW', 'APPROVED', 'HIDDEN', 'PUBLISHED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS "Event" (
+  "id" TEXT PRIMARY KEY,
+  "issueId" TEXT,
+  "title" TEXT NOT NULL,
+  "date" TIMESTAMP(3) NOT NULL,
+  "startTime" TEXT,
+  "endTime" TEXT,
+  "venue" TEXT NOT NULL,
+  "address" TEXT,
+  "description" TEXT NOT NULL,
+  "category" TEXT,
+  "priceLabel" TEXT,
+  "sourceUrl" TEXT NOT NULL,
+  "sourceName" TEXT NOT NULL,
+  "imageUrl" TEXT,
+  "issueMonth" TEXT NOT NULL DEFAULT 'July',
+  "issueYear" INTEGER NOT NULL DEFAULT 2026,
+  "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "status" "EventStatus" NOT NULL DEFAULT 'PENDING_REVIEW',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "sourceUrl" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "sourceName" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "priceLabel" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "category" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "issueMonth" TEXT DEFAULT 'July';
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "issueYear" INTEGER DEFAULT 2026;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "importedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "status" "EventStatus" DEFAULT 'PENDING_REVIEW';
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "issueId" TEXT;
+
+DO $$ BEGIN
+  ALTER TABLE "Event" ADD CONSTRAINT "Event_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "Issue"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Event_title_date_venue_key" ON "Event"("title", "date", "venue");
+CREATE INDEX IF NOT EXISTS "Event_issueMonth_issueYear_status_idx" ON "Event"("issueMonth", "issueYear", "status");
+CREATE INDEX IF NOT EXISTS "Event_issueId_status_idx" ON "Event"("issueId", "status");

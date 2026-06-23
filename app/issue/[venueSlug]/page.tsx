@@ -10,7 +10,7 @@ import { IssueNotFound } from "@/components/IssueNotFound";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
 export const dynamic = "force-dynamic";
-type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } } } }>;
+type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } }; communityEvents: true } }>;
 type ServedAds = Awaited<ReturnType<typeof getServedAds>>;
 type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 
@@ -20,7 +20,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
   if (!requestedVenue) return <IssueNotFound title="Venue issue not found" message="This venue is not active or does not have a public issue route yet." />;
 
-  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } } } satisfies Prisma.IssueInclude;
+  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } }, communityEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } } } satisfies Prisma.IssueInclude;
   const previewIssue = previewIssueId ? await prisma.issue.findFirst({
     where: { id: previewIssueId, OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     include: issueInclude
@@ -87,6 +87,7 @@ function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds;
       <MissionCard missionText="Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall." />
       <PublicationAdFallback ad={publicationAds[0]} slotNumber={1} primary />
       <StaticPublicationBlocks ads={publicationAds} qrCode={issue.qrCode?.qrSlug} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} />
+      <JulyEventsSection events={(issue as any).communityEvents || []} />
     </section>
   );
 }
@@ -110,4 +111,10 @@ function RestaurantReviewsSection({ reviews, issue }: { reviews: RestaurantRevie
       {rest.length ? <div className="flex snap-x gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-2 md:overflow-visible">{rest.map((review) => <div key={review.id} className="min-w-[88vw] snap-center md:min-w-0"><RestaurantReviewCard review={review} publisherId={issue.publisherId} venueId={issue.venueId} issueId={issue.id} /></div>)}</div> : null}
     </section>
   );
+}
+
+
+function JulyEventsSection({ events }: { events: Array<{ id: string; title: string; date: Date; startTime: string | null; endTime: string | null; venue: string; address: string | null; description: string; category: string | null; priceLabel: string | null; sourceName: string; sourceUrl: string; imageUrl: string | null }> }) {
+  if (!events.length) return <section className="calendar-card panel"><h2>Event Calendar</h2><p>No verified July 2026 Las Vegas community events found yet.</p></section>;
+  return <section className="calendar-card panel"><h2>Event Calendar</h2>{events.map((event) => <article key={event.id} className="event-spotlight"><h3>{event.title}</h3><p>{event.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" })} {event.startTime ? `• ${event.startTime}${event.endTime ? `–${event.endTime}` : ""}` : ""}</p><p>{event.venue}{event.address ? ` • ${event.address}` : ""}</p><p>{event.description}</p><p>{event.category || "Community"} • {event.priceLabel || "See source"}</p><p><a href={event.sourceUrl}>Event info sourced from {event.sourceName}.</a></p></article>)}</section>;
 }
