@@ -19,9 +19,17 @@ export default async function IssueBuilderPage() {
     <section>
       <h1 className="font-display text-7xl uppercase">Issue Builder</h1>
       <p className="max-w-4xl font-bold">Drag-and-drop planning surface for monthly restroom issues. The MVP stores block order and layout JSON; use Edit Issue to persist each drop-zone assignment.</p>
-      <div className="mt-5"><JulyEventsImportButton /></div>
-      {error ? <p className="mt-8 rounded-2xl border-4 border-red-800 bg-red-100 p-5 font-black text-red-950 shadow-brutal">Issue Builder could not load the Neon default issue: {error}</p> : issue ? (
+{issue.fallbackMessage ? (
+  <p className="mt-6 rounded-2xl border-4 border-red-900 bg-red-100 p-5 font-black text-red-950 shadow-brutal">
+    {issue.fallbackMessage}
+  </p>
+) : error ? (
+  <p className="mt-6 rounded-2xl border-4 border-red-900 bg-red-100 p-5 font-black text-red-950 shadow-brutal">
+    Issue Builder could not load the Neon default issue: {error}
+  </p>
+) : null}
         <>
+          {issue.fallbackMessage ? <p className="mt-6 rounded-2xl border-4 border-stallRed bg-white p-5 font-black text-stallRed shadow-brutal">{issue.fallbackMessage}</p> : null}
           <div className="mt-6 grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3">
             <div className="md:col-span-3">
               <h2 className="font-display text-5xl uppercase">Publishing Schedule</h2>
