@@ -30,7 +30,7 @@ export function CampaignLibrary({ campaigns, issues }: { campaigns: Campaign[]; 
   }
 
   async function action(campaign: Campaign, actionName: "duplicate" | "unpublish" | "archive" | "publish") {
-    const issueOptions = issues.map((issue) => issue.isDefault ? `${issue.label || issue.title} (${issue.id})` : `${issue.title} • ${issue.venueName} (${issue.id})`).join("\n");
+    const issueOptions = issues.map((issue) => issue.isDefault ? `${issue.label || issue.title} (${issue.id})` : `${issue.label || `${issue.title} • ${issue.venueName}`} (${issue.id})`).join("\n");
     const issueId = actionName === "publish" ? window.prompt(`Issue ID to publish into (use ${DEFAULT_PUBLIC_ISSUE_ID} for ${DEFAULT_PUBLIC_ISSUE_LABEL})\n${issueOptions}`, campaign.issueId || DEFAULT_PUBLIC_ISSUE_ID) : "";
     const slotNumber = actionName === "publish" ? window.prompt("Sponsor placement number", String(campaign.selectedSlot || campaign.slotPublished || 1)) : "";
     const response = await fetch("/api/ad-studio/campaigns", { method: actionName === "duplicate" ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...campaign, action: actionName, issueId, targetType: issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_ID : "issue", targetLabel: issueId === DEFAULT_PUBLIC_ISSUE_ID ? DEFAULT_PUBLIC_ISSUE_LABEL : issues.find((issue) => issue.id === issueId)?.title || issueId, slotNumber, businessName: campaign.businessName, title: campaign.headline, offer: campaign.subheadline, artworkUrl: campaign.imageUrl, generatedHeadline: campaign.headline, generatedSubheadline: campaign.subheadline }) });

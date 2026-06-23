@@ -184,6 +184,7 @@ enum QrCodeStatus {
   DEPLOYED
   ACTIVE
   RETIRED
+  ARCHIVED
 }
 
 enum QrCodeType {
@@ -191,6 +192,8 @@ enum QrCodeType {
   RESTROOM
   CAMPAIGN
   TEST
+  GLOBAL
+  ISSUE
 }
 
 enum QrStickerTemplate {
@@ -198,6 +201,13 @@ enum QrStickerTemplate {
   URINAL_WALL
   TABLE_TENT
   WINDOW_STICKER
+}
+
+enum QrDestinationType {
+  GLOBAL
+  VENUE
+  LOCATION
+  ISSUE
 }
 
 enum QrLifecycleAction {
@@ -361,6 +371,7 @@ model Restroom {
   id                String            @id @default(cuid())
   venueId           String
   name              String
+  slug              String?
   floor             String?
   placement         String?
   status            AccountStatus     @default(ACTIVE)
@@ -386,6 +397,10 @@ model QrCode {
   qrName                String             @map("qr_name")
   qrSlug                String             @unique @map("qr_slug")
   qrUrl                 String             @map("qr_url")
+  destinationType       QrDestinationType  @default(GLOBAL)
+  destinationUrl        String?
+  issueId               String?
+  slug                  String?
   qrType                QrCodeType         @default(RESTROOM) @map("qr_type")
   stickerTemplate       QrStickerTemplate  @default(STALL_DOOR) @map("sticker_template")
   shortUrl              String?            @map("short_url")
@@ -405,6 +420,7 @@ model QrCode {
   restroom              Restroom?          @relation(fields: [restroomId], references: [id], onDelete: SetNull)
   assignedDistributor   Distributor?       @relation(fields: [assignedDistributorId], references: [id], onDelete: SetNull)
   issues                Issue[]
+  currentIssues         Issue[]            @relation("CurrentIssueQr")
   scans                 QrScan[]
   lifecycleEvents       QrLifecycleEvent[]
   events                AnalyticsEvent[]
@@ -501,41 +517,59 @@ model DefaultIssue {
 }
 
 model Issue {
-  id            String              @id @default(cuid())
-  publisherId   String
-  defaultIssueId String?
-  venueId       String?
-  restroomId    String?
-  qrCodeId      String?
-  title         String
-  slug          String?             @unique
-  month         String
-  year          Int
-  issueNumber   Int
-  status        IssueStatus         @default(DRAFT)
-  scheduledAt   DateTime?
-  scheduledPublishAt DateTime?
-  timezone      String?             @default("America/Los_Angeles")
-  isScheduled   Boolean             @default(false)
-  isPublished   Boolean             @default(false)
-  isArchived    Boolean             @default(false)
-  replaceDefaultOnPublish Boolean    @default(true)
-  archivePreviousOnPublish Boolean   @default(true)
-  publishedAt   DateTime?
-  republishedAt DateTime?
-  archivedAt    DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  publisher     Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  defaultIssue  DefaultIssue?        @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
-  venue         Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  restroom      Restroom?           @relation(fields: [restroomId], references: [id], onDelete: SetNull)
-  qrCode        QrCode?             @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
-  contentBlocks IssueContentBlock[]
-  adSlots       IssueAdSlot[]
-  events        AnalyticsEvent[]
-  qrScans       QrScan[]
-  communityEvents Event[]
+model Issue {
+  id                       String              @id @default(cuid())
+  publisherId              String?
+  defaultIssueId           String?
+  venueId                  String?
+  restroomId               String?
+  qrCodeId                 String?
+  title                    String
+  slug                     String?             @unique
+  publicUrl                String?
+  isGlobalIssue            Boolean             @default(false)
+  isVenueIssue             Boolean             @default(false)
+  isLocationIssue          Boolean             @default(false)
+  month                    String
+  year                     Int
+  issueNumber              Int
+  status                   IssueStatus         @default(DRAFT)
+  scheduledAt              DateTime?
+  scheduledPublishAt       DateTime?
+  timezone                 String?             @default("America/Los_Angeles")
+  isScheduled              Boolean             @default(false)
+  isPublished              Boolean             @default(false)
+  isArchived               Boolean             @default(false)
+  replaceDefaultOnPublish  Boolean             @default(true)
+  archivePreviousOnPublish Boolean             @default(true)
+  publishedAt              DateTime?
+  republishedAt            DateTime?
+  archivedAt               DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  publisher                Publisher?          @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  defaultIssue             DefaultIssue?       @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
+  venue                    Venue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom                 Restroom?           @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  qrCode                   QrCode?             @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+
+  contentBlocks            IssueContentBlock[]
+  adSlots                  IssueAdSlot[]
+  events                   AnalyticsEvent[]
+  qrScans                  QrScan[]
+  currentQrCodes           QrCode[]            @relation("CurrentIssue")
+
+  @@index([publisherId])
+  @@index([defaultIssueId])
+  @@index([venueId])
+  @@index([restroomId])
+  @@index([qrCodeId])
+  @@index([slug])
+  @@index([status])
+  @@index([isScheduled, scheduledPublishAt])
+  @@index([isPublished, isArchived])
+}
 
   @@index([status, year, issueNumber])
   @@index([isScheduled, isPublished, isArchived, scheduledPublishAt])
@@ -675,6 +709,10 @@ model StalltalkCampaignHistory {
   targetUrl           String?
   targetType          String?
   targetLabel         String?
+  issueId             String?
+  venueId             String?
+  restroomId          String?
+  placement           String?
   publishedToHomepage Boolean     @default(false)
   selectedSlot        Int?
   slotPublished       Int?
@@ -692,6 +730,7 @@ model StalltalkCampaignHistory {
 
   @@index([parentCampaignId, versionNumber])
   @@index([targetType, publishStatus, slotPublished])
+  @@index([issueId, venueId, restroomId])
   @@map("stalltalk_campaign_history")
 }
 

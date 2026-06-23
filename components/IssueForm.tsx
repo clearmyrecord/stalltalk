@@ -49,11 +49,12 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
     </div> : null}
     <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-4">
       <Select name="publisherId" label="Publisher" value={issue?.publisherId || publishers[0]?.id} options={publishers.map((p) => [p.id, p.name])} />
-      <Select name="venueId" label="Base / default venue" value={issue?.venueId} options={[["", "Global issue (all venues)"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} />
-      <Select name="restroomId" label="Restroom" value={issue?.restroomId || ""} options={[["", "Venue-wide"], ...restrooms.map((r) => [r.id, r.name] as [string, string])]} />
-      <Select name="qrCodeId" label="QR code" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.qrName} (${q.qrSlug})`] as [string, string])]} />
+      <Select name="venueId" label="Issue Scope / Venue" value={issue?.venueId} options={[["", "Global Issue — all venues"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} />
+      <Select name="restroomId" label="Location / Restroom" value={issue?.restroomId || ""} options={[["", "Venue-wide issue"], ...restrooms.map((r) => [r.id, r.name] as [string, string])]} />
+      <Select name="qrCodeId" label="Dynamic QR destination" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.qrName} (${q.qrSlug})`] as [string, string])]} />
       <Field name="title" label="Issue Title" value={issue?.title || "Potty Favor"} />
-      <Field name="slug" label="Slug" value={(issue as any)?.slug || ""} />
+      <Field name="slug" label="Issue slug (auto: venue/location + month + year)" value={(issue as any)?.slug || ""} />
+      <Field name="publicUrl" label="Public URL preview" value={(issue as any)?.publicUrl || "Auto-generated after save"} />
       <Field name="month" label="Month" value={issue?.month || "June"} />
       <Field name="year" label="Year" value={String(issue?.year || new Date().getFullYear())} />
       <Field name="issueNumber" label="Issue #" value={String(issue?.issueNumber || 1)} />

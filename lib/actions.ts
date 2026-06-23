@@ -7,9 +7,10 @@ import { prisma } from "./prisma";
 import { requireAdmin, requireRole } from "./auth";
 import { slugify } from "./format";
 import { calculateFlightTotal, flightDateRange, flightEndMonth, normalizeFlightMonth, PRICE_PER_PLACEMENT_MONTH_CENTS, safeFlightMonths } from "./campaign-flights";
-import { qrIssueUrl } from "./qr";
+import { publicBaseUrl, qrIssueUrl } from "./qr";
 import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
+import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -59,8 +60,11 @@ export async function createQrCode(formData: FormData) {
   const venueId = nullableText(formData, "venueId");
   const restroomId = nullableText(formData, "restroomId");
   const venue = venueId ? await prisma.venue.findUnique({ where: { id: venueId } }) : null;
-  const qrUrl = qrIssueUrl(qrSlug);
-  const qrCode = await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, assignedDistributorId: nullableText(formData, "assignedDistributorId"), qrSlug, qrName: text(formData, "qrName", qrSlug), qrUrl, shortUrl: qrUrl, qrType: text(formData, "qrType", restroomId ? "RESTROOM" : venueId ? "VENUE" : "TEST") as any, stickerTemplate: text(formData, "stickerTemplate", "STALL_DOOR") as any, callToAction: text(formData, "callToAction", "Scan for Potty Favor"), campaignSource: nullableText(formData, "campaignSource"), advertisementSource: nullableText(formData, "advertisementSource"), promotionSource: nullableText(formData, "promotionSource"), couponSource: nullableText(formData, "couponSource"), status: venueId ? "ACTIVE" : "DRAFT" } });
+  const restroom = restroomId ? await prisma.restroom.findUnique({ where: { id: restroomId } }) : null;
+  const destinationType = (text(formData, "destinationType", restroomId ? "LOCATION" : venueId ? "VENUE" : "GLOBAL") || "GLOBAL") as any;
+  const destinationPath = qrDestinationPath({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, type: destinationType });
+  const qrUrl = `${publicBaseUrl()}${destinationPath}`;
+  const qrCode = await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, assignedDistributorId: nullableText(formData, "assignedDistributorId"), qrSlug, slug: qrSlug, qrName: text(formData, "qrName", qrSlug), qrUrl, destinationType, destinationUrl: qrUrl, shortUrl: qrUrl, qrType: text(formData, "qrType", restroomId ? "RESTROOM" : venueId ? "VENUE" : "GLOBAL") as any, stickerTemplate: text(formData, "stickerTemplate", "STALL_DOOR") as any, callToAction: text(formData, "callToAction", "Scan for Potty Favor"), campaignSource: nullableText(formData, "campaignSource"), advertisementSource: nullableText(formData, "advertisementSource"), promotionSource: nullableText(formData, "promotionSource"), couponSource: nullableText(formData, "couponSource"), status: venueId ? "ACTIVE" : "DRAFT" } });
   await prisma.qrLifecycleEvent.create({ data: { qrCodeId: qrCode.id, action: "CREATE", note: "QR created from admin registry" } });
   revalidatePath("/admin/qr");
 }
@@ -209,7 +213,11 @@ function campaignHistoryData(adId: string, slotPublished: number, formData: Form
     selectedSlot: slotPublished,
     publishStatus: "PUBLISHED",
     publishedAt: new Date(),
-    slotPublished
+    slotPublished,
+    issueId: nullableText(formData, "issueId"),
+    venueId: nullableText(formData, "venueId"),
+    restroomId: nullableText(formData, "restroomId"),
+    placement: slotPublished ? sponsorPlacementLabel(slotPublished) : null
   };
 }
 
@@ -304,9 +312,14 @@ async function issueData(formData: FormData, existing?: { status: IssueStatus; p
   const month = text(formData, "month", new Date().toLocaleString("en-US", { month: "long" })) || new Date().toLocaleString("en-US", { month: "long" });
   const year = intValue(formData, "year", new Date().getFullYear());
   const title = text(formData, "title", "Untitled issue") || "Untitled issue";
-  const slug = text(formData, "slug", issueSlug(null, month, year));
+  const venueId = nullableText(formData, "venueId");
+  const restroomId = nullableText(formData, "restroomId");
+  const [venue, restroom] = await Promise.all([venueId ? prisma.venue.findUnique({ where: { id: venueId } }) : null, restroomId ? prisma.restroom.findUnique({ where: { id: restroomId } }) : null]);
+  const generatedSlug = buildIssueSlug({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, month, year });
+  const slug = text(formData, "slug", generatedSlug) || generatedSlug;
+  const publicPath = qrDestinationPath({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, issueSlug: slug, type: restroomId ? "ISSUE" : venueId ? "VENUE" : "ISSUE" });
   const isScheduled = text(formData, "autoPublish") === "on" && Boolean(scheduledAt) && status !== "PUBLISHED";
-  return { publisherId, venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
+  return { publisherId, venueId, restroomId, qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${publicPath}`, isGlobalIssue: !venueId && !restroomId, isVenueIssue: Boolean(venueId) && !restroomId, isLocationIssue: Boolean(venueId && restroomId), month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
 }
 
 function logIssueSavePayload(mode: "create" | "update", formData: FormData, issueId?: string) {

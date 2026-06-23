@@ -191,6 +191,10 @@ function normalizeBodyForUser(body: Record<string, unknown>, user: User) {
     ...body,
     advertiserId: user.advertiserId || "",
     publishStatus: str(body, "publishStatus", "DRAFT"),
+    issueId: nullable(body, "issueId"),
+    venueId: nullable(body, "venueId"),
+    restroomId: nullable(body, "restroomId"),
+    placement: str(body, "slotNumber") ? `Sponsor Placement ${str(body, "slotNumber")}` : null,
   };
 }
 
@@ -352,7 +356,7 @@ async function publishCampaign(body: Record<string, unknown>) {
     ? null
     : await prisma.issue.findUnique({
         where: { id: issueId },
-        include: { venue: true },
+        include: { venue: true, restroom: true },
       });
   if (!defaultPublicTarget && !issue)
     return NextResponse.json({ error: "Issue not found" }, { status: 404 });
@@ -387,6 +391,9 @@ async function publishCampaign(body: Record<string, unknown>) {
     publisherId: publisher?.id ?? null,
     targetType,
     targetLabel,
+    issueId: defaultPublicTarget ? DEFAULT_PUBLIC_ISSUE_ID : issue?.id,
+    venueId: issue?.venueId || null,
+    restroomId: issue?.restroomId || null,
   };
   const ad = await prisma.ad.create({
     data: {
@@ -621,5 +628,9 @@ function historyData(body: Record<string, unknown>, parentCampaignId: string) {
       int(body, "selectedSlot", int(body, "placement", 1)),
     ),
     publishStatus: str(body, "publishStatus", "DRAFT"),
+    issueId: nullable(body, "issueId"),
+    venueId: nullable(body, "venueId"),
+    restroomId: nullable(body, "restroomId"),
+    placement: str(body, "slotNumber") ? `Sponsor Placement ${str(body, "slotNumber")}` : null,
   };
 }

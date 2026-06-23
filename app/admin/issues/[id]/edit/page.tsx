@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IssueForm } from "@/components/IssueForm";
 import { prisma } from "@/lib/prisma";
+import { issuePublicPath } from "@/lib/issue-routing";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function EditIssuePage({
         where: { id },
         include: {
           venue: true,
+          restroom: true,
           qrCode: true,
           contentBlocks: {
             orderBy: {
@@ -41,12 +43,7 @@ export default async function EditIssuePage({
 
   if (!issue) notFound();
 
-  const previewParams = new URLSearchParams({ previewIssueId: issue.id });
-  if (issue.qrCode) previewParams.set("qr", issue.qrCode.qrSlug);
-
-  const previewHref = issue.venue
-    ? `/issue/${issue.venue.slug}?${previewParams.toString()}`
-    : `/issue?${previewParams.toString()}`;
+  const previewHref = issuePublicPath(issue as any);
 
   return (
     <section>

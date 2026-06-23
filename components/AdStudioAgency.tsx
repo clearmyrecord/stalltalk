@@ -945,7 +945,7 @@ function AdStudioPanel({
               <option key={issue.id} value={issue.id}>
                 {issue.isDefault
                   ? issue.label || issue.title
-                  : `${issue.title} • ${issue.venueName}`}
+                  : issue.label || `${issue.title} • ${issue.venueName}`}
               </option>
             ))}
           </select>

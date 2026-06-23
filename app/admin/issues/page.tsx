@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { archiveIssue, cloneIssue, deleteIssue, publishIssue, unpublishIssue } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
+import { issuePublicPath } from "@/lib/issue-routing";
 
 export const dynamic = "force-dynamic";
 export default async function IssuesPage() {
@@ -46,11 +47,7 @@ export default async function IssuesPage() {
               <div className="flex gap-2">
                <Link
   className="rounded-lg bg-stallYellow px-4 py-2 font-black uppercase"
-  href={
-    issue.venue?.slug
-      ? `/issue/${issue.venue.slug}?previewIssueId=${issue.id}${issue.qrCode ? `&qr=${issue.qrCode.qrSlug}` : ""}`
-      : `/issue?previewIssueId=${issue.id}`
-  }
+  href={issuePublicPath(issue as any)}
 >
   Preview
 </Link>
