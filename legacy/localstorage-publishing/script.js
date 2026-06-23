@@ -17,7 +17,7 @@ const STORAGE_KEYS = {
 
 const API_BASE =
   localStorage.getItem("pottyFavorApiBase") ||
-  "https://stalltalk.vercel.app";
+  "https://pottyfavor.com";
 
 const DEFAULT_DEMO = {
   issue: {

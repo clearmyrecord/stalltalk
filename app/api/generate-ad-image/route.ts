@@ -21,7 +21,7 @@ export const maxDuration = 60;
 
 const VALID_IMAGE_MODELS = new Set(["gpt-image-2", "gpt-image-1"]);
 const ALLOWED_ORIGINS = [
-  "https://stalltalk.vercel.app",
+  "https://pottyfavor.com",
   "https://clearmyrecord.github.io",
   "http://localhost:3000",
   "http://localhost:8080",

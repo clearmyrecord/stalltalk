@@ -472,6 +472,15 @@ model RestaurantReview {
   @@map("restaurant_reviews")
 }
 
+model DefaultIssue {
+  id        String   @id
+  title     String
+  slug      String   @unique
+  issueJson Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Issue {
   id            String              @id @default(cuid())
   publisherId   String

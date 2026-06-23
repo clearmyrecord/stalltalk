@@ -43,22 +43,6 @@ async function ensureDefaultGlobalBlocks(issueId: string) {
 }
 
 export async function getDefaultGlobalIssue({ createIfMissing = false } = {}) {
-  const issue = await prisma.issue.findFirst({ where: { venueId: null, qrCodeId: null, restroomId: null, issueNumber: DEFAULT_GLOBAL_ISSUE_NUMBER }, include: defaultGlobalIssueInclude });
-  if (issue) {
-    await ensureDefaultGlobalBlocks(issue.id);
-    return prisma.issue.findUnique({ where: { id: issue.id }, include: defaultGlobalIssueInclude });
-  }
-  if (!createIfMissing) return issue;
-  const publisher = await prisma.publisher.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!publisher) return null;
-  const [month, yearText] = publishedIssue.issueMonthYear.split(" ");
-  const created = await prisma.issue.create({
-    data: {
-      publisherId: publisher.id, venueId: null, title: publishedIssue.mastheadBrand || "Potty Favor", month: month || "June", year: Number(yearText) || new Date().getFullYear(), issueNumber: DEFAULT_GLOBAL_ISSUE_NUMBER, status: "PUBLISHED", publishedAt: new Date(),
-      contentBlocks: { create: DEFAULT_GLOBAL_BLOCKS.map(([type, title, body, layout], index) => ({ type: type as any, title, body, imageUrl: (layout as any).imageUrl, layout: layout as any, sortOrder: index + 1 })) },
-    },
-  });
-  const campaigns = await prisma.stalltalkCampaignHistory.findMany({ where: { targetType: DEFAULT_PUBLIC_ISSUE_ID, publishStatus: "PUBLISHED", ad: { status: "ACTIVE" } }, include: { ad: true }, orderBy: [{ slotPublished: "asc" }, { publishedAt: "desc" }] });
-  for (const campaign of campaigns) if (campaign.slotPublished && campaign.ad) await prisma.issueAdSlot.upsert({ where: { issueId_slotNumber: { issueId: created.id, slotNumber: campaign.slotPublished } }, update: { adId: campaign.ad.id, source: campaign.ad.scope }, create: { issueId: created.id, slotNumber: campaign.slotPublished, adId: campaign.ad.id, source: campaign.ad.scope } });
-  return prisma.issue.findUnique({ where: { id: created.id }, include: defaultGlobalIssueInclude });
+  const { getDefaultIssue } = await import("@/lib/default-issue");
+  return getDefaultIssue({ createIfMissing });
 }

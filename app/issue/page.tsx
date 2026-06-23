@@ -108,7 +108,7 @@ export default async function IssueQueryPage({
       }
     }
 
-    const defaultGlobalIssue = await getDefaultGlobalIssue();
+    const defaultGlobalIssue = await getDefaultGlobalIssue({ createIfMissing: true });
     if (defaultGlobalIssue?.status === "PUBLISHED") {
       return <DatabaseIssuePage issue={defaultGlobalIssue as IssueWithAds} qrCode={qr} request={request} />;
     }

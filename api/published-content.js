@@ -1,7 +1,7 @@
 import { getLatestPublishedContent } from "./_published-content-store.js";
 
 const ALLOWED_ORIGINS = new Set([
-  "https://stalltalk.vercel.app",
+  "https://pottyfavor.com",
   "https://clearmyrecord.github.io",
   "http://localhost:3000",
   "http://localhost:8080",
@@ -10,7 +10,7 @@ const ALLOWED_ORIGINS = new Set([
 function corsHeaders(req) {
   const origin = req.headers?.origin;
   return {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "https://stalltalk.vercel.app",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "https://pottyfavor.com",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     Vary: "Origin",

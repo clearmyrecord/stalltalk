@@ -1,12 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_GLOBAL_ISSUE_NUMBER } from "@/lib/default-global-issue";
 
-const REQUIRED_TABLES = ["Issue", "IssueContentBlock", "IssueAdSlot", "Ad", "StalltalkCampaignHistory"] as const;
+const REQUIRED_TABLES = ["DefaultIssue", "Ad"] as const;
 const REQUIRED_COLUMNS = [
-  ["Issue", "slug"], ["Issue", "isDefault"],
-  ["IssueContentBlock", "layoutKey"], ["IssueContentBlock", "data"], ["IssueContentBlock", "sortOrder"],
-  ["IssueAdSlot", "placement"], ["IssueAdSlot", "adId"],
-  ["Ad", "creativeBrief"], ["StalltalkCampaignHistory", "creativeBrief"], ["AdCampaign", "creativeBrief"],
+  ["DefaultIssue", "id"], ["DefaultIssue", "title"], ["DefaultIssue", "slug"], ["DefaultIssue", "issueJson"], ["DefaultIssue", "createdAt"], ["DefaultIssue", "updatedAt"],
 ] as const;
 
 export type DefaultIssueDiagnostics = {
@@ -46,7 +42,7 @@ export async function getDefaultIssueDiagnostics(initialError?: string | null): 
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public'
-        AND table_name IN ('Issue', 'IssueContentBlock', 'IssueAdSlot', 'Ad', 'StalltalkCampaignHistory')
+        AND table_name IN ('DefaultIssue', 'Ad')
     `;
     for (const row of tableRows) diagnostics.requiredTables[row.table_name] = true;
 
@@ -55,21 +51,18 @@ export async function getDefaultIssueDiagnostics(initialError?: string | null): 
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND (table_name, column_name) IN (
-          ('Issue', 'slug'), ('Issue', 'isDefault'),
-          ('IssueContentBlock', 'layoutKey'), ('IssueContentBlock', 'data'), ('IssueContentBlock', 'sortOrder'),
-          ('IssueAdSlot', 'placement'), ('IssueAdSlot', 'adId'),
-          ('Ad', 'creativeBrief'), ('StalltalkCampaignHistory', 'creativeBrief'), ('AdCampaign', 'creativeBrief')
+          ('DefaultIssue', 'id'), ('DefaultIssue', 'title'), ('DefaultIssue', 'slug'), ('DefaultIssue', 'issueJson'), ('DefaultIssue', 'createdAt'), ('DefaultIssue', 'updatedAt')
         )
     `;
     for (const row of columnRows) diagnostics.requiredColumns[key(row.table_name, row.column_name)] = true;
 
-    if (diagnostics.requiredTables.Issue) {
-      const rows = await prisma.$queryRaw<Array<{ id: string; block_count: bigint; slot_count: bigint }>>`
-        SELECT i.id,
-          (SELECT COUNT(*) FROM "IssueContentBlock" b WHERE b."issueId" = i.id) AS block_count,
-          (SELECT COUNT(*) FROM "IssueAdSlot" s WHERE s."issueId" = i.id) AS slot_count
-        FROM "Issue" i
-        WHERE i."venueId" IS NULL AND i."qrCodeId" IS NULL AND i."restroomId" IS NULL AND i."issueNumber" = ${DEFAULT_GLOBAL_ISSUE_NUMBER}
+    if (diagnostics.requiredTables.DefaultIssue) {
+      const rows = await prisma.$queryRaw<Array<{ id: string; block_count: number; slot_count: number }>>`
+        SELECT "id",
+          COALESCE(jsonb_array_length("issueJson"->'contentBlocks'), 0) AS block_count,
+          COALESCE(jsonb_array_length("issueJson"->'adSlots'), 0) AS slot_count
+        FROM "DefaultIssue"
+        ORDER BY "updatedAt" DESC
         LIMIT 1
       `;
       const row = rows[0];

@@ -62,7 +62,7 @@ const DEMO = {
     { id: "demo-local-comedy-showcase", title: "Local Comedy Showcase", description: "Fast sets from Vegas comedians built for a fun weekend warmup.", venueName: "Arts District Comedy Cellar", address: "1020 S Main St", city: "Las Vegas", state: "NV", eventDate: "2026-06-25", startTime: "19:30", endTime: "21:30", category: "Community", website: "https://example.com/comedy", phone: "", submittedByName: "Potty Favor Demo", submittedByEmail: "demo@pottyfavor.com", status: "approved", featured: false, createdAt: "2026-06-01T12:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
   ],
   pendingEvents: [],
-  settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html", vercelApiBaseUrl: "https://stalltalk.vercel.app", openAiImageModel: "gpt-image-1" },
+  settings: { qrBaseUrl: "https://clearmyrecord.github.io/stalltalk/index.html", vercelApiBaseUrl: "https://pottyfavor.com", openAiImageModel: "gpt-image-1" },
 };
 
 let activeSlot = 1;
@@ -676,7 +676,7 @@ function endpointFromInput(input = "") {
   }
 
   if (url.hostname.endsWith("github.io")) {
-    throw new Error("Do not use GitHub Pages for the Vercel API Base URL. Use your Vercel deployment URL, for example https://stalltalk.vercel.app.");
+    throw new Error("Do not use GitHub Pages for the Vercel API Base URL. Use your Vercel deployment URL, for example https://pottyfavor.com.");
   }
 
   if (url.pathname === GENERATE_AD_IMAGE_PATH) return url.toString().replace(/\/$/, "");
@@ -885,7 +885,7 @@ function isStorageQuotaError(error) {
 }
 
 function endpointErrorMessage(response, payload, rawText, endpoint) {
-  if (response.status === 405) return "405 Method Not Allowed. The AI Studio is not reaching the Vercel image API. Check that Vercel API Base URL is set to https://stalltalk.vercel.app or your current Vercel deployment URL.";
+  if (response.status === 405) return "405 Method Not Allowed. The AI Studio is not reaching the Vercel image API. Check that Vercel API Base URL is set to https://pottyfavor.com or your current Vercel deployment URL.";
   const contentType = response.headers?.get("Content-Type") || "";
   if (contentType.toLowerCase().includes("text/html") || /^\s*<!doctype html|^\s*<html[\s>]/i.test(rawText || "")) return "Received HTML instead of JSON. The endpoint is probably pointed at the website, not /api/generate-ad-image.";
   if (billingLimitMessage(payload)) return "OpenAI billing limit reached. Update billing in OpenAI Platform.";
