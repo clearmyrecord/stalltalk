@@ -17,6 +17,7 @@ import {
 } from "@/components/StaticPublicationBlocks";
 import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
 import { getDefaultGlobalIssue } from "@/lib/default-global-issue";
+import { DEFAULT_ISSUE_UNAVAILABLE_MESSAGE } from "@/lib/defaultIssue";
 import { headers } from "next/headers";
 import { recordAdImpression, recordQrScan } from "@/lib/tracking";
 
@@ -243,7 +244,12 @@ async function StaticIssuePage({ qrCode, request }: { qrCode?: string; request: 
 }
 
 async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithAds; qrCode?: string; request: Request }) {
-  const ads = await getServedAds(issue);
+  let ads: Awaited<ReturnType<typeof getServedAds>> = [];
+  try {
+    ads = await getServedAds(issue);
+  } catch (error) {
+    console.error(DEFAULT_ISSUE_UNAVAILABLE_MESSAGE, error);
+  }
   const publicationAds = getPublicationAds(
     ads.map((ad) =>
       ad
@@ -271,6 +277,7 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
   return (
     <main className="public-page">
       <article className="publication" aria-label="Potty Favor monthly issue">
+        {(issue as any).fallbackMessage ? <p className="m-3 rounded-xl border-4 border-stallRed bg-white p-3 text-center font-black text-stallRed">{(issue as any).fallbackMessage}</p> : null}
         <PublicationHeader monthYear={`${issue.month} ${issue.year}`} />
         <section className="print-grid">
           <MissionCard missionText={byKey("mission")?.body || publishedIssue.missionText} />
