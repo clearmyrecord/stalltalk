@@ -52,12 +52,25 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
       <Select name="venueId" label="Base / default venue" value={issue?.venueId} options={[["", "Global issue (all venues)"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} />
       <Select name="restroomId" label="Restroom" value={issue?.restroomId || ""} options={[["", "Venue-wide"], ...restrooms.map((r) => [r.id, r.name] as [string, string])]} />
       <Select name="qrCodeId" label="QR code" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.qrName} (${q.qrSlug})`] as [string, string])]} />
-      <Field name="title" label="Title" value={issue?.title || "Potty Favor"} />
+      <Field name="title" label="Issue Title" value={issue?.title || "Potty Favor"} />
+      <Field name="slug" label="Slug" value={(issue as any)?.slug || ""} />
       <Field name="month" label="Month" value={issue?.month || "June"} />
       <Field name="year" label="Year" value={String(issue?.year || new Date().getFullYear())} />
       <Field name="issueNumber" label="Issue #" value={String(issue?.issueNumber || 1)} />
       <label className="grid gap-1 font-black uppercase">Status<select name="status" defaultValue={issue?.status || "DRAFT"} className="rounded border-2 border-ink p-3"><option>DRAFT</option><option>SCHEDULED</option><option>PUBLISHED</option><option>ARCHIVED</option></select></label>
-      <Field name="scheduledAt" label="Schedule ISO" value={issue?.scheduledAt?.toISOString() || ""} />
+    </div>
+
+    <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3">
+      <div className="md:col-span-3">
+        <h2 className="font-display text-5xl uppercase">Publishing Schedule</h2>
+        <p className="font-bold">Schedule next month’s issue without exposing raw Schedule ISO.</p>
+      </div>
+      <Field name="publishDate" label="Publish Date" type="date" value={dateValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} />
+      <Field name="publishTime" label="Publish Time" type="time" value={timeValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} />
+      <Field name="timezone" label="Timezone" value={(issue as any)?.timezone || "America/Los_Angeles"} />
+      <Check name="autoPublish" label="Auto Publish" checked={(issue as any)?.isScheduled || issue?.status === "SCHEDULED"} />
+      <Check name="replaceDefaultOnPublish" label="Replace Default Global Issue" checked={(issue as any)?.replaceDefaultOnPublish ?? true} />
+      <Check name="archivePreviousOnPublish" label="Archive Previous Issue" checked={(issue as any)?.archivePreviousOnPublish ?? true} />
     </div>
 
     <div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal">
@@ -87,5 +100,8 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
 function VenueMultiSelect({ name, venues, selected }: { name: string; venues: Venue[]; selected: string[] }) {
   return <label className="grid gap-1 font-black uppercase">Venue targeting<span className="text-xs normal-case">No selection = global</span><select name={name} multiple defaultValue={selected} className="min-h-28 rounded border-2 border-ink p-2 normal-case">{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>;
 }
-function Field({ name, label, value }: { name: string; label: string; value: string }) { return <label className="grid gap-1 font-black uppercase">{label}<input name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>; }
+function dateValue(value?: Date | string | null) { if (!value) return ""; return new Date(value).toISOString().slice(0, 10); }
+function timeValue(value?: Date | string | null) { if (!value) return ""; return new Date(value).toISOString().slice(11, 16); }
+function Check({ name, label, checked }: { name: string; label: string; checked: boolean }) { return <label className="flex items-center gap-3 rounded-xl border-2 border-ink p-3 font-black uppercase"><input type="checkbox" name={name} defaultChecked={checked} className="h-5 w-5" />{label}<input type="hidden" name={name} value="off" /></label>; }
+function Field({ name, label, value, type = "text" }: { name: string; label: string; value: string; type?: string }) { return <label className="grid gap-1 font-black uppercase">{label}<input type={type} name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>; }
 function Select({ name, label, value, options }: { name: string; label: string; value?: string | null; options: Array<[string, string]> }) { return <label className="grid gap-1 font-black uppercase">{label}<select name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3">{options.map(([id, label]) => <option key={id || label} value={id}>{label}</option>)}</select></label>; }
