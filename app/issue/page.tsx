@@ -33,6 +33,7 @@ type IssueWithAds = Prisma.IssueGetPayload<{
     restroom: true;
     adSlots: { include: { ad: { include: { campaignHistory: true } } } };
     contentBlocks: { include: { article: true } };
+    communityEvents: true;
   };
 }>;
 
@@ -110,7 +111,7 @@ export default async function IssueQueryPage({
 
     const defaultGlobalIssue = await getDefaultGlobalIssue({ createIfMissing: true });
     if (defaultGlobalIssue?.status === "PUBLISHED") {
-      return <DatabaseIssuePage issue={defaultGlobalIssue as IssueWithAds} qrCode={qr} request={request} />;
+      return <DatabaseIssuePage issue={defaultGlobalIssue as unknown as IssueWithAds} qrCode={qr} request={request} />;
     }
 
     const hasDefaultPublicAds = await prisma.stalltalkCampaignHistory.findFirst(
@@ -141,6 +142,7 @@ export default async function IssueQueryPage({
           include: { article: true },
           orderBy: { sortOrder: "asc" },
         },
+        communityEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } },
       },
     });
 
@@ -295,9 +297,16 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
                 : undefined
             }
           />
+          <JulyEventsSection events={issue.communityEvents || []} />
         </section>
         <PublicationFooter />
       </article>
     </main>
   );
+}
+
+
+function JulyEventsSection({ events }: { events: Array<{ id: string; title: string; date: Date; startTime: string | null; endTime: string | null; venue: string; address: string | null; description: string; category: string | null; priceLabel: string | null; sourceName: string; sourceUrl: string; imageUrl: string | null }> }) {
+  if (!events.length) return <section className="calendar-card panel"><h2>Event Calendar</h2><p>No verified July 2026 Las Vegas community events found yet.</p></section>;
+  return <section className="calendar-card panel"><h2>Event Calendar</h2>{events.map((event) => <article key={event.id} className="event-spotlight"><h3>{event.title}</h3><p>{event.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" })} {event.startTime ? `• ${event.startTime}${event.endTime ? `–${event.endTime}` : ""}` : ""}</p><p>{event.venue}{event.address ? ` • ${event.address}` : ""}</p><p>{event.description}</p><p>{event.category || "Community"} • {event.priceLabel || "See source"}</p><p><a href={event.sourceUrl}>Event info sourced from {event.sourceName}.</a></p></article>)}</section>;
 }

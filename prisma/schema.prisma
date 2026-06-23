@@ -96,6 +96,14 @@ enum IssueStatus {
   ARCHIVED
 }
 
+enum EventStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  HIDDEN
+  PUBLISHED
+}
+
 enum VenueContentType {
   ANNOUNCEMENT
   PROMOTION
@@ -514,6 +522,7 @@ model Issue {
   adSlots       IssueAdSlot[]
   events        AnalyticsEvent[]
   qrScans       QrScan[]
+  communityEvents Event[]
 
   @@index([status, year, issueNumber])
   @@index([isScheduled, isPublished, isArchived, scheduledPublishAt])
@@ -586,6 +595,34 @@ model Ad {
   events               AnalyticsEvent[]
   subscriptions        StripeSubscription[]
   adCampaigns          AdCampaign[]
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  issueId     String?
+  title       String
+  date        DateTime
+  startTime   String?
+  endTime     String?
+  venue       String
+  address     String?
+  description String
+  category    String?
+  priceLabel  String?
+  sourceUrl   String
+  sourceName  String
+  imageUrl    String?
+  issueMonth  String
+  issueYear   Int
+  importedAt  DateTime    @default(now())
+  status      EventStatus @default(PENDING_REVIEW)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  issue       Issue?      @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@unique([title, date, venue])
+  @@index([issueMonth, issueYear, status])
+  @@index([issueId, status])
 }
 
 model IssueAdSlot {
