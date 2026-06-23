@@ -2,6 +2,7 @@ import Link from "next/link";
 import { contentLabels } from "@/lib/format";
 import { getDefaultIssue } from "@/lib/default-issue";
 import { SPONSOR_PLACEMENTS, sponsorPlacementLabel } from "@/lib/sponsor-placements";
+import { JulyEventsImportButton } from "@/components/JulyEventsImportButton";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,15 @@ export default async function IssueBuilderPage() {
     <section>
       <h1 className="font-display text-7xl uppercase">Issue Builder</h1>
       <p className="max-w-4xl font-bold">Drag-and-drop planning surface for monthly restroom issues. The MVP stores block order and layout JSON; use Edit Issue to persist each drop-zone assignment.</p>
-      {error ? <p className="mt-8 rounded-2xl border-4 border-red-800 bg-red-100 p-5 font-black text-red-950 shadow-brutal">Default issue unavailable. Using temporary fallback. Issue Builder could not load the Neon default issue: {error}</p> : issue ? (
+{issue.fallbackMessage ? (
+  <p className="mt-6 rounded-2xl border-4 border-red-900 bg-red-100 p-5 font-black text-red-950 shadow-brutal">
+    {issue.fallbackMessage}
+  </p>
+) : error ? (
+  <p className="mt-6 rounded-2xl border-4 border-red-900 bg-red-100 p-5 font-black text-red-950 shadow-brutal">
+    Issue Builder could not load the Neon default issue: {error}
+  </p>
+) : null}
         <>
           {issue.fallbackMessage ? <p className="mt-6 rounded-2xl border-4 border-stallRed bg-white p-5 font-black text-stallRed shadow-brutal">{issue.fallbackMessage}</p> : null}
           <div className="mt-6 grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3">
