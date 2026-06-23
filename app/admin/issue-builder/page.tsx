@@ -20,6 +20,23 @@ export default async function IssueBuilderPage() {
       <p className="max-w-4xl font-bold">Drag-and-drop planning surface for monthly restroom issues. The MVP stores block order and layout JSON; use Edit Issue to persist each drop-zone assignment.</p>
       {error ? <p className="mt-8 rounded-2xl border-4 border-red-800 bg-red-100 p-5 font-black text-red-950 shadow-brutal">Issue Builder could not load the Neon default issue: {error}</p> : issue ? (
         <>
+          <div className="mt-6 grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3">
+            <div className="md:col-span-3">
+              <h2 className="font-display text-5xl uppercase">Publishing Schedule</h2>
+              <p className="font-bold">Build next month in advance from the Schedule dashboard. Raw Schedule ISO is hidden; admins choose date, time, and timezone instead.</p>
+            </div>
+            <label className="grid gap-1 font-black uppercase">Issue Title<input defaultValue={issue.title} readOnly className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>
+            <label className="grid gap-1 font-black uppercase">Slug<input defaultValue={issue.slug} readOnly className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>
+            <label className="grid gap-1 font-black uppercase">Timezone<input defaultValue="America/Los_Angeles" readOnly className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>
+            <label className="grid gap-1 font-black uppercase">Publish Date<input type="date" className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>
+            <label className="grid gap-1 font-black uppercase">Publish Time<input type="time" className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>
+            <div className="grid gap-2 font-black uppercase">
+              <label><input type="checkbox" defaultChecked /> Auto Publish</label>
+              <label><input type="checkbox" defaultChecked /> Replace Default Global Issue</label>
+              <label><input type="checkbox" defaultChecked /> Archive Previous Issue</label>
+            </div>
+            <Link className="rounded bg-ink px-4 py-3 text-center font-black uppercase text-white md:col-span-3" href="/admin/schedule">Schedule Next Month</Link>
+          </div>
           <div className="mt-4 flex gap-3">
             <Link className="rounded bg-ink px-4 py-3 font-black uppercase text-white" href="/admin/default-issue">Edit {issue.title}</Link>
             <Link className="rounded bg-stallYellow px-4 py-3 font-black uppercase" href="/issue">Preview</Link>

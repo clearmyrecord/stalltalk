@@ -499,11 +499,11 @@ model Issue {
   isScheduled   Boolean             @default(false)
   isPublished   Boolean             @default(false)
   isArchived    Boolean             @default(false)
-  replaceDefaultOnPublish Boolean   @default(true)
-  archivePreviousOnPublish Boolean  @default(true)
+  replaceDefaultOnPublish Boolean    @default(true)
+  archivePreviousOnPublish Boolean   @default(true)
   publishedAt   DateTime?
-  archivedAt    DateTime?
   republishedAt DateTime?
+  archivedAt    DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   publisher     Publisher           @relation(fields: [publisherId], references: [id], onDelete: Cascade)
@@ -516,6 +516,8 @@ model Issue {
   qrScans       QrScan[]
 
   @@index([status, year, issueNumber])
+  @@index([isScheduled, isPublished, isArchived, scheduledPublishAt])
+  @@index([isPublished, isArchived, publishedAt])
 }
 
 model IssueContentBlock {

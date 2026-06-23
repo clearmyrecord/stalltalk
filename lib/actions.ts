@@ -9,6 +9,7 @@ import { slugify } from "./format";
 import { calculateFlightTotal, flightDateRange, flightEndMonth, normalizeFlightMonth, PRICE_PER_PLACEMENT_MONTH_CENTS, safeFlightMonths } from "./campaign-flights";
 import { qrIssueUrl } from "./qr";
 import { sponsorPlacementLabel } from "./sponsor-placements";
+import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -290,19 +291,22 @@ function revalidateIssuePaths(id: string) {
 
 async function issueData(formData: FormData, existing?: { status: IssueStatus; publishedAt: Date | null }) {
   const status = text(formData, "status", "DRAFT") as IssueStatus;
-  const scheduleDate = nullableText(formData, "publishDate");
-  const scheduleTime = nullableText(formData, "publishTime");
-  const timezone = text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles";
-  const scheduledText = nullableText(formData, "scheduledAt") || (scheduleDate && scheduleTime ? `${scheduleDate}T${scheduleTime}:00` : null);
-  const scheduledAt = scheduledText ? new Date(scheduledText) : null;
-  if (scheduledText && Number.isNaN(scheduledAt?.getTime())) throw new Error("Publish date/time must be valid when provided.");
-  const autoPublish = text(formData, "autoPublish") === "on";
+  const scheduledText = nullableText(formData, "scheduledAt");
+  const publishDate = nullableText(formData, "publishDate");
+  const publishTime = nullableText(formData, "publishTime");
+  const scheduledAt = scheduledText ? new Date(scheduledText) : combinePublishDateTime(publishDate, publishTime);
+  if ((scheduledText || publishDate) && (!scheduledAt || Number.isNaN(scheduledAt.getTime()))) throw new Error("Publish date/time must be valid when provided.");
   const publisherId = text(formData, "publisherId") || (await prisma.publisher.findFirst({ select: { id: true } }))?.id;
   if (!publisherId) throw new Error("Create a publisher before saving an issue.");
   const now = new Date();
   const firstPublishedAt = existing?.publishedAt || (status === "PUBLISHED" ? now : null);
   const republishedAt = existing?.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : null;
-  return { publisherId, venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title: text(formData, "title", "Untitled issue") || "Untitled issue", slug: nullableText(formData, "slug") || undefined, month: text(formData, "month", new Date().toLocaleString("en-US", { month: "long" })) || new Date().toLocaleString("en-US", { month: "long" }), year: intValue(formData, "year", new Date().getFullYear()), issueNumber: intValue(formData, "issueNumber", 1), status, scheduledAt, scheduledPublishAt: scheduledAt, timezone, isScheduled: autoPublish || status === "SCHEDULED", isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
+  const month = text(formData, "month", new Date().toLocaleString("en-US", { month: "long" })) || new Date().toLocaleString("en-US", { month: "long" });
+  const year = intValue(formData, "year", new Date().getFullYear());
+  const title = text(formData, "title", "Untitled issue") || "Untitled issue";
+  const slug = text(formData, "slug", issueSlug(null, month, year));
+  const isScheduled = text(formData, "autoPublish") === "on" && Boolean(scheduledAt) && status !== "PUBLISHED";
+  return { publisherId, venueId: nullableText(formData, "venueId"), restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
 }
 
 function logIssueSavePayload(mode: "create" | "update", formData: FormData, issueId?: string) {
@@ -410,28 +414,28 @@ export async function publishIssue(id: string) {
   await requireAdmin();
   const existing = await prisma.issue.findUniqueOrThrow({ where: { id }, select: { status: true, publishedAt: true } });
   const now = new Date();
-  await prisma.issue.update({ where: { id }, data: { status: "PUBLISHED", publishedAt: existing.publishedAt || now, republishedAt: existing.publishedAt ? now : null } });
+  await prisma.issue.update({ where: { id }, data: { status: "PUBLISHED", isPublished: true, isScheduled: false, isArchived: false, publishedAt: existing.publishedAt || now, republishedAt: existing.publishedAt ? now : null } });
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
 
 export async function unpublishIssue(id: string) {
   await requireAdmin();
-  await prisma.issue.update({ where: { id }, data: { status: "DRAFT" } });
+  await prisma.issue.update({ where: { id }, data: { status: "DRAFT", isPublished: false, isScheduled: false } });
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
 
 export async function archiveIssue(id: string) {
   await requireAdmin();
-  await prisma.issue.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await prisma.issue.update({ where: { id }, data: { status: "ARCHIVED", isArchived: true, archivedAt: new Date() } });
   revalidatePath("/admin/issues");
 }
 
 export async function cloneIssue(id: string) {
   await requireAdmin();
   const source = await prisma.issue.findUniqueOrThrow({ where: { id }, include: { contentBlocks: true, adSlots: true } });
-  const clone = await prisma.issue.create({ data: { publisherId: source.publisherId, venueId: source.venueId, restroomId: source.restroomId, qrCodeId: null, title: source.title, month: source.month, year: source.year, issueNumber: source.issueNumber + 1, status: "DRAFT", scheduledAt: null, contentBlocks: { create: source.contentBlocks.map((block) => ({ articleId: block.articleId, type: block.type, title: block.title, body: block.body, imageUrl: block.imageUrl, venueIds: block.venueIds, sortOrder: block.sortOrder, startsAt: block.startsAt, endsAt: block.endsAt, layout: block.layout === null ? undefined : block.layout })) }, adSlots: { create: source.adSlots.map((slot) => ({ adId: slot.adId, slotNumber: slot.slotNumber, source: slot.source })) } } });
+  const clone = await prisma.issue.create({ data: { publisherId: source.publisherId, venueId: source.venueId, restroomId: source.restroomId, qrCodeId: null, title: source.title, slug: `${source.slug || source.id}-copy-${Date.now()}`, month: source.month, year: source.year, issueNumber: source.issueNumber + 1, status: "DRAFT", scheduledAt: null, isScheduled: false, isPublished: false, isArchived: false, contentBlocks: { create: source.contentBlocks.map((block) => ({ articleId: block.articleId, type: block.type, title: block.title, body: block.body, imageUrl: block.imageUrl, venueIds: block.venueIds, sortOrder: block.sortOrder, startsAt: block.startsAt, endsAt: block.endsAt, layout: block.layout === null ? undefined : block.layout })) }, adSlots: { create: source.adSlots.map((slot) => ({ adId: slot.adId, slotNumber: slot.slotNumber, source: slot.source })) } } });
   revalidatePath("/admin/issues");
   redirect(`/admin/issues/${clone.id}/edit`);
 }

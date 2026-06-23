@@ -5,6 +5,7 @@ import { signOutAction } from "@/lib/actions";
 import { authEnvStatus, currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
+import { EMPTY_ANALYTICS_MESSAGE, getAdvertiserAnalytics } from "@/lib/advertiser-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ const navItems = [
   ["Payments", "/portal/advertiser/payments"],
   ["Published Ads", "/portal/advertiser/published"],
   ["Profile", "/portal/advertiser/profile"],
+  ["Analytics", "/portal/advertiser/analytics"],
 ] as const;
 
 type PortalErrorDetail =
@@ -82,17 +84,15 @@ export default async function AdvertiserPortalPage() {
     if (user?.role === "ADVERTISER" && !advertiser)
       return <AdvertiserPortalErrorCard detail="missing linked advertiser" />;
 
-    const [campaigns, invoices, ads] = advertiser
+    const [campaigns, invoices, analytics] = advertiser
       ? await Promise.all([
           prisma.adCampaign.count({ where: { advertiserId: advertiser.id } }),
           prisma.advertiserInvoice.count({
             where: { advertiserId: advertiser.id },
           }),
-          prisma.ad.count({
-            where: { advertiserId: advertiser.id, status: "ACTIVE" },
-          }),
+          getAdvertiserAnalytics(advertiser.id),
         ])
-      : [0, 0, 0];
+      : [0, 0, await getAdvertiserAnalytics(null)];
 
     return (
       <main className="min-h-screen bg-paper p-8 text-ink">
@@ -116,11 +116,16 @@ export default async function AdvertiserPortalPage() {
             </button>
           </form>
         </header>
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
+        <section className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-4">
           {[
             ["Campaigns", campaigns],
             ["Payments", invoices],
-            ["Published Ads", ads],
+            ["Published Ads", analytics.summary.publishedAds],
+            ["Total Impressions", analytics.summary.totalImpressions],
+            ["Total Clicks", analytics.summary.totalClicks],
+            ["Average CTR", `${analytics.summary.averageCtr.toFixed(2)}%`],
+            ["QR Attributed Views", analytics.summary.qrAttributedViews],
+            ["Conversions", analytics.summary.conversions],
           ].map(([label, value]) => (
             <div
               key={label}
@@ -131,6 +136,11 @@ export default async function AdvertiserPortalPage() {
             </div>
           ))}
         </section>
+        {analytics.empty ? (
+          <p className="mt-6 rounded-xl border-4 border-ink bg-stallYellow p-4 font-black uppercase">
+            {EMPTY_ANALYTICS_MESSAGE}
+          </p>
+        ) : null}
         <nav className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {navItems.map(([item, href]) => (
             <Link

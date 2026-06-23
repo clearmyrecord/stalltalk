@@ -61,13 +61,16 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
     </div>
 
     <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3">
-      <div className="md:col-span-3"><h2 className="font-display text-5xl uppercase">Publishing Schedule</h2><p className="font-bold">Schedule next month in advance. Raw Schedule ISO is hidden from this admin UI.</p></div>
-      <Field name="publishDate" label="Publish Date" type="date" value={(issue as any)?.scheduledPublishAt ? new Date((issue as any).scheduledPublishAt).toISOString().slice(0,10) : ""} />
-      <Field name="publishTime" label="Publish Time" type="time" value={(issue as any)?.scheduledPublishAt ? new Date((issue as any).scheduledPublishAt).toISOString().slice(11,16) : ""} />
+      <div className="md:col-span-3">
+        <h2 className="font-display text-5xl uppercase">Publishing Schedule</h2>
+        <p className="font-bold">Schedule next month’s issue without exposing raw Schedule ISO.</p>
+      </div>
+      <Field name="publishDate" label="Publish Date" type="date" value={dateValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} />
+      <Field name="publishTime" label="Publish Time" type="time" value={timeValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} />
       <Field name="timezone" label="Timezone" value={(issue as any)?.timezone || "America/Los_Angeles"} />
-      <label className="flex items-center gap-2 font-black uppercase"><input type="checkbox" name="autoPublish" defaultChecked={(issue as any)?.isScheduled || false} /> Auto Publish</label>
-      <label className="flex items-center gap-2 font-black uppercase"><input type="checkbox" name="replaceDefaultOnPublish" defaultChecked={(issue as any)?.replaceDefaultOnPublish ?? true} /> Replace Default Global Issue</label>
-      <label className="flex items-center gap-2 font-black uppercase"><input type="checkbox" name="archivePreviousOnPublish" defaultChecked={(issue as any)?.archivePreviousOnPublish ?? true} /> Archive Previous Issue</label>
+      <Check name="autoPublish" label="Auto Publish" checked={(issue as any)?.isScheduled || issue?.status === "SCHEDULED"} />
+      <Check name="replaceDefaultOnPublish" label="Replace Default Global Issue" checked={(issue as any)?.replaceDefaultOnPublish ?? true} />
+      <Check name="archivePreviousOnPublish" label="Archive Previous Issue" checked={(issue as any)?.archivePreviousOnPublish ?? true} />
     </div>
 
     <div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal">
@@ -97,5 +100,8 @@ export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ad
 function VenueMultiSelect({ name, venues, selected }: { name: string; venues: Venue[]; selected: string[] }) {
   return <label className="grid gap-1 font-black uppercase">Venue targeting<span className="text-xs normal-case">No selection = global</span><select name={name} multiple defaultValue={selected} className="min-h-28 rounded border-2 border-ink p-2 normal-case">{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>;
 }
+function dateValue(value?: Date | string | null) { if (!value) return ""; return new Date(value).toISOString().slice(0, 10); }
+function timeValue(value?: Date | string | null) { if (!value) return ""; return new Date(value).toISOString().slice(11, 16); }
+function Check({ name, label, checked }: { name: string; label: string; checked: boolean }) { return <label className="flex items-center gap-3 rounded-xl border-2 border-ink p-3 font-black uppercase"><input type="checkbox" name={name} defaultChecked={checked} className="h-5 w-5" />{label}<input type="hidden" name={name} value="off" /></label>; }
 function Field({ name, label, value, type = "text" }: { name: string; label: string; value: string; type?: string }) { return <label className="grid gap-1 font-black uppercase">{label}<input type={type} name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>; }
 function Select({ name, label, value, options }: { name: string; label: string; value?: string | null; options: Array<[string, string]> }) { return <label className="grid gap-1 font-black uppercase">{label}<select name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3">{options.map(([id, label]) => <option key={id || label} value={id}>{label}</option>)}</select></label>; }
