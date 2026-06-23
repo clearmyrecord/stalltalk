@@ -26,12 +26,12 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
     include: issueInclude
   }) : null;
   const directIssue = previewIssue || await prisma.issue.findFirst({
-    where: { venueId: requestedVenue.id, status: "PUBLISHED", ...(qr ? { qrCode: { qrSlug: qr } } : {}) },
+    where: { venueId: requestedVenue.id, status: "PUBLISHED", isArchived: false, ...(qr ? { qrCode: { qrSlug: qr } } : {}) },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
     include: issueInclude
   });
   const issue = directIssue || await prisma.issue.findFirst({
-    where: { status: "PUBLISHED", OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
+    where: { status: "PUBLISHED", isArchived: false, OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
     include: issueInclude
   });
