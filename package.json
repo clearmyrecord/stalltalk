@@ -20,7 +20,8 @@
     "build:production": "prisma generate && next build",
     "migrate:deploy": "node scripts/prisma-migrate-deploy.mjs",
     "seed-users:reset": "tsx scripts/reset-seed-users.ts",
-    "seed-users:verify": "tsx scripts/verify-seed-users.ts"
+    "seed-users:verify": "tsx scripts/verify-seed-users.ts",
+    "prisma:repair:prod": "prisma db execute --schema prisma/schema.prisma --file scripts/neon-production-schema-repair.sql"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
