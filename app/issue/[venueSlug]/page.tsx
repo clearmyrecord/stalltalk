@@ -10,7 +10,7 @@ import { IssueNotFound } from "@/components/IssueNotFound";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
 export const dynamic = "force-dynamic";
-type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } }; communityEvents: true } }>;
+type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } }; importedEvents: true } }>;
 type ServedAds = Awaited<ReturnType<typeof getServedAds>>;
 type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 
@@ -20,7 +20,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
   if (!requestedVenue) return <IssueNotFound title="Venue issue not found" message="This venue is not active or does not have a public issue route yet." />;
 
-  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } }, communityEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } } } satisfies Prisma.IssueInclude;
+  const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } } } satisfies Prisma.IssueInclude;
   const previewIssue = previewIssueId ? await prisma.issue.findFirst({
     where: { id: previewIssueId, OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     include: issueInclude
@@ -44,7 +44,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   renderIssue.contentBlocks = issue.contentBlocks.filter((block) => (!block.article || block.article.status === "PUBLISHED") && (!block.venueIds.length || block.venueIds.includes(requestedVenue.id)));
   const approvedVenueDrafts = await prisma.venueContentDraft.findMany({ where: { venueId: requestedVenue.id, approvalStatus: "APPROVED" }, orderBy: { approvedAt: "desc" }, take: 3 });
   const now = new Date();
-  const restaurantReviews = await prisma.restaurantReview.findMany({
+  const restaurantReviews = renderIssue.publisherId ? await prisma.restaurantReview.findMany({
     where: {
       publisherId: renderIssue.publisherId,
       status: "PUBLISHED",
@@ -54,7 +54,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
       ]
     },
     orderBy: [{ publishDate: "desc" }, { createdAt: "desc" }]
-  });
+  }) : [];
   const sortedReviews = restaurantReviews.sort((a, b) => reviewPriority(b, requestedVenue.id) - reviewPriority(a, requestedVenue.id));
   const ads = await getServedAds(renderIssue);
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
@@ -87,7 +87,7 @@ function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds;
       <MissionCard missionText="Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall." />
       <PublicationAdFallback ad={publicationAds[0]} slotNumber={1} primary />
       <StaticPublicationBlocks ads={publicationAds} qrCode={issue.qrCode?.qrSlug} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} />
-      <JulyEventsSection events={(issue as any).communityEvents || []} />
+      <JulyEventsSection events={(issue as any).importedEvents || []} />
     </section>
   );
 }
