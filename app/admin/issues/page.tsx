@@ -27,7 +27,7 @@ export default async function IssuesPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-stallRed">
-                  {issue.status} • {issue.month} {issue.year} • {issue.publisher.name}
+                  {issue.status} • {issue.month} {issue.year} • {issue.publisher?.name || "No publisher"}
                 </p>
 
                 <h2 className="font-display text-5xl uppercase">

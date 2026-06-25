@@ -34,7 +34,7 @@ type IssueWithAds = Prisma.IssueGetPayload<{
     restroom: true;
     adSlots: { include: { ad: { include: { campaignHistory: true } } } };
     contentBlocks: { include: { article: true } };
-    communityEvents: true;
+    importedEvents: true;
   };
 }>;
 
@@ -143,7 +143,7 @@ export default async function IssueQueryPage({
           include: { article: true },
           orderBy: { sortOrder: "asc" },
         },
-        communityEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } },
+        importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } },
       },
     });
 
@@ -304,7 +304,7 @@ async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithA
                 : undefined
             }
           />
-          <JulyEventsSection events={issue.communityEvents || []} />
+          <JulyEventsSection events={issue.importedEvents || []} />
         </section>
         <PublicationFooter />
       </article>
