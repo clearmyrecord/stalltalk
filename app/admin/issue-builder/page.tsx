@@ -110,7 +110,7 @@ export default async function IssueBuilderPage() {
               <InlineInventoryPreview
                 slots={SPONSOR_PLACEMENTS.map((placement) => ({
                   slotNumber: placement.number,
-                  name: placement.name,
+                  name: placement.label,
                 }))}
               />
             </aside>
