@@ -517,7 +517,6 @@ model DefaultIssue {
 }
 
 model Issue {
-model Issue {
   id                       String              @id @default(cuid())
   publisherId              String?
   defaultIssueId           String?
@@ -558,7 +557,8 @@ model Issue {
   adSlots                  IssueAdSlot[]
   events                   AnalyticsEvent[]
   qrScans                  QrScan[]
-  currentQrCodes           QrCode[]            @relation("CurrentIssue")
+  currentQrCodes           QrCode[]            @relation("CurrentIssueQr")
+  communityEvents         Event[]
 
   @@index([publisherId])
   @@index([defaultIssueId])
@@ -569,8 +569,6 @@ model Issue {
   @@index([status])
   @@index([isScheduled, scheduledPublishAt])
   @@index([isPublished, isArchived])
-}
-
   @@index([status, year, issueNumber])
   @@index([isScheduled, isPublished, isArchived, scheduledPublishAt])
   @@index([isPublished, isArchived, publishedAt])
@@ -1110,4 +1108,84 @@ model PublishedContent {
   createdAt   DateTime @default(now())
 
   @@index([publishedAt])
+}
+
+enum PottyFavorQrAssetStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  RETIRED
+}
+
+enum CampaignTargetType {
+  sticker
+  restroom
+  venue
+  zip
+  city
+  state
+  default
+}
+
+model PottyFavorQrAsset {
+  id                String                   @id @default(cuid())
+  qrId              String                   @unique @map("qr_id")
+  country           String
+  state             String
+  city              String
+  zip               String
+  venueName         String                   @map("venue_name")
+  venueSlug         String                   @map("venue_slug")
+  restroomName      String                   @map("restroom_name")
+  restroomType      String                   @map("restroom_type")
+  stickerLocation   String                   @map("sticker_location")
+  status            PottyFavorQrAssetStatus  @default(ACTIVE)
+  installedAt       DateTime?                @map("installed_at")
+  currentCampaignId String?                  @map("current_campaign_id")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+
+  @@index([country, state, city, zip])
+  @@index([venueSlug])
+  @@index([currentCampaignId])
+  @@map("potty_favor_qr_assets")
+}
+
+model PottyFavorCampaign {
+  id             String             @id @default(cuid())
+  advertiserName String             @map("advertiser_name")
+  campaignName   String             @map("campaign_name")
+  destinationUrl String             @map("destination_url")
+  active         Boolean            @default(true)
+  startDate      DateTime?          @map("start_date")
+  endDate        DateTime?          @map("end_date")
+  targetType     CampaignTargetType @map("target_type")
+  targetValue    String             @map("target_value")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  @@index([active, targetType, targetValue])
+  @@map("potty_favor_campaigns")
+}
+
+model PottyFavorScanAnalytics {
+  id         String   @id @default(cuid())
+  qrId       String   @map("qr_id")
+  campaignId String?  @map("campaign_id")
+  venueSlug  String   @map("venue_slug")
+  zip        String
+  city       String
+  state      String
+  timestamp  DateTime @default(now())
+  userAgent  String?  @map("user_agent")
+  referrer   String?
+  deviceType String?  @map("device_type")
+  browser    String?
+  os         String?
+
+  @@index([qrId, timestamp])
+  @@index([campaignId, timestamp])
+  @@index([zip, timestamp])
+  @@index([venueSlug, timestamp])
+  @@map("potty_favor_scan_analytics")
 }

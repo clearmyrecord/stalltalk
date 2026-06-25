@@ -29,6 +29,9 @@ const blocks = [
 ] as const;
 
 async function main() {
+  await prisma.pottyFavorScanAnalytics.deleteMany();
+  await prisma.pottyFavorQrAsset.deleteMany();
+  await prisma.pottyFavorCampaign.deleteMany();
   await prisma.authSession.deleteMany();
   await prisma.user.deleteMany();
   await prisma.advertiserInvoice.deleteMany();
@@ -83,6 +86,33 @@ async function main() {
     const seedQr = await prisma.qrCode.create({ data: { publisherId: publisher.id, venueId: seedVenue.id, restroomId: seedRestroom.id, assignedDistributorId: distributor.id, qrSlug, qrName, qrUrl: `/api/qr/${qrSlug}/scan?venue=${venueSlug}`, shortUrl: `/q/${qrSlug}`, qrType: template === "TABLE_TENT" ? "CAMPAIGN" : "RESTROOM", stickerTemplate: template as any, callToAction: "Scan for Potty Favor", campaignSource: `${venueSlug}-launch`, advertisementSource: "qr-sticker", promotionSource: "demo-network", couponSource: "POTTYPOP", status: "ACTIVE", installedAt: new Date("2026-06-02T10:00:00.000Z") } });
     await prisma.qrScan.createMany({ data: Array.from({ length: 8 }, (_, index) => ({ qrCodeId: seedQr.id, publisherId: publisher.id, venueId: seedVenue.id, restroomId: seedRestroom.id, visitorId: `seed-${qrSlug}-${index % 5}`, sessionId: `session-${qrSlug}-${index}`, deviceType: index % 3 === 0 ? "tablet" : "mobile", browser: index % 2 ? "Safari" : "Chrome", operatingSystem: index % 2 ? "iOS" : "Android", city: "Las Vegas", state: "NV", country: "US", referralSource: "direct", campaignSource: `${venueSlug}-launch`, advertisementSource: "qr-sticker", promotionSource: "demo-network", couponSource: "POTTYPOP", dwellTimeMs: 45000 + index * 3000, scannedAt: new Date(Date.now() - index * 86400000) })) });
   }
+
+  const pottyFavorCampaigns = await Promise.all([
+    prisma.pottyFavorCampaign.create({ data: { advertiserName: "MGM Grand", campaignName: "MGM sticker welcome", destinationUrl: "https://example.com/mgm-grand-restroom-offer", active: true, startDate: new Date("2026-06-01T00:00:00.000Z"), endDate: new Date("2026-12-31T23:59:59.999Z"), targetType: "sticker", targetValue: "PF-000001" } }),
+    prisma.pottyFavorCampaign.create({ data: { advertiserName: "Henderson Dining Co-op", campaignName: "Henderson 89012 lunch deals", destinationUrl: "https://example.com/henderson-89012", active: true, startDate: new Date("2026-06-01T00:00:00.000Z"), endDate: new Date("2026-12-31T23:59:59.999Z"), targetType: "zip", targetValue: "89012" } }),
+    prisma.pottyFavorCampaign.create({ data: { advertiserName: "Potty Favor", campaignName: "Default Potty Favor issue", destinationUrl: "/issue", active: true, targetType: "default", targetValue: "default" } })
+  ]);
+
+  await prisma.pottyFavorQrAsset.createMany({ data: Array.from({ length: 10 }, (_, index) => {
+    const henderson = index >= 6;
+    const zip = henderson ? (index % 2 === 0 ? "89012" : "89052") : (index % 2 === 0 ? "89109" : "89012");
+    const city = henderson ? "Henderson" : "Las Vegas";
+    return {
+      qrId: `PF-${String(index + 1).padStart(6, "0")}`,
+      country: "US",
+      state: "NV",
+      city,
+      zip,
+      venueName: index < 6 ? "MGM Grand" : "Henderson Demo Venue",
+      venueSlug: index < 6 ? "mgm-grand" : "henderson-demo-venue",
+      restroomName: index % 3 === 0 ? "Casino Floor Men’s Restroom" : index % 3 === 1 ? "Casino Floor Women’s Restroom" : "Food Court Family Restroom",
+      restroomType: index % 3 === 2 ? "family" : index % 3 === 0 ? "men" : "women",
+      stickerLocation: `Stall ${index + 1} door`,
+      status: "ACTIVE" as const,
+      installedAt: new Date("2026-06-01T10:00:00.000Z"),
+      currentCampaignId: index === 0 ? pottyFavorCampaigns[0].id : null
+    };
+  }) });
 
   const toiletLocation = await prisma.toiletLocation.create({ data: { venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, name: "Casino Floor Men’s QR", label: "MGM Casino QR #001", placement: "Sink wall QR sticker" } });
   await prisma.adSlotInventory.createMany({ data: Array.from({ length: 4 }, (_, index) => ({ venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, toiletLocationId: toiletLocation.id, slotNumber: index + 1, month: "2026-07", priceCents: 5000, status: "OPEN" })) });
