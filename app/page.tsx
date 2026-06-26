@@ -11,10 +11,13 @@ export default function Home() {
           <h1>Potty Favor</h1>
           <p>{publishedIssue.issueMonthYear}</p>
         </header>
+
         <section className="panel">
           <h2>Monthly restroom reading that loads fast.</h2>
           <p>{publishedIssue.missionText}</p>
-          <a className="pill-link" href="/issue">Read the latest issue</a>
+          <a className="pill-link" href="/issue">
+            Read the latest issue
+          </a>
         </section>
       </article>
     </main>

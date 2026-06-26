@@ -8,6 +8,8 @@ import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChr
 import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
 import { IssueNotFound } from "@/components/IssueNotFound";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
+import { StaticIssuePage, requestFromHeaders } from "../static-issue-page";
+import { withPublicTimeout } from "@/lib/public-route-timeouts";
 
 export const dynamic = "force-dynamic";
 type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; venue: true; restroom: true; qrCode: true; contentBlocks: { include: { article: true } }; adSlots: { include: { ad: { include: { campaignHistory: true } } } }; importedEvents: true } }>;
@@ -17,6 +19,17 @@ type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 export default async function IssuePage({ params, searchParams }: { params: Promise<{ venueSlug: string }>; searchParams: Promise<{ qr?: string; previewIssueId?: string }> }) {
   const { venueSlug } = await params;
   const { qr, previewIssueId } = await searchParams;
+  const request = await requestFromHeaders(`/issue/${encodeURIComponent(venueSlug)}${qr ? `?qr=${encodeURIComponent(qr)}` : ""}`);
+
+  try {
+    return await withPublicTimeout(renderVenueIssue({ venueSlug, qr, previewIssueId }), "venue issue database route");
+  } catch (error) {
+    console.error("Venue issue database load failed; rendering static issue fallback.", error);
+    return <StaticIssuePage qrCode={qr} request={request} />;
+  }
+}
+
+async function renderVenueIssue({ venueSlug, qr, previewIssueId }: { venueSlug: string; qr?: string; previewIssueId?: string }) {
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
   if (!requestedVenue) return <IssueNotFound title="Venue issue not found" message="This venue is not active or does not have a public issue route yet." />;
 
@@ -56,7 +69,7 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
     orderBy: [{ publishDate: "desc" }, { createdAt: "desc" }]
   }) : [];
   const sortedReviews = restaurantReviews.sort((a, b) => reviewPriority(b, requestedVenue.id) - reviewPriority(a, requestedVenue.id));
-  const ads = await getServedAds(renderIssue);
+  const ads = await withPublicTimeout(getServedAds(renderIssue), "venue served ads lookup");
   const actualAds = ads.filter((ad): ad is NonNullable<typeof ad> => Boolean(ad));
 
   const monthYear = `${renderIssue.month} ${renderIssue.year}`;
