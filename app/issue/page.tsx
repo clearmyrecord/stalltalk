@@ -46,6 +46,10 @@ export default async function IssueQueryPage({
   const { venue, qr, previewIssueId } = await searchParams;
   const request = await requestFromHeaders(`/issue${qr ? `?qr=${encodeURIComponent(qr)}` : ""}`);
 
+  if (!venue && !qr && !previewIssueId) {
+    return <StaticIssuePage qrCode={undefined} request={request} skipDatabase />;
+  }
+
   if (qr) {
     try {
       await recordQrScan({ code: qr, request, source: "issue-query" });
@@ -178,8 +182,8 @@ async function requestFromHeaders(path: string) {
   return new Request(`${proto}://${host}${path}`, { headers: h });
 }
 
-async function StaticIssuePage({ qrCode, request }: { qrCode?: string; request: Request }) {
-  const defaultCampaigns = await prisma.stalltalkCampaignHistory
+async function StaticIssuePage({ qrCode, request, skipDatabase = false }: { qrCode?: string; request: Request; skipDatabase?: boolean }) {
+  const defaultCampaigns = skipDatabase ? [] : await prisma.stalltalkCampaignHistory
     .findMany({
       where: {
         targetType: DEFAULT_PUBLIC_ISSUE_ID,
@@ -224,7 +228,9 @@ async function StaticIssuePage({ qrCode, request }: { qrCode?: string; request: 
   const ads = getPublicationAds(
     dbAds.length ? dbAds : publishedAds.filter((ad) => ad.active !== false),
   );
-  await Promise.all(ads.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, issueId: DEFAULT_PUBLIC_ISSUE_ID, request }).catch((error) => console.error("Ad impression analytics failed", error))));
+  if (!skipDatabase) {
+    await Promise.all(ads.map((ad, index) => recordAdImpression({ adId: ad.id, campaignId: (ad as any).campaignId, slotNumber: index + 1, qrCode, issueId: DEFAULT_PUBLIC_ISSUE_ID, request }).catch((error) => console.error("Ad impression analytics failed", error))));
+  }
 
   return (
     <main className="public-page">
