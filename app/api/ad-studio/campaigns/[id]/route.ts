@@ -14,7 +14,7 @@ async function deleteCampaign(id: string, publishedOnly = false) {
     return NextResponse.json({ error: "Published campaign not found" }, { status: 404 });
   }
   if (campaign.adId) {
-    await prisma.ad.updateMany({ where: { id: campaign.adId }, data: { status: "ARCHIVED" } });
+    await prisma.ad.updateMany({ where: { id: campaign.adId }, data: { status: publishedOnly ? "PAUSED" : "ARCHIVED" } });
     await prisma.issueAdSlot.deleteMany({ where: { adId: campaign.adId } });
   }
   if (campaign.slotPublished) {
@@ -25,7 +25,7 @@ async function deleteCampaign(id: string, publishedOnly = false) {
   }
   await prisma.stalltalkCampaignHistory.updateMany({
     where: { OR: [{ campaignId: id }, { id }] },
-    data: { publishStatus: "DELETED", publishedToHomepage: false, slotPublished: null },
+    data: { publishStatus: publishedOnly ? "UNPUBLISHED" : "DELETED", publishedToHomepage: false, slotPublished: null },
   });
   revalidatePath("/");
   revalidatePath("/issue");

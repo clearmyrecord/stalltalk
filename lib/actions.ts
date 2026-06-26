@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus, MediaAssetType, VenueContentType } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -419,6 +419,27 @@ export async function deleteRestaurantReview(id: string) {
   await prisma.restaurantReview.delete({ where: { id } });
   revalidatePath("/admin/restaurant-reviews");
   revalidatePath("/issue");
+}
+
+export async function unpublishAd(id: string) {
+  await requireAdmin();
+  await prisma.$transaction(async (tx) => {
+    const ad = await tx.ad.findUnique({ where: { id }, select: { id: true } });
+    if (!ad) throw new Error("Ad not found.");
+    await tx.issueAdSlot.deleteMany({ where: { adId: id } });
+    await tx.stalltalkAdSlot.updateMany({ where: { adId: id }, data: { adId: null } });
+    await tx.stalltalkCampaignHistory.updateMany({
+      where: { adId: id, publishStatus: "PUBLISHED" },
+      data: { publishStatus: "UNPUBLISHED", publishedToHomepage: false, slotPublished: null },
+    });
+    await tx.ad.update({ where: { id }, data: { status: "PAUSED" } });
+  });
+  revalidatePath("/");
+  revalidatePath("/issue");
+  revalidatePath("/admin/ads");
+  revalidatePath("/admin/campaigns");
+  revalidatePath("/admin/ad-studio");
+  revalidateTag("published-ads");
 }
 
 export async function deleteAd(id: string) { await requireAdmin(); await prisma.ad.delete({ where: { id } }); revalidatePath("/admin/ads"); }
