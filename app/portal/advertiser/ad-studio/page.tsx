@@ -2,6 +2,7 @@ import { AdStudioAgency } from "@/components/AdStudioAgency";
 import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
 import { createAd } from "@/lib/actions";
 import {
+  AdvertiserProfileRequired,
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
@@ -55,10 +56,9 @@ function AdvertiserOnboarding() {
 export default async function AdvertiserAdStudioPage() {
   const user = await requireAdvertiserPortalUser();
   const advertiser = await advertiserForPortalUser(user);
-  if (user.role === "ADVERTISER" && !advertiser)
-    return <AdvertiserOnboarding />;
+  if (!advertiser) return user.role === "ADVERTISER" ? <AdvertiserOnboarding /> : <AdvertiserProfileRequired />;
 
-  const advertiserWhere = advertiser ? { advertiserId: advertiser.id } : {};
+  const advertiserWhere = { advertiserId: advertiser.id };
   const existingRows = process.env.DATABASE_URL
     ? await prisma.$queryRaw<
         Array<{ column_name: string }>
