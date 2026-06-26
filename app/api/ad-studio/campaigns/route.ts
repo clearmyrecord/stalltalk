@@ -538,33 +538,41 @@ async function publishCampaign(body: Record<string, unknown>) {
 }
 
 async function unpublishCampaign(campaignId: string) {
-  const campaign = await prisma.stalltalkCampaignHistory.findUnique({
-    where: { campaignId },
+  const campaign = await prisma.stalltalkCampaignHistory.findFirst({
+    where: { OR: [{ campaignId }, { id: campaignId }] },
   });
   if (!campaign)
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
-  if (campaign.adId)
-    await prisma.ad.update({
-      where: { id: campaign.adId },
-      data: { status: "PAUSED" },
-    });
-  await prisma.issueAdSlot.deleteMany({ where: { adId: campaign.adId || "" } });
-  if (campaign.publishedToHomepage && campaign.slotPublished)
-    await prisma.stalltalkAdSlot.updateMany({
-      where: {
-        slotNumber: campaign.slotPublished,
-        adId: campaign.adId || undefined,
+  await prisma.$transaction(async (tx) => {
+    if (campaign.adId) {
+      await tx.ad.updateMany({
+        where: { id: campaign.adId },
+        data: { status: "PAUSED" },
+      });
+      await tx.issueAdSlot.deleteMany({ where: { adId: campaign.adId } });
+      await tx.stalltalkAdSlot.updateMany({
+        where: { adId: campaign.adId },
+        data: { adId: null },
+      });
+    }
+    if (campaign.publishedToHomepage && campaign.slotPublished)
+      await tx.stalltalkAdSlot.updateMany({
+        where: {
+          slotNumber: campaign.slotPublished,
+          ...(campaign.adId ? { adId: campaign.adId } : {}),
+        },
+        data: { adId: null },
+      });
+    await tx.stalltalkCampaignHistory.updateMany({
+      where: { OR: [{ campaignId }, { id: campaignId }] },
+      data: {
+        publishStatus: "UNPUBLISHED",
+        slotPublished: null,
+        publishedToHomepage: false,
       },
-      data: { adId: null },
     });
-  const item = await prisma.stalltalkCampaignHistory.update({
-    where: { campaignId },
-    data: {
-      publishStatus: "UNPUBLISHED",
-      slotPublished: null,
-      publishedToHomepage: false,
-    },
   });
+  const item = await prisma.stalltalkCampaignHistory.findFirstOrThrow({ where: { OR: [{ campaignId }, { id: campaignId }] } });
   revalidatePath("/");
   revalidatePath("/issue");
   revalidateTag("published-ads");

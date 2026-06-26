@@ -12,12 +12,17 @@ export async function DELETE(_request: Request, { params }: Params) {
   const { id } = await params;
   const campaign = await prisma.stalltalkCampaignHistory.findFirst({ where: { OR: [{ campaignId: id }, { id }], publishStatus: "PUBLISHED" } });
   if (!campaign) return NextResponse.json({ error: "Published campaign not found" }, { status: 404 });
-  if (campaign.adId) {
-    await prisma.ad.updateMany({ where: { id: campaign.adId }, data: { status: "ARCHIVED" } });
-    await prisma.issueAdSlot.deleteMany({ where: { adId: campaign.adId } });
-  }
-  if (campaign.slotPublished) await prisma.stalltalkAdSlot.updateMany({ where: { slotNumber: campaign.slotPublished, ...(campaign.adId ? { adId: campaign.adId } : {}) }, data: { adId: null } });
-  await prisma.stalltalkCampaignHistory.update({ where: { campaignId: campaign.campaignId }, data: { publishStatus: "DELETED", publishedToHomepage: false, slotPublished: null } });
+
+  await prisma.$transaction(async (tx) => {
+    if (campaign.adId) {
+      await tx.ad.updateMany({ where: { id: campaign.adId }, data: { status: "PAUSED" } });
+      await tx.issueAdSlot.deleteMany({ where: { adId: campaign.adId } });
+      await tx.stalltalkAdSlot.updateMany({ where: { adId: campaign.adId }, data: { adId: null } });
+    }
+    if (campaign.slotPublished) await tx.stalltalkAdSlot.updateMany({ where: { slotNumber: campaign.slotPublished, ...(campaign.adId ? { adId: campaign.adId } : {}) }, data: { adId: null } });
+    await tx.stalltalkCampaignHistory.updateMany({ where: { OR: [{ campaignId: id }, { id }] }, data: { publishStatus: "UNPUBLISHED", publishedToHomepage: false, slotPublished: null } });
+  });
+
   revalidatePath("/"); revalidatePath("/issue"); revalidatePath("/admin/ad-studio"); revalidatePath("/admin/campaigns"); revalidateTag("published-ads");
   return NextResponse.json({ ok: true });
 }
