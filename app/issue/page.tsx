@@ -46,6 +46,10 @@ export default async function IssueQueryPage({
   const { venue, qr, previewIssueId } = await searchParams;
   const request = await requestFromHeaders(`/issue${qr ? `?qr=${encodeURIComponent(qr)}` : ""}`);
 
+  if (!venue && !qr && !previewIssueId) {
+    return <StaticIssuePage qrCode={undefined} request={request} skipDatabase />;
+  }
+
   if (qr) {
     try {
       await withPublicTimeout(
@@ -178,6 +182,80 @@ export default async function IssueQueryPage({
   return <StaticIssuePage qrCode={qr} request={request} />;
 }
 
+function safeHost(request?: Request) {
+  const host =
+    request?.headers.get("x-forwarded-host") ||
+    request?.headers.get("host") ||
+    "localhost:3000";
+
+  return /^https?:\/\//i.test(host) ? host : `https://${host}`;
+}
+
+async function StaticIssuePage({
+  qrCode,
+  request,
+  skipDatabase = false,
+}: {
+  qrCode?: string;
+  request?: Request;
+  skipDatabase?: boolean;
+}) {
+  let ads: PublicationAd[] = [];
+
+  if (!skipDatabase) {
+    try {
+      const defaultIssue = await prisma.defaultIssue.findFirst({
+        where: {
+          OR: [
+            { slug: DEFAULT_PUBLIC_ISSUE_ID },
+            { status: "PUBLISHED" },
+          ],
+        },
+        orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
+      });
+
+      const campaigns = await prisma.stalltalkCampaignHistory.findMany({
+        where: { publishedToHomepage: true },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      });
+
+      ads = campaigns.map(reducePublicationAdLike).filter(Boolean) as PublicationAd[];
+    } catch (error) {
+      console.error("Default issue unavailable. Using static fallback.", error);
+    }
+  }
+
+  const publishedAds = ads.length ? ads : publishedIssue.ads;
+  const adSlots = buildAdSlotsFromPublishedAds(publishedAds);
+
+  if (!skipDatabase) {
+    await Promise.all(
+      adSlots.map((ad, index) =>
+        recordAdImpression({
+          adId: ad.id,
+          campaignId: ad.campaignId,
+          slotNumber: index + 1,
+          qrCode,
+          issueId: DEFAULT_PUBLIC_ISSUE_ID,
+          request,
+        }).catch((error) =>
+          console.error("Ad impression analytics failed", error)
+        )
+      )
+    );
+  }
+
+  return (
+    <main className="public-page">
+      <article>
+        <h1>Potty Favor</h1>
+        <p>Current monthly issue</p>
+        <StaticPublicationBlocks issue={publishedIssue} ads={adSlots} qrCode={qrCode} />
+      </article>
+    </main>
+  );
+}
 async function DatabaseIssuePage({ issue, qrCode, request }: { issue: IssueWithAds; qrCode?: string; request: Request }) {
   let ads: Awaited<ReturnType<typeof getServedAds>> = [];
   try {
