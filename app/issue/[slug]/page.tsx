@@ -1,3 +1,4 @@
+import GlobalIssuePage from "../page";
 import type { Prisma } from "@prisma/client";
 import { ImpressionRecorder } from "@/components/ImpressionRecorder";
 import { ScanRecorder } from "@/components/ScanRecorder";
@@ -16,15 +17,27 @@ type IssueWithContext = Prisma.IssueGetPayload<{ include: { publisher: true; ven
 type ServedAds = Awaited<ReturnType<typeof getServedAds>>;
 type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 
-export default async function IssuePage({ params, searchParams }: { params: Promise<{ venueSlug: string }>; searchParams: Promise<{ qr?: string; previewIssueId?: string }> }) {
-  const { venueSlug } = await params;
-  const { qr, previewIssueId } = await searchParams;
-  const request = await requestFromHeaders(`/issue/${encodeURIComponent(venueSlug)}${qr ? `?qr=${encodeURIComponent(qr)}` : ""}`);
+export default async function IssuePage({ params, searchParams }: { params: Promise<{ slug?: string; venueSlug?: string }>; searchParams: Promise<{ qr?: string; previewIssueId?: string }> }) {
+  const { slug, venueSlug: legacyVenueSlug } = await params;
+  const routeSlug = slug || legacyVenueSlug || "";
+  const query = await searchParams;
+  const { qr, previewIssueId } = query;
+  const request = await requestFromHeaders(`/issue/${encodeURIComponent(routeSlug)}${qr ? `?qr=${encodeURIComponent(qr)}` : ""}`);
 
   try {
-    return await withPublicTimeout(renderVenueIssue({ venueSlug, qr, previewIssueId }), "venue issue database route");
+    const issue = await withPublicTimeout(
+      prisma.issue.findFirst({ where: { slug: routeSlug }, include: { venue: true } }),
+      "specific issue lookup",
+    );
+    if (issue) {
+      const routedQuery = { ...query, previewIssueId: issue.id };
+      if (issue.venue?.slug) return await renderVenueIssue({ venueSlug: issue.venue.slug, qr, previewIssueId: issue.id });
+      return <GlobalIssuePage searchParams={Promise.resolve(routedQuery)} />;
+    }
+
+    return await withPublicTimeout(renderVenueIssue({ venueSlug: routeSlug, qr, previewIssueId }), "venue issue database route");
   } catch (error) {
-    console.error("Venue issue database load failed; rendering static issue fallback.", error);
+    console.error("Issue database load failed; rendering static issue fallback.", error);
     return <StaticIssuePage qrCode={qr} request={request} />;
   }
 }
