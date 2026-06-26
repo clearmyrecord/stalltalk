@@ -100,6 +100,8 @@ function historySelect(item: any) {
 
 export async function GET() {
   const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  if (user.role === "ADVERTISER" && !user.advertiserId)
+    return NextResponse.json({ error: "Advertiser profile required" }, { status: 403 });
   const campaigns = await prisma.stalltalkCampaignHistory.findMany({
     where: campaignWhereForUser(user),
     include: {
@@ -121,6 +123,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  if (user.role === "ADVERTISER" && !user.advertiserId)
+    return NextResponse.json({ error: "Advertiser profile required" }, { status: 403 });
   const body = normalizeBodyForUser(
     (await request.json()) as Record<string, unknown>,
     user,
@@ -136,6 +140,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  if (user.role === "ADVERTISER" && !user.advertiserId)
+    return NextResponse.json({ error: "Advertiser profile required" }, { status: 403 });
   const body = normalizeBodyForUser(
     (await request.json()) as Record<string, unknown>,
     user,
@@ -163,6 +169,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   const user = await requireRole(["ADMIN", "ADVERTISER"] as any);
+  if (user.role === "ADVERTISER" && !user.advertiserId)
+    return NextResponse.json({ error: "Advertiser profile required" }, { status: 403 });
   const body = normalizeBodyForUser(
     (await request.json()) as Record<string, unknown>,
     user,

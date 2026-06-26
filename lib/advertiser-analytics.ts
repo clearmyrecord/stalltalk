@@ -25,8 +25,7 @@ function increment(map: Record<string, number>, key: string, by = 1) {
   map[key] = (map[key] || 0) + by;
 }
 
-export async function advertiserIdForAnalytics(user: User, url?: URL) {
-  if (user.role === "ADMIN") return url?.searchParams.get("advertiserId") || user.advertiserId || null;
+export async function advertiserIdForAnalytics(user: User) {
   return user.advertiserId;
 }
 
