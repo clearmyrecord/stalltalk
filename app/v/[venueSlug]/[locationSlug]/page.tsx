@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import VenueIssuePage from "@/app/issue/[venueSlug]/page";
+import VenueIssuePage from "@/app/issue/[slug]/page";
 import { locationSlug as makeLocationSlug } from "@/lib/issue-routing";
 export const dynamic = "force-dynamic";
 export default async function Page({ params, searchParams }: any) {

@@ -1,4 +1,4 @@
-import IssueByVenuePage from "./[venueSlug]/page";
+import IssueByVenuePage from "./[slug]/page";
 import {
   MissionCard,
   PublicationFooter,
@@ -53,7 +53,7 @@ export default async function IssueQueryPage({
   );
 
   if (!venue && !qr && !previewIssueId) {
-    return <StaticIssuePage qrCode={undefined} request={request} skipDatabase />;
+    return <StaticIssuePage qrCode={undefined} request={request} />;
   }
 
   if (qr) {
@@ -78,7 +78,7 @@ export default async function IssueQueryPage({
       "Public issue database load failed; rendering static fallback issue.",
       error,
     );
-    return <StaticIssuePage qrCode={qr} request={request} skipDatabase />;
+    return <StaticIssuePage qrCode={qr} request={request} />;
   }
 }
 
@@ -217,7 +217,7 @@ async function loadDatabaseBackedIssue({
     );
   }
 
-  return <StaticIssuePage qrCode={qr} request={request} skipDatabase />;
+  return <StaticIssuePage qrCode={qr} request={request} />;
 }
 
 async function DatabaseIssuePage({

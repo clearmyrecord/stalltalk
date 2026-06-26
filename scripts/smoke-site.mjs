@@ -4,7 +4,7 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-const issuePage = readFileSync("app/issue/[venueSlug]/page.tsx", "utf8");
+const issuePage = readFileSync("app/issue/[slug]/page.tsx", "utf8");
 const adminLayout = readFileSync("app/admin/layout.tsx", "utf8");
 const actions = readFileSync("lib/actions.ts", "utf8");
 const legacyReadme = readFileSync("legacy/localstorage-publishing/README.md", "utf8");

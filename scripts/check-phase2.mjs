@@ -19,7 +19,7 @@ const requiredFiles = [
 ];
 
 const schema = readFileSync("prisma/schema.prisma", "utf8");
-const issuePage = readFileSync("app/issue/[venueSlug]/page.tsx", "utf8");
+const issuePage = readFileSync("app/issue/[slug]/page.tsx", "utf8");
 const adServing = readFileSync("lib/ad-serving.ts", "utf8");
 const readme = readFileSync("README.md", "utf8");
 
