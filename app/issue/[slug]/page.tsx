@@ -4,6 +4,7 @@ import { ImpressionRecorder } from "@/components/ImpressionRecorder";
 import { ScanRecorder } from "@/components/ScanRecorder";
 import { RestaurantReviewCard } from "@/components/RestaurantReviewCard";
 import { getServedAds } from "@/lib/ad-serving";
+import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MissionCard, PublicationHeader } from "@/components/PublicationIssueChrome";
 import { getPublicationAds, PublicationAdFallback, StaticPublicationBlocks, type PublicationAdLike } from "@/components/StaticPublicationBlocks";
@@ -30,6 +31,8 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
       "specific issue lookup",
     );
     if (issue) {
+      const canView = await canViewIssue(issue);
+      if (!canView) return <IssueNotFound title="Issue not available" message="This issue is not published yet." />;
       const routedQuery = { ...query, previewIssueId: issue.id };
       if (issue.venue?.slug) return await renderVenueIssue({ venueSlug: issue.venue.slug, qr, previewIssueId: issue.id });
       return <GlobalIssuePage searchParams={Promise.resolve(routedQuery)} />;
@@ -42,15 +45,24 @@ export default async function IssuePage({ params, searchParams }: { params: Prom
   }
 }
 
+async function canViewIssue(issue: { status: string; isPublished: boolean; isArchived: boolean; venueId?: string | null }) {
+  if (issue.status === "PUBLISHED" && issue.isPublished && !issue.isArchived) return true;
+  const user = await currentUser();
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  return user.role === "VENUE_MANAGER" && Boolean(issue.venueId) && user.venueId === issue.venueId;
+}
+
 async function renderVenueIssue({ venueSlug, qr, previewIssueId }: { venueSlug: string; qr?: string; previewIssueId?: string }) {
   const requestedVenue = await prisma.venue.findFirst({ where: { slug: venueSlug, isActive: true } });
   if (!requestedVenue) return <IssueNotFound title="Venue issue not found" message="This venue is not active or does not have a public issue route yet." />;
 
   const issueInclude = { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, orderBy: { date: "asc" } } } satisfies Prisma.IssueInclude;
-  const previewIssue = previewIssueId ? await prisma.issue.findFirst({
+  const previewCandidate = previewIssueId ? await prisma.issue.findFirst({
     where: { id: previewIssueId, OR: [{ venueId: null }, { venueId: requestedVenue.id }] },
     include: issueInclude
   }) : null;
+  const previewIssue = previewCandidate && await canViewIssue(previewCandidate) ? previewCandidate : null;
   const directIssue = previewIssue || await prisma.issue.findFirst({
     where: { venueId: requestedVenue.id, status: "PUBLISHED", isArchived: false, ...(qr ? { qrCode: { qrSlug: qr } } : {}) },
     orderBy: [{ year: "desc" }, { issueNumber: "desc" }],

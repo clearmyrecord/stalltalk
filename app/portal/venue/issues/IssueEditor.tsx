@@ -1,7 +1,8 @@
 import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, QrCode, Restroom } from "@prisma/client";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 import { contentLabels } from "@/lib/format";
-import { issuePublicPath } from "@/lib/issue-routing";
+import { issuePublicPath, issuePublicUrl } from "@/lib/issue-routing";
+import { PublicIssueUrlActions } from "@/components/PublicIssueUrlActions";
 
 type VenueIssue = Issue & { contentBlocks?: IssueContentBlock[]; adSlots?: (IssueAdSlot & { ad?: Ad })[]; venue?: { slug: string } | null };
 
@@ -14,9 +15,11 @@ export function IssueEditor({ action, issue, articles = [], ads = [], restrooms 
   const now = new Date();
   const blocks = CONTENT_ZONES.map(([key], index) => issue?.contentBlocks?.find((block) => (block.layout as any)?.key === key) || issue?.contentBlocks?.find((block) => block.sortOrder === index + 1));
   const previewHref = issue ? `${issuePublicPath(issue as any)}?previewIssueId=${encodeURIComponent(issue.id)}` : null;
+  const publicIssueUrl = issue?.slug || issue?.id ? issuePublicUrl(issue as any) : null;
   return <form action={action} className="mt-6 grid gap-5">
     <section className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-6 shadow-brutal">
       <p className="rounded-xl bg-stallYellow p-3 font-black text-ink">Build a complete Potty Favor issue for your linked venue only. Public/global ads and admin-only data are not exposed here.</p>
+      {publicIssueUrl ? <div className="grid gap-2 rounded-xl border-4 border-ink bg-paper p-4"><p className="text-xs font-black uppercase tracking-[.2em] text-stallPurple">Public Issue URL</p><input readOnly value={publicIssueUrl} className="w-full rounded-lg border-2 border-ink bg-white p-2 font-mono text-sm" /><PublicIssueUrlActions url={publicIssueUrl} /><p className="text-xs font-bold uppercase text-ink">Only published issues are visible publicly. Drafts require an authorized venue/admin preview.</p></div> : null}
       {previewHref ? <a className="w-fit rounded-xl border-4 border-ink bg-stallYellow px-5 py-3 font-black uppercase" href={previewHref} target="_blank">Preview Issue</a> : null}
       <label className="font-black uppercase">Title<input name="title" required defaultValue={issue?.title || "Potty Favor"} className="mt-1 w-full rounded-xl border-4 border-ink p-3" /></label>
       <div className="grid gap-4 md:grid-cols-5">
