@@ -107,12 +107,13 @@ function IssueContent({ issue, ads }: { issue: IssueWithContext; ads: ServedAds;
   const articleBlocks = issue.contentBlocks.filter((block) => block.type === "ARTICLE");
   const [mainFeature, secondaryFeature] = articleBlocks;
   const publicationAds = getPublicationAds(ads.map((ad) => ad || undefined) as PublicationAdLike[]);
+  const missionBlock = issue.contentBlocks.find((block) => block.type === "MISSION" || (block.layout as any)?.key === "mission");
 
   return (
     <section className="print-grid">
-      <MissionCard missionText="Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall." />
+      <MissionCard missionText={missionBlock?.body || "Our mission is to inspire, inform, educate, and entertain humanity — all from the comfort of your very own stall."} />
       <PublicationAdFallback ad={publicationAds[0]} slotNumber={1} primary />
-      <StaticPublicationBlocks ads={publicationAds} qrCode={issue.qrCode?.qrSlug} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} />
+      <StaticPublicationBlocks ads={publicationAds} qrCode={issue.qrCode?.qrSlug} mainFeature={mainFeature ? { title: mainFeature.title, body: mainFeature.body } : undefined} secondaryFeature={secondaryFeature ? { title: secondaryFeature.title, body: secondaryFeature.body } : undefined} blocks={issue.contentBlocks} />
       <JulyEventsSection events={(issue as any).importedEvents || []} />
     </section>
   );

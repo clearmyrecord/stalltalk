@@ -338,7 +338,7 @@ async function saveContentBlocks(issueId: string, formData: FormData, db: any = 
   const blocks = Array.from({ length: 9 }, (_, index) => {
     const row = index + 1;
     const layoutKey = text(formData, `blockLayoutKey${row}`, `slot-${row}`);
-    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: row, layout: { key: layoutKey, zone: `slot-${row}`, locked: false } };
+    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: intValue(formData, `blockSortOrder${row}`, row), layout: { key: layoutKey, zone: `slot-${row}`, locked: false } };
   }).filter((block) => block.title || block.body || block.articleId);
   const types = blocks.map((block) => block.type);
   if (new Set(types).size !== types.length) throw new Error("Content type already assigned.");
@@ -352,8 +352,25 @@ function selectedVenueIds(formData: FormData, key = "venueIds") {
 }
 
 async function saveAdSlots(issueId: string, formData: FormData, db: any = prisma) {
-  const slots = Array.from({ length: 8 }, (_, index) => ({ slotNumber: index + 1, adId: text(formData, `slot${index + 1}`) })).filter((slot) => slot.adId).map((slot) => ({ ...slot, issueId }));
+  const slots = Array.from({ length: 8 }, (_, index) => ({ slotNumber: index + 1, adId: text(formData, `slot${index + 1}`), source: "VENUE" as AdScope })).filter((slot) => slot.adId).map((slot) => ({ ...slot, issueId }));
   if (slots.length) await db.issueAdSlot.createMany({ data: slots });
+}
+
+async function assertVenueIssueReferences(formData: FormData, venueId: string, publisherId: string) {
+  const articleIds = Array.from({ length: 9 }, (_, index) => nullableText(formData, `blockArticle${index + 1}`)).filter(Boolean) as string[];
+  if (articleIds.length) {
+    const count = await prisma.article.count({ where: { id: { in: articleIds }, publisherId, OR: [{ venueIds: { has: venueId } }, { venueIds: { isEmpty: true } }] } });
+    if (count !== new Set(articleIds).size) throw new Error("One or more selected articles are not available to your venue.");
+  }
+  const adIds = Array.from({ length: 8 }, (_, index) => nullableText(formData, `slot${index + 1}`)).filter(Boolean) as string[];
+  if (adIds.length) {
+    const count = await prisma.ad.count({ where: { id: { in: adIds }, status: "ACTIVE", scope: { in: ["VENUE", "RESTROOM"] }, OR: [{ venueId }, { venueIds: { has: venueId } }, { restroom: { venueId } }] } });
+    if (count !== new Set(adIds).size) throw new Error("One or more selected sponsor placements are not available to your venue.");
+  }
+  const restroomId = nullableText(formData, "restroomId");
+  if (restroomId && !(await prisma.restroom.findFirst({ where: { id: restroomId, venueId }, select: { id: true } }))) throw new Error("Selected restroom is not linked to your venue.");
+  const qrCodeId = nullableText(formData, "qrCodeId");
+  if (qrCodeId && !(await prisma.qrCode.findFirst({ where: { id: qrCodeId, venueId }, select: { id: true } }))) throw new Error("Selected QR code is not linked to your venue.");
 }
 
 export async function createVenueIssue(formData: FormData) {
@@ -363,14 +380,18 @@ export async function createVenueIssue(formData: FormData) {
   if (!venue) throw new Error("Linked venue was not found.");
   const requestedStatus = text(formData, "status", "DRAFT") as IssueStatus;
   const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  await assertVenueIssueReferences(formData, venue.id, venue.publisherId);
   const now = new Date();
   const month = text(formData, "month", now.toLocaleString("en-US", { month: "long" }));
   const year = intValue(formData, "year", now.getFullYear());
   const title = text(formData, "title", `${month} ${year} Venue Issue`);
   const slug = `${slugify(title)}-${Date.now()}`;
-  const issue = await prisma.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, title, slug, publicUrl: `${publicBaseUrl()}/v/${venue.slug}/${slug}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: false, month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
+  const issue = await prisma.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}/issue/${slug}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
+  await saveContentBlocks(issue.id, formData);
+  await saveAdSlots(issue.id, formData);
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
+  revalidatePath(`/issue/${venue.slug}`);
   redirect(`/portal/venue/issues/${issue.id}/edit?saved=1`);
 }
 
@@ -379,14 +400,24 @@ export async function updateVenueIssue(id: string, formData: FormData) {
   if (!user.venueId) throw new Error("Link a venue before editing issues.");
   const existing = await prisma.issue.findFirst({ where: { id, venueId: user.venueId } });
   if (!existing) throw new Error("Issue not found for your venue.");
+  const venue = await prisma.venue.findUnique({ where: { id: user.venueId }, select: { id: true, publisherId: true, slug: true } });
+  if (!venue) throw new Error("Linked venue was not found.");
   const requestedStatus = text(formData, "status", existing.status) as IssueStatus;
   if (requestedStatus === "ARCHIVED") throw new Error("Venue issues can be drafted, published, or unpublished, but not archived from the portal.");
   const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  await assertVenueIssueReferences(formData, venue.id, venue.publisherId);
   const now = new Date();
-  await prisma.issue.update({ where: { id }, data: { title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
+  await prisma.$transaction(async (tx) => {
+    await tx.issue.update({ where: { id }, data: { restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), isLocationIssue: Boolean(nullableText(formData, "restroomId")), title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
+    await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
+    await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
+    await saveContentBlocks(id, formData, tx);
+    await saveAdSlots(id, formData, tx);
+  });
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/portal/venue/issues/${id}/edit`);
+  revalidatePath(`/issue/${venue.slug}`);
 }
 
 export async function setVenueIssueStatus(id: string, status: IssueStatus) {
