@@ -59,6 +59,8 @@ export default async function IssuesPage() {
                   Edit
                 </Link>
 
+                {issue.status === "PUBLISHED" ? <form action={unpublishIssue.bind(null, issue.id)}><button className="rounded-lg bg-stallYellow px-4 py-2 font-black uppercase">Unpublish</button></form> : null}
+
                 <form action={deleteIssue.bind(null, issue.id)}>
                   <button className="rounded-lg bg-stallRed px-4 py-2 font-black uppercase text-white">
                     Delete

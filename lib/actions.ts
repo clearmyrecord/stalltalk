@@ -359,10 +359,10 @@ async function saveAdSlots(issueId: string, formData: FormData, db: any = prisma
 export async function createVenueIssue(formData: FormData) {
   const user = await requireVenueManager();
   if (!user.venueId) throw new Error("Link a venue before creating issues.");
-  const venue = await prisma.venue.findUnique({ where: { id: user.venueId }, select: { id: true, publisherId: true, slug: true, directPublishingApproved: true } });
+  const venue = await prisma.venue.findUnique({ where: { id: user.venueId }, select: { id: true, publisherId: true, slug: true } });
   if (!venue) throw new Error("Linked venue was not found.");
   const requestedStatus = text(formData, "status", "DRAFT") as IssueStatus;
-  const status = requestedStatus === "PUBLISHED" && venue.directPublishingApproved ? "PUBLISHED" : "DRAFT";
+  const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
   const now = new Date();
   const month = text(formData, "month", now.toLocaleString("en-US", { month: "long" }));
   const year = intValue(formData, "year", now.getFullYear());
@@ -377,11 +377,11 @@ export async function createVenueIssue(formData: FormData) {
 export async function updateVenueIssue(id: string, formData: FormData) {
   const user = await requireVenueManager();
   if (!user.venueId) throw new Error("Link a venue before editing issues.");
-  const existing = await prisma.issue.findFirst({ where: { id, venueId: user.venueId }, include: { venue: { select: { directPublishingApproved: true } } } });
+  const existing = await prisma.issue.findFirst({ where: { id, venueId: user.venueId } });
   if (!existing) throw new Error("Issue not found for your venue.");
   const requestedStatus = text(formData, "status", existing.status) as IssueStatus;
   if (requestedStatus === "ARCHIVED") throw new Error("Venue issues can be drafted, published, or unpublished, but not archived from the portal.");
-  const status = requestedStatus === "PUBLISHED" && !existing.venue?.directPublishingApproved ? "DRAFT" : requestedStatus;
+  const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
   const now = new Date();
   await prisma.issue.update({ where: { id }, data: { title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
   revalidatePath("/portal/venue");
@@ -393,9 +393,8 @@ export async function setVenueIssueStatus(id: string, status: IssueStatus) {
   const user = await requireVenueManager();
   if (!user.venueId) throw new Error("Link a venue before managing issues.");
   if (!["DRAFT", "PUBLISHED"].includes(status)) throw new Error("Unsupported venue issue status.");
-  const issue = await prisma.issue.findFirst({ where: { id, venueId: user.venueId }, include: { venue: { select: { directPublishingApproved: true } } } });
+  const issue = await prisma.issue.findFirst({ where: { id, venueId: user.venueId } });
   if (!issue) throw new Error("Issue not found for your venue.");
-  if (status === "PUBLISHED" && !issue.venue?.directPublishingApproved) throw new Error("Publishing is not enabled for this venue yet.");
   const now = new Date();
   await prisma.issue.update({ where: { id }, data: { status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? issue.publishedAt || now : issue.publishedAt, republishedAt: issue.publishedAt && issue.status !== "PUBLISHED" && status === "PUBLISHED" ? now : issue.republishedAt } });
   revalidatePath("/portal/venue");
