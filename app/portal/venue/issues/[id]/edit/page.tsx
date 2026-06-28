@@ -12,5 +12,5 @@ export default async function EditVenueIssuePage({ params }: { params: Promise<{
   if (!user.venueId) redirect("/portal/venue/issues");
   const issue = await prisma.issue.findFirst({ where: { id, venueId: user.venueId }, include: { venue: true } });
   if (!issue?.venue) notFound();
-  return <main className="min-h-screen bg-paper p-8 text-ink"><Link href="/portal/venue/issues" className="font-black uppercase text-stallRed">← My Issues</Link><h1 className="mt-4 font-display text-6xl uppercase">Edit Issue</h1><IssueEditor action={updateVenueIssue.bind(null, issue.id)} issue={issue} venue={issue.venue} /></main>;
+  return <main className="min-h-screen bg-paper p-8 text-ink"><Link href="/portal/venue/issues" className="font-black uppercase text-stallRed">← My Issues</Link><h1 className="mt-4 font-display text-6xl uppercase">Edit Issue</h1><IssueEditor action={updateVenueIssue.bind(null, issue.id)} issue={issue} /></main>;
 }
