@@ -20,16 +20,15 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
   const advertiser = await advertiserForPortalUser(user);
   if (!advertiser) return <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />;
   const filters = await searchParams;
-  const [campaigns, inventory, venues, issues] = await Promise.all([
-    prisma.adCampaign.findMany({ where: { advertiserId: advertiser.id }, orderBy: { createdAt: "desc" }, take: 50, include: { placements: { include: { inventory: { include: { venue: true, issue: true } } } } } }),
+  const [campaigns, inventory, venues] = await Promise.all([
+    prisma.adCampaign.findMany({ where: { advertiserId: advertiser.id }, orderBy: { createdAt: "desc" }, take: 50, include: { placements: { include: { inventory: { include: { venue: true, qrCode: true } } } } } }),
     prisma.adSlotInventory.findMany({
       where: qrRouteInventoryWhere(filters),
       include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true },
-      orderBy: [{ month: "asc" }, { venue: { name: "asc" } }, { slotNumber: "asc" }],
+      orderBy: [{ venue: { name: "asc" } }, { qrCode: { qrSlug: "asc" } }, { slotNumber: "asc" }],
       take: 100,
     }),
-    prisma.venue.findMany({ where: { isActive: true, status: "ACTIVE", issues: { some: { status: "PUBLISHED", isPublished: true, isArchived: false } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    prisma.issue.findMany({ where: { venueId: { not: null }, status: "PUBLISHED", isPublished: true, isArchived: false }, select: { id: true, title: true, month: true, year: true, venue: { select: { name: true } } }, orderBy: [{ year: "desc" }, { issueNumber: "desc" }], take: 100 }),
+    prisma.venue.findMany({ where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
     <main className="min-h-screen bg-paper p-8 text-ink">
@@ -45,7 +44,7 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
               <h2 className="font-display text-4xl uppercase">{campaign.name}</h2>
               <p className="font-bold">{campaign.headline}</p>
               <p>{campaign.body}</p>
-              {campaign.placements.length ? <p className="mt-2 text-sm font-black uppercase">{campaign.placements.length} selected issue slot(s)</p> : null}
+              {campaign.placements.length ? <p className="mt-2 text-sm font-black uppercase">{campaign.placements.length} selected QR route slot(s)</p> : null}
             </article>
           )) : <p className="rounded-xl border-2 border-ink bg-stallYellow p-4 font-black uppercase">No campaigns yet.</p>}
         </div>
@@ -56,18 +55,16 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
         <h2 className="font-display text-5xl uppercase">Permanent QR Audience Routes</h2>
         <form className="mt-4 grid gap-3 md:grid-cols-3">
           <select name="venueId" defaultValue={filters.venueId || ""} className="rounded border-2 border-ink p-3"><option value="">All venues</option>{venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select>
-          <select name="issueId" defaultValue={filters.issueId || ""} className="rounded border-2 border-ink p-3"><option value="">All issues</option>{issues.map((i) => <option key={i.id} value={i.id}>{i.venue?.name} • {i.title} • {i.month} {i.year}</option>)}</select>
-          <input name="month" defaultValue={filters.month || ""} placeholder="Month YYYY-MM" className="rounded border-2 border-ink p-3" />
-          <input name="year" defaultValue={filters.year || ""} placeholder="Year" className="rounded border-2 border-ink p-3" />
-          <select name="audienceSegment" defaultValue={filters.audienceSegment || ""} className="rounded border-2 border-ink p-3"><option value="">Any restroom audience</option><option value="VENUE_MENS">Venue-wide men's</option><option value="VENUE_WOMENS">Venue-wide women's</option><option value="ALL_RESTROOMS">All restrooms</option><option value="SPECIFIC_RESTROOM">Specific restroom</option></select>
-          <input name="eventCategory" defaultValue={filters.eventCategory || ""} placeholder="Event/category" className="rounded border-2 border-ink p-3" />
+          <input name="qrRoute" defaultValue={filters.qrRoute || ""} placeholder="Permanent QR route" className="rounded border-2 border-ink p-3" />
+          <select name="audienceSegment" defaultValue={filters.audienceSegment || ""} className="rounded border-2 border-ink p-3"><option value="">Any audience route</option><option value="VENUE_MENS">Men's</option><option value="VENUE_WOMENS">Women's</option><option value="ALL_RESTROOMS">All restrooms</option><option value="FAMILY_ALL_GENDER">Family/all-gender</option><option value="CUSTOM">Custom</option></select>
+          <input name="slotType" defaultValue={filters.slotType || ""} placeholder="Sponsor slot number" className="rounded border-2 border-ink p-3" />
           <input name="location" defaultValue={filters.location || ""} placeholder="City, state, venue, restroom" className="rounded border-2 border-ink p-3 md:col-span-2" />
-          <button className="rounded bg-ink p-3 font-black uppercase text-white">Filter inventory</button>
+          <button className="rounded bg-ink p-3 font-black uppercase text-white">Filter QR routes</button>
         </form>
         <form action={createAdvertiserCampaign} className="mt-6 grid gap-4">
           <input type="hidden" name="advertiserId" value={advertiser.id} />
           <div className="grid gap-3 md:grid-cols-2"><input name="businessName" defaultValue={advertiser.name} className="rounded border-2 border-ink p-3" required /><input name="name" placeholder="Campaign name" className="rounded border-2 border-ink p-3" required /><input name="headline" placeholder="Ad headline" className="rounded border-2 border-ink p-3" required /><input name="ctaText" defaultValue="Learn More" className="rounded border-2 border-ink p-3" /><input name="targetUrl" defaultValue="#" className="rounded border-2 border-ink p-3" /><input name="creativeUrl" placeholder="Creative image URL" className="rounded border-2 border-ink p-3" /><textarea name="body" placeholder="Offer/body" className="rounded border-2 border-ink p-3 md:col-span-2" required /></div>
-          <div className="grid gap-3 md:grid-cols-3"><input name="flightStartMonth" defaultValue={(filters.startDate || filters.month || "2026-07").slice(0, 7)} className="rounded border-2 border-ink p-3" /><input name="flightMonths" defaultValue="1" className="rounded border-2 border-ink p-3" /><input name="budgetDollars" defaultValue="50" className="rounded border-2 border-ink p-3" /></div>
+          <div className="grid gap-3 md:grid-cols-3"><input name="flightStartMonth" defaultValue={(filters.startDate || "2026-07").slice(0, 7)} className="rounded border-2 border-ink p-3" /><input name="flightMonths" defaultValue="1" className="rounded border-2 border-ink p-3" /><input name="budgetDollars" defaultValue="50" className="rounded border-2 border-ink p-3" /></div>
           <div className="grid gap-3 md:grid-cols-2">
             {inventory.map((slot) => (
               <label key={slot.id} className="rounded-xl border-2 border-ink bg-paper p-4 font-bold">
@@ -79,8 +76,8 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
               </label>
             ))}
           </div>
-          {!inventory.length ? <p className="rounded-xl border-2 border-ink bg-stallYellow p-4 font-black uppercase">No available published issue inventory matches these filters.</p> : null}
-          <button className="rounded bg-stallRed px-5 py-3 font-black uppercase text-white">Submit campaign for selected issue inventory</button>
+          {!inventory.length ? <p className="rounded-xl border-2 border-ink bg-stallYellow p-4 font-black uppercase">No available QR route inventory matches these filters.</p> : null}
+          <button className="rounded bg-stallRed px-5 py-3 font-black uppercase text-white">Submit campaign for selected QR route inventory</button>
         </form>
       </section>
     </main>
