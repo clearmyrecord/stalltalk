@@ -372,6 +372,8 @@ model Restroom {
   venueId           String
   name              String
   slug              String?
+  restroomType      String            @default("ALL_GENDER")
+  customTypeLabel   String?
   floor             String?
   placement         String?
   status            AccountStatus     @default(ACTIVE)
@@ -385,6 +387,8 @@ model Restroom {
   events            AnalyticsEvent[]
   toiletLocations   ToiletLocation[]
   adSlotInventories AdSlotInventory[]
+
+  @@index([venueId, restroomType])
 }
 
 model QrCode {
@@ -544,21 +548,21 @@ model Issue {
   publishedAt              DateTime?
   republishedAt            DateTime?
   archivedAt               DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
 
-  publisher      Publisher?   @relation(fields: [publisherId], references: [id], onDelete: Cascade)
-  defaultIssue   DefaultIssue? @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
-  venue          Venue?       @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  restroom       Restroom?    @relation(fields: [restroomId], references: [id], onDelete: SetNull)
-  qrCode         QrCode?      @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  publisher    Publisher?    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  defaultIssue DefaultIssue? @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
+  venue        Venue?        @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  restroom     Restroom?     @relation(fields: [restroomId], references: [id], onDelete: SetNull)
+  qrCode       QrCode?       @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
 
   contentBlocks  IssueContentBlock[]
   adSlots        IssueAdSlot[]
   events         AnalyticsEvent[]
   importedEvents Event[]
   qrScans        QrScan[]
-  currentQrCodes QrCode[] @relation("CurrentIssueQr")
+  currentQrCodes QrCode[]            @relation("CurrentIssueQr")
 
   @@index([publisherId])
   @@index([defaultIssueId])

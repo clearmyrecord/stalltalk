@@ -8,6 +8,7 @@ import { requireAdmin, requireRole, requireVenueManager } from "./auth";
 import { slugify } from "./format";
 import { calculateFlightTotal, flightDateRange, flightEndMonth, normalizeFlightMonth, PRICE_PER_PLACEMENT_MONTH_CENTS, safeFlightMonths } from "./campaign-flights";
 import { publicBaseUrl, qrIssueUrl } from "./qr";
+import { ensureVenueQrCodes, venueQrPath } from "./venue-qr";
 import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
@@ -380,6 +381,7 @@ export async function createVenueIssue(formData: FormData) {
   if (!venue) throw new Error("Linked venue was not found.");
   const requestedStatus = text(formData, "status", "DRAFT") as IssueStatus;
   const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  await ensureVenueQrCodes(venue.id);
   await assertVenueIssueReferences(formData, venue.id, venue.publisherId);
   const now = new Date();
   const month = text(formData, "month", now.toLocaleString("en-US", { month: "long" }));
@@ -387,7 +389,7 @@ export async function createVenueIssue(formData: FormData) {
   const title = text(formData, "title", `${month} ${year} Venue Issue`);
   const slug = `${slugify(title)}-${Date.now()}`;
   const issue = await prisma.$transaction(async (tx) => {
-    const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}/issue/${slug}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
+    const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
     await saveContentBlocks(created.id, formData, tx);
     await saveAdSlots(created.id, formData, tx);
     return created;
@@ -396,7 +398,7 @@ export async function createVenueIssue(formData: FormData) {
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/issue/${venue.slug}`);
   revalidatePath(`/issue/${issue.slug}`);
-  redirect(`/portal/venue/issues/${issue.id}/edit?saved=1`);
+  redirect(`/portal/venue/issues?saved=1${status === "PUBLISHED" ? "&published=1" : ""}`);
 }
 
 export async function updateVenueIssue(id: string, formData: FormData) {
@@ -409,10 +411,11 @@ export async function updateVenueIssue(id: string, formData: FormData) {
   const requestedStatus = text(formData, "status", existing.status) as IssueStatus;
   if (requestedStatus === "ARCHIVED") throw new Error("Venue issues can be drafted, published, or unpublished, but not archived from the portal.");
   const status = requestedStatus === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  await ensureVenueQrCodes(venue.id);
   await assertVenueIssueReferences(formData, venue.id, venue.publisherId);
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.issue.update({ where: { id }, data: { restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), isLocationIssue: Boolean(nullableText(formData, "restroomId")), title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
+    await tx.issue.update({ where: { id }, data: { restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isLocationIssue: Boolean(nullableText(formData, "restroomId")), title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
     await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
     await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
     await saveContentBlocks(id, formData, tx);
@@ -423,6 +426,7 @@ export async function updateVenueIssue(id: string, formData: FormData) {
   revalidatePath(`/portal/venue/issues/${id}/edit`);
   revalidatePath(`/issue/${venue.slug}`);
   revalidatePath(`/issue/${existing.slug}`);
+  redirect(`/portal/venue/issues?saved=1${status === "PUBLISHED" ? "&published=1" : "&unpublished=1"}`);
 }
 
 export async function setVenueIssueStatus(id: string, status: IssueStatus) {
@@ -437,6 +441,7 @@ export async function setVenueIssueStatus(id: string, status: IssueStatus) {
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/portal/venue/issues/${id}/edit`);
   revalidatePath(`/issue/${issue.slug}`);
+  redirect(`/portal/venue/issues?${status === "PUBLISHED" ? "published=1" : "unpublished=1"}`);
 }
 
 
