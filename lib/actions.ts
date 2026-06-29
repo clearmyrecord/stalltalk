@@ -13,6 +13,7 @@ import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
 import { restroomBaseSelect } from "./restroom-schema";
+import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, getAdSlotInventoryColumns } from "./advertiser-route-inventory";
 import { ensureIssueAdInventory } from "./issue-inventory";
 
 function text(formData: FormData, key: string, fallback = "") {
@@ -467,12 +468,16 @@ export async function assignVenueIssueToQr(issueId: string, qrCodeId: string) {
     });
     await tx.qrCode.update({ where: { id: qr.id }, data: { issueId: issue.id, status: "ACTIVE" } });
     await ensureIssueAdInventory(issue.id, tx);
-    const inventoryMonth = `${issue.year}-${String(new Date(`${issue.month} 1, ${issue.year}`).getMonth() + 1 || 1).padStart(2, "0")}`;
-    const audienceSegment = qr.restroomId ? (qr.restroom?.name?.toLowerCase().includes("men") && !qr.restroom?.name?.toLowerCase().includes("women") ? "VENUE_MENS" : qr.restroom?.name?.toLowerCase().includes("women") ? "VENUE_WOMENS" : "SPECIFIC_RESTROOM") : "ALL_RESTROOMS";
-    await tx.adSlotInventory.createMany({
-      data: Array.from({ length: 8 }, (_, index) => ({ issueId: issue.id, venueId: user.venueId!, restroomId: qr.restroomId, qrCodeId: qr.id, slotNumber: index + 1, month: inventoryMonth, audienceSegment, locationLabel: qr.restroom?.name || qr.venue?.name || null, status: "OPEN" as const })),
-      skipDuplicates: true,
-    });
+    const inventoryColumns = await getAdSlotInventoryColumns(tx);
+    const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
+    if (includeIssueIdColumn) {
+      const inventoryMonth = `${issue.year}-${String(new Date(`${issue.month} 1, ${issue.year}`).getMonth() + 1 || 1).padStart(2, "0")}`;
+      const audienceSegment = qr.restroomId ? (qr.restroom?.name?.toLowerCase().includes("men") && !qr.restroom?.name?.toLowerCase().includes("women") ? "VENUE_MENS" : qr.restroom?.name?.toLowerCase().includes("women") ? "VENUE_WOMENS" : "SPECIFIC_RESTROOM") : "ALL_RESTROOMS";
+      await tx.adSlotInventory.createMany({
+        data: Array.from({ length: 8 }, (_, index) => dynamicAdSlotInventoryData({ issueId: issue.id, venueId: user.venueId!, restroomId: qr.restroomId, qrCodeId: qr.id, slotNumber: index + 1, month: inventoryMonth, audienceSegment, locationLabel: qr.restroom?.name || qr.venue?.name || null, status: "OPEN" as const }, inventoryColumns)),
+        skipDuplicates: true,
+      });
+    }
   });
   revalidatePath("/portal/venue/issues");
   revalidatePath(qr.venue?.slug ? `/v/${qr.venue.slug}` : "/portal/venue/issues");

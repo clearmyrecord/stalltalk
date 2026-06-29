@@ -4,7 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { ensureQrRouteAdInventory, hasAdSlotInventoryIssueIdColumn, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
+import { ensureQrRouteAdInventory, adSlotInventoryColumnOptions, getAdSlotInventoryColumns, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -53,10 +53,11 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
     select: { id: true },
     take: 300,
   });
-  const includeIssueIdColumn = await hasAdSlotInventoryIssueIdColumn();
+  const inventoryColumns = await getAdSlotInventoryColumns();
+  const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
   await Promise.all(routeQrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
 
-  const where = qrRouteInventoryWhere(filters, { includeIssueIdColumn });
+  const where = qrRouteInventoryWhere(filters, inventoryColumnOptions);
   const [inventory, venues, issues, scanCounts, events] = await Promise.all([
     prisma.adSlotInventory.findMany({
       where,
@@ -66,8 +67,8 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
         restroomId: true,
         qrCodeId: true,
         slotNumber: true,
-        audienceSegment: true,
-        locationLabel: true,
+        ...(inventoryColumnOptions.includeAudienceSegmentColumn ? { audienceSegment: true } : {}),
+        ...(inventoryColumnOptions.includeLocationLabelColumn ? { locationLabel: true } : {}),
         priceCents: true,
         status: true,
         venue: true,
@@ -135,16 +136,18 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
             const views = analytics.filter((event) => ["PAGE_VIEW", "ISSUE_VIEW"].includes(event.type)).length;
             const impressions = analytics.filter((event) => event.type === "AD_IMPRESSION").length;
             const clicks = analytics.filter((event) => ["AD_CLICK", "COUPON_REDEMPTION"].includes(event.type)).length;
-            const campaignHref = `/portal/advertiser/campaigns?inventoryId=${encodeURIComponent(slot.id)}&qrCodeId=${encodeURIComponent(slot.qrCode.id)}&slotNumber=${slot.slotNumber}&audienceSegment=${encodeURIComponent(slot.audienceSegment)}${filters.startDate ? `&startDate=${encodeURIComponent(filters.startDate)}` : ""}${filters.endDate ? `&endDate=${encodeURIComponent(filters.endDate)}` : ""}`;
+            const audienceSegment = "audienceSegment" in slot ? slot.audienceSegment : null;
+            const locationLabel = "locationLabel" in slot ? slot.locationLabel : null;
+            const campaignHref = `/portal/advertiser/campaigns?inventoryId=${encodeURIComponent(slot.id)}&qrCodeId=${encodeURIComponent(slot.qrCode.id)}&slotNumber=${slot.slotNumber}&audienceSegment=${encodeURIComponent(audienceSegment || "ALL_RESTROOMS")}${filters.startDate ? `&startDate=${encodeURIComponent(filters.startDate)}` : ""}${filters.endDate ? `&endDate=${encodeURIComponent(filters.endDate)}` : ""}`;
             return (
               <article key={slot.id} className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal">
                 <p className="text-xs font-black uppercase tracking-widest text-stallRed">{slot.status} • Sponsor Placement {slot.slotNumber} • {money(slot.priceCents)}</p>
                 <h2 className="font-display text-4xl uppercase">{slot.venue.name}</h2>
-                <p className="font-black">{slot.qrCode.qrName} • {label(slot.audienceSegment)}</p>
+                <p className="font-black">{slot.qrCode.qrName} • {label(audienceSegment)}</p>
                 <p className="mt-1 font-bold">Stable route: <Link href={routeUrl(slot.qrCode)} className="text-stallPurple underline">{routeUrl(slot.qrCode)}</Link></p>
                 <p className="font-bold">Currently served issue: {issue ? `${issue.title} • ${issue.month} ${issue.year}` : "No published issue assigned yet"}</p>
                 <div className="mt-3 grid gap-2 text-sm font-bold md:grid-cols-2">
-                  <p>Route/location: {slot.toiletLocation?.label || slot.locationLabel || slot.restroom?.name || "Venue-wide"}</p>
+                  <p>Route/location: {slot.toiletLocation?.label || locationLabel || slot.restroom?.name || "Venue-wide"}</p>
                   <p>QR slug: {slot.qrCode.qrSlug}</p>
                   <p>Scans: {scansByQr.get(slot.qrCode.id) || 0}</p>
                   <p>Views: {views}</p>

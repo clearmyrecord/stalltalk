@@ -1,3 +1,4 @@
+import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, getAdSlotInventoryColumns } from "./advertiser-route-inventory";
 import { prisma } from "./prisma";
 
 export const SPONSOR_SLOT_COUNT = 8;
@@ -17,6 +18,10 @@ export function audienceSegmentForIssue(issue: { restroomId?: string | null; res
 }
 
 export async function ensureIssueAdInventory(issueId: string, db: any = prisma) {
+  const inventoryColumns = await getAdSlotInventoryColumns(db);
+  const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
+  if (!includeIssueIdColumn) return;
+
   const issue = await db.issue.findUnique({
     where: { id: issueId },
     include: { venue: true, restroom: { select: { id: true, name: true } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } },
@@ -27,7 +32,7 @@ export async function ensureIssueAdInventory(issueId: string, db: any = prisma) 
   const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
   const data = Array.from({ length: SPONSOR_SLOT_COUNT }, (_, index) => index + 1)
     .filter((slotNumber) => !existingSlots.has(slotNumber))
-    .map((slotNumber) => ({
+    .map((slotNumber) => dynamicAdSlotInventoryData({
       issueId: issue.id,
       venueId: issue.venueId!,
       restroomId: issue.restroomId,
@@ -39,7 +44,7 @@ export async function ensureIssueAdInventory(issueId: string, db: any = prisma) 
       locationLabel: issue.restroom?.name || issue.venue?.name || null,
       priceCents: 5000,
       status: "OPEN" as const,
-    }));
+    }, inventoryColumns));
   if (data.length) await db.adSlotInventory.createMany({ data, skipDuplicates: true });
 }
 

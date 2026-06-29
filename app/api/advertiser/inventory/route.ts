@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import {
   ensureQrRouteAdInventory,
-  hasAdSlotInventoryIssueIdColumn,
+  adSlotInventoryColumnOptions,
+  getAdSlotInventoryColumns,
   qrRouteInventoryWhere,
 } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
@@ -34,10 +35,11 @@ export async function GET(request: NextRequest) {
     take: 300,
   });
 
-  const includeIssueIdColumn = await hasAdSlotInventoryIssueIdColumn();
+  const inventoryColumns = await getAdSlotInventoryColumns();
+  const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
   await Promise.all(qrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
 
-  const baseWhere = qrRouteInventoryWhere(request.nextUrl.searchParams, { includeIssueIdColumn });
+  const baseWhere = qrRouteInventoryWhere(request.nextUrl.searchParams, inventoryColumnOptions);
 
   const where =
     user.role === "ADMIN" &&
@@ -57,9 +59,9 @@ export async function GET(request: NextRequest) {
       qrCodeId: true,
       slotNumber: true,
       month: true,
-      audienceSegment: true,
-      eventCategory: true,
-      locationLabel: true,
+      ...(inventoryColumnOptions.includeAudienceSegmentColumn ? { audienceSegment: true } : {}),
+      ...(inventoryColumnOptions.includeEventCategoryColumn ? { eventCategory: true } : {}),
+      ...(inventoryColumnOptions.includeLocationLabelColumn ? { locationLabel: true } : {}),
       startsAt: true,
       endsAt: true,
       priceCents: true,
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
           status: true,
         },
       },
-      ...(includeIssueIdColumn ? {
+      ...(inventoryColumnOptions.includeIssueIdColumn ? {
         issue: {
           select: {
             id: true,
