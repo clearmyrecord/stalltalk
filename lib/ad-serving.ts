@@ -3,14 +3,13 @@ import type {
   AdScope,
   Issue,
   IssueAdSlot,
-  Restroom,
   Venue,
 } from "@prisma/client";
 import { prisma } from "./prisma";
 
 type Context = Issue & {
   venue: Venue | null;
-  restroom: Restroom | null;
+  restroom: { id: string; name: string | null; slug?: string | null } | null;
   adSlots?: Array<IssueAdSlot & { ad: Ad }>;
 };
 export type ServedAd = (Ad & { source: AdScope; slotNumber: number }) | null;

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { archiveIssue, cloneIssue, deleteIssue, publishIssue, unpublishIssue } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
+import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
 import { issuePublicPath } from "@/lib/issue-routing";
 
 export const dynamic = "force-dynamic";
 export default async function IssuesPage() {
-  const issues = await prisma.issue.findMany({ include: { publisher: true, venue: true, restroom: true, qrCode: true, contentBlocks: true, adSlots: true }, orderBy: [{ year: "desc" }, { issueNumber: "desc" }] });
+  const issues = await prisma.issue.findMany({ include: { publisher: true, venue: true, restroom: { select: restroomLabelSelect }, qrCode: true, contentBlocks: true, adSlots: true }, orderBy: [{ year: "desc" }, { issueNumber: "desc" }] });
   return (
     <section>
       <div className="flex items-center justify-between">

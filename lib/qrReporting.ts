@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 
 export type ReportingRange = { label: string; start?: Date; end?: Date; key: string };
 
@@ -22,9 +23,9 @@ function repeatCount(ids: (string | null)[]) { const counts = new Map<string, nu
 export async function getQrReporting(range: ReportingRange, qrId?: string) {
   const qrFilter = qrId ? { qrCodeId: qrId } : {};
   const [qrs, scans, events] = await Promise.all([
-    prisma.qrCode.findMany({ where: qrId ? { id: qrId } : { status: { not: "RETIRED" } }, include: { venue: true, restroom: true, assignedDistributor: true }, orderBy: { createdAt: "desc" } }),
-    prisma.qrScan.findMany({ where: scanWhere(range, qrFilter), include: { qrCode: { include: { venue: true, restroom: true, assignedDistributor: true } }, venue: true, restroom: true }, orderBy: { scannedAt: "desc" }, take: qrId ? 500 : 1000 }),
-    prisma.analyticsEvent.findMany({ where: eventWhere(range, { qrCodeId: qrId ? qrId : { not: null } }), include: { qrCode: { include: { venue: true, restroom: true } }, venue: true, restroom: true, ad: true }, orderBy: { createdAt: "desc" }, take: 5000 })
+    prisma.qrCode.findMany({ where: qrId ? { id: qrId } : { status: { not: "RETIRED" } }, include: { venue: true, restroom: { select: restroomLabelSelect }, assignedDistributor: true }, orderBy: { createdAt: "desc" } }),
+    prisma.qrScan.findMany({ where: scanWhere(range, qrFilter), include: { qrCode: { include: { venue: true, restroom: { select: restroomLabelSelect }, assignedDistributor: true } }, venue: true, restroom: { select: restroomLabelSelect } }, orderBy: { scannedAt: "desc" }, take: qrId ? 500 : 1000 }),
+    prisma.analyticsEvent.findMany({ where: eventWhere(range, { qrCodeId: qrId ? qrId : { not: null } }), include: { qrCode: { include: { venue: true, restroom: { select: restroomLabelSelect } } }, venue: true, restroom: { select: restroomLabelSelect }, ad: true }, orderBy: { createdAt: "desc" }, take: 5000 })
   ]);
   const now = new Date(); const today = new Date(now); today.setHours(0,0,0,0); const week = new Date(now.getTime() - 6 * 86400000); const month = new Date(now); month.setDate(1); month.setHours(0,0,0,0);
   const [scansToday, scansThisWeek, scansThisMonth] = await Promise.all([prisma.qrScan.count({ where: scanWhere({ key: "today", label: "Today", start: today, end: now }, qrFilter) }), prisma.qrScan.count({ where: scanWhere({ key: "7d", label: "Last 7 days", start: week, end: now }, qrFilter) }), prisma.qrScan.count({ where: scanWhere({ key: "this-month", label: "This month", start: month, end: now }, qrFilter) })]);

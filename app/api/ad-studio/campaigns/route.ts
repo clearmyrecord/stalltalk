@@ -9,6 +9,7 @@ import {
   DEFAULT_PUBLIC_ISSUE_LABEL,
   isDefaultPublicIssue,
 } from "@/lib/default-public-issue";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 import { sponsorPlacementLabel } from "@/lib/sponsor-placements";
 
 function readableDatabaseError(error: unknown) {
@@ -364,7 +365,7 @@ async function publishCampaign(body: Record<string, unknown>) {
     ? null
     : await prisma.issue.findUnique({
         where: { id: issueId },
-        include: { venue: true, restroom: true },
+        include: { venue: true, restroom: { select: restroomLabelSelect } },
       });
   if (!defaultPublicTarget && !issue)
     return NextResponse.json({ error: "Issue not found" }, { status: 404 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 
 function ua(userAgent: string) {
   const mobile = /iPhone|Android|Mobile/i.test(userAgent);
@@ -14,7 +15,7 @@ function ua(userAgent: string) {
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const url = new URL(request.url);
-  const qr = await prisma.qrCode.findUnique({ where: { qrSlug: slug }, include: { venue: true, restroom: true } });
+  const qr = await prisma.qrCode.findUnique({ where: { qrSlug: slug }, include: { venue: true, restroom: { select: restroomLabelSelect } } });
   if (!qr) return NextResponse.json({ error: "QR code not found" }, { status: 404 });
   const userAgent = request.headers.get("user-agent") || "";
   const parsed = ua(userAgent);

@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, Publisher, QrCode, Restroom, Venue } from "@prisma/client";
+import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, Publisher, QrCode, Venue } from "@prisma/client";
 import { createIssueAction, updateIssueAction, type IssueSaveState } from "@/lib/actions";
 import { contentLabels } from "@/lib/format";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
 type IssueWithBlocks = Issue & { contentBlocks: IssueContentBlock[]; adSlots: IssueAdSlot[] };
+type RestroomOption = { id: string; name: string };
 
 const initialState: IssueSaveState = { ok: false, message: "" };
 const CONTENT_ZONES = [
@@ -22,7 +23,7 @@ const CONTENT_ZONES = [
 ] as const;
 const zoneOptions = CONTENT_ZONES.map(([, type]) => ({ value: type, label: contentLabels[type as keyof typeof contentLabels] }));
 
-export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ads, issue }: { publishers: Publisher[]; venues: Venue[]; restrooms: Restroom[]; qrCodes: QrCode[]; articles: Article[]; ads: Ad[]; issue?: IssueWithBlocks }) {
+export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ads, issue }: { publishers: Publisher[]; venues: Venue[]; restrooms: RestroomOption[]; qrCodes: QrCode[]; articles: Article[]; ads: Ad[]; issue?: IssueWithBlocks }) {
   const action = issue ? updateIssueAction.bind(null, issue.id) : createIssueAction;
   const [state, formAction, pending] = useActionState(action, initialState);
   const blocks = CONTENT_ZONES.map(([key], index) => issue?.contentBlocks.find((block) => (block.layout as any)?.key === key) || issue?.contentBlocks.find((block) => block.sortOrder === index + 1));

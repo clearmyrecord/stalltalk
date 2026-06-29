@@ -1,17 +1,18 @@
-import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, QrCode, Restroom } from "@prisma/client";
+import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, QrCode } from "@prisma/client";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 import { contentLabels } from "@/lib/format";
 import { issuePublicPath, issuePublicUrl } from "@/lib/issue-routing";
 import { PublicIssueUrlActions } from "@/components/PublicIssueUrlActions";
 
 type VenueIssue = Issue & { contentBlocks?: IssueContentBlock[]; adSlots?: (IssueAdSlot & { ad?: Ad })[]; venue?: { slug: string } | null };
+type RestroomOption = { id: string; name: string };
 
 const CONTENT_ZONES = [
   ["mission", "MISSION"], ["funny", "HILARIOUSLY_FUNNY"], ["feature", "FEATURE_ARTICLE"], ["restaurant", "RESTAURANT_REVIEW"], ["events", "EVENT_CALENDAR"], ["deals", "LOCAL_DEALS"], ["trivia", "TRIVIA"], ["quote", "INSPIRATIONAL_QUOTES"], ["community", "WORD_OF_THE_MONTH"],
 ] as const;
 const zoneOptions = CONTENT_ZONES.map(([, type]) => ({ value: type, label: contentLabels[type as keyof typeof contentLabels] || type }));
 
-export function IssueEditor({ action, issue, articles = [], ads = [], restrooms = [], qrCodes = [] }: { action: (formData: FormData) => Promise<void>; issue?: VenueIssue; articles?: Article[]; ads?: Ad[]; restrooms?: Restroom[]; qrCodes?: QrCode[] }) {
+export function IssueEditor({ action, issue, articles = [], ads = [], restrooms = [], qrCodes = [] }: { action: (formData: FormData) => Promise<void>; issue?: VenueIssue; articles?: Article[]; ads?: Ad[]; restrooms?: RestroomOption[]; qrCodes?: QrCode[] }) {
   const now = new Date();
   const blocks = CONTENT_ZONES.map(([key], index) => issue?.contentBlocks?.find((block) => (block.layout as any)?.key === key) || issue?.contentBlocks?.find((block) => block.sortOrder === index + 1));
   const previewHref = issue ? `${issuePublicPath(issue as any)}?previewIssueId=${encodeURIComponent(issue.id)}` : null;

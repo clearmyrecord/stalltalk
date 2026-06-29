@@ -12,6 +12,7 @@ import { ensureVenueQrCodes, venueQrPath } from "./venue-qr";
 import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
+import { restroomBaseSelect } from "./restroom-schema";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -61,7 +62,7 @@ export async function createQrCode(formData: FormData) {
   const venueId = nullableText(formData, "venueId");
   const restroomId = nullableText(formData, "restroomId");
   const venue = venueId ? await prisma.venue.findUnique({ where: { id: venueId } }) : null;
-  const restroom = restroomId ? await prisma.restroom.findUnique({ where: { id: restroomId } }) : null;
+  const restroom = restroomId ? await prisma.restroom.findUnique({ where: { id: restroomId }, select: restroomBaseSelect }) : null;
   const destinationType = (text(formData, "destinationType", restroomId ? "LOCATION" : venueId ? "VENUE" : "GLOBAL") || "GLOBAL") as any;
   const destinationPath = qrDestinationPath({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, type: destinationType });
   const qrUrl = `${publicBaseUrl()}${destinationPath}`;
@@ -315,7 +316,7 @@ async function issueData(formData: FormData, existing?: { status: IssueStatus; p
   const title = text(formData, "title", "Untitled issue") || "Untitled issue";
   const venueId = nullableText(formData, "venueId");
   const restroomId = nullableText(formData, "restroomId");
-  const [venue, restroom] = await Promise.all([venueId ? prisma.venue.findUnique({ where: { id: venueId } }) : null, restroomId ? prisma.restroom.findUnique({ where: { id: restroomId } }) : null]);
+  const [venue, restroom] = await Promise.all([venueId ? prisma.venue.findUnique({ where: { id: venueId } }) : null, restroomId ? prisma.restroom.findUnique({ where: { id: restroomId }, select: restroomBaseSelect }) : null]);
   const generatedSlug = buildIssueSlug({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, month, year });
   const slug = text(formData, "slug", generatedSlug) || generatedSlug;
   const publicPath = qrDestinationPath({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, issueSlug: slug, type: restroomId ? "ISSUE" : venueId ? "VENUE" : "ISSUE" });

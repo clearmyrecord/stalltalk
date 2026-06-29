@@ -5,6 +5,7 @@ import { authEnvStatus, currentUser } from "@/lib/auth";
 import { money } from "@/lib/format";
 import { flightStatus } from "@/lib/campaign-flights";
 import { prisma } from "@/lib/prisma";
+import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
 
 type DashboardCounts = {
   publishers: number;
@@ -57,10 +58,10 @@ export default async function AdminDashboardPage() {
 
   try {
     const [venues, qrCodes, inventory, campaigns, payments, drafts, published] = await Promise.all([
-      prisma.venue.findMany({ include: { restrooms: true, qrCodes: true }, orderBy: { name: "asc" } }),
-      prisma.qrCode.findMany({ include: { venue: true, restroom: true, toiletLocations: true }, orderBy: { qrSlug: "asc" } }),
-      prisma.adSlotInventory.findMany({ include: { venue: true, restroom: true, qrCode: true, toiletLocation: true }, orderBy: [{ month: "asc" }, { slotNumber: "asc" }] }),
-      prisma.adCampaign.findMany({ include: { advertiser: true, inventory: { include: { venue: true, restroom: true, qrCode: true } }, placements: { include: { inventory: { include: { venue: true, restroom: true, qrCode: true, toiletLocation: true } } } }, payments: true }, orderBy: { createdAt: "desc" } }),
+      prisma.venue.findMany({ include: { restrooms: { select: restroomBaseSelect }, qrCodes: true }, orderBy: { name: "asc" } }),
+      prisma.qrCode.findMany({ include: { venue: true, restroom: { select: restroomLabelSelect }, toiletLocations: true }, orderBy: { qrSlug: "asc" } }),
+      prisma.adSlotInventory.findMany({ include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true, toiletLocation: true }, orderBy: [{ month: "asc" }, { slotNumber: "asc" }] }),
+      prisma.adCampaign.findMany({ include: { advertiser: true, inventory: { include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true } }, placements: { include: { inventory: { include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true, toiletLocation: true } } } }, payments: true }, orderBy: { createdAt: "desc" } }),
       prisma.payment.findMany({ include: { advertiser: true, campaign: true }, orderBy: { createdAt: "desc" } }),
       prisma.venueContentDraft.findMany({ include: { venue: true }, orderBy: { createdAt: "desc" } }),
       prisma.publishedContent.findFirst({ orderBy: { publishedAt: "desc" } })

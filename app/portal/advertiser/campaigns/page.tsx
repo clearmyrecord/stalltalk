@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import {
   hasRestroomTypeColumns,
   restroomTypeLabel,
+  restroomTypedSelect,
 } from "@/lib/restroom-schema";
 
 export const dynamic = "force-dynamic";
@@ -27,9 +28,7 @@ export default async function AdvertiserCampaignsPage() {
       <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />
     );
   const includeRestroomTypes = await hasRestroomTypeColumns();
-  const restroomSelect = includeRestroomTypes
-    ? { id: true, name: true, restroomType: true, customTypeLabel: true }
-    : { id: true, name: true };
+  const restroomSelect = restroomTypedSelect(includeRestroomTypes);
   const [campaigns, targets] = await Promise.all([
     prisma.adCampaign.findMany({
       where: { advertiserId: advertiser.id },
