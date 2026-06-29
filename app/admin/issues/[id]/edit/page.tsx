@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IssueForm } from "@/components/IssueForm";
 import { prisma } from "@/lib/prisma";
+import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
 import { issuePublicPath } from "@/lib/issue-routing";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function EditIssuePage({
         where: { id },
         include: {
           venue: true,
-          restroom: true,
+          restroom: { select: restroomLabelSelect },
           qrCode: true,
           contentBlocks: {
             orderBy: {
@@ -31,7 +32,7 @@ export default async function EditIssuePage({
       }),
       prisma.publisher.findMany(),
       prisma.venue.findMany(),
-      prisma.restroom.findMany(),
+      prisma.restroom.findMany({ select: restroomBaseSelect }),
       prisma.qrCode.findMany(),
       prisma.article.findMany(),
       prisma.ad.findMany({

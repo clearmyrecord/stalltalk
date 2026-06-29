@@ -20,13 +20,14 @@ import { IssueNotFound } from "@/components/IssueNotFound";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 import { StaticIssuePage, requestFromHeaders } from "../static-issue-page";
 import { withPublicTimeout } from "@/lib/public-route-timeouts";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 
 export const dynamic = "force-dynamic";
 type IssueWithContext = Prisma.IssueGetPayload<{
   include: {
     publisher: true;
     venue: true;
-    restroom: true;
+    restroom: { select: typeof restroomLabelSelect };
     qrCode: true;
     contentBlocks: { include: { article: true } };
     adSlots: { include: { ad: { include: { campaignHistory: true } } } };
@@ -39,7 +40,7 @@ type RestaurantReviewItem = Prisma.RestaurantReviewGetPayload<{}>;
 const issueInclude = {
   publisher: true,
   venue: true,
-  restroom: true,
+  restroom: { select: restroomLabelSelect },
   qrCode: true,
   contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } },
   adSlots: {

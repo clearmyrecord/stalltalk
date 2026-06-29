@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import publishedIssue from "@/data/published-issue.json";
 import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 
 export const DEFAULT_GLOBAL_ISSUE_NUMBER = 900001;
 export const DEFAULT_GLOBAL_BLOCKS = [
@@ -18,7 +19,7 @@ export const DEFAULT_GLOBAL_BLOCKS = [
 
 export const defaultGlobalIssueInclude = {
   venue: true,
-  restroom: true,
+  restroom: { select: restroomLabelSelect },
   adSlots: { include: { ad: { include: { campaignHistory: true } } }, orderBy: { slotNumber: "asc" } },
   contentBlocks: { include: { article: true }, orderBy: { sortOrder: "asc" } },
 } satisfies Prisma.IssueInclude;

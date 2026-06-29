@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
 import { normalizeQrUrl, qrSvgDataUrl } from "@/lib/qr";
 import { getQrReporting, parseReportingRange } from "@/lib/qrReporting";
 
@@ -9,7 +10,7 @@ const countBy = (items: any[], key: string) => Object.entries(items.reduce((a, x
 export default async function QrDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const sp = (await searchParams) || {};
-  const qr = await prisma.qrCode.findFirst({ where: { OR: [{ id }, { qrSlug: id }, { uuid: id }] }, include: { venue: true, restroom: true, assignedDistributor: true } });
+  const qr = await prisma.qrCode.findFirst({ where: { OR: [{ id }, { qrSlug: id }, { uuid: id }] }, include: { venue: true, restroom: { select: restroomLabelSelect }, assignedDistributor: true } });
   if (!qr) notFound();
   const range = parseReportingRange(sp.range, sp.from, sp.to);
   const report = await getQrReporting(range, qr.id);

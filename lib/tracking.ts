@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 import { sponsorPlacementLabel, sponsorPlacementSection } from "@/lib/sponsor-placements";
 
 function parseUa(userAgent: string) {
@@ -28,7 +29,7 @@ function requestIds(request: Request) {
 export async function findQrRecord(code: string) {
   return prisma.qrCode.findFirst({
     where: { OR: [{ id: code }, { uuid: code }, { qrSlug: code }] },
-    include: { venue: true, restroom: true },
+    include: { venue: true, restroom: { select: restroomLabelSelect } },
   });
 }
 

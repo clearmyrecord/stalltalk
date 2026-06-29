@@ -1,6 +1,7 @@
 import { AdStudioAgency } from "@/components/AdStudioAgency";
 import { createAd } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
+import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
 import { DEFAULT_PUBLIC_ISSUE_TARGET } from "@/lib/default-public-issue";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +50,8 @@ async function loadAdStudioData(): Promise<AdStudioData> {
       prisma.publisher.findMany({ orderBy: { name: "asc" } }),
       prisma.advertiser.findMany({ orderBy: { name: "asc" } }),
       prisma.venue.findMany({ orderBy: { name: "asc" } }),
-      prisma.restroom.findMany({ include: { venue: true }, orderBy: { name: "asc" } }),
-      prisma.issue.findMany({ include: { venue: true, restroom: true }, orderBy: [{ venueId: "asc" }, { restroomId: "asc" }, { year: "desc" }], take: 100 }),
+      prisma.restroom.findMany({ select: { ...restroomBaseSelect, venue: true }, orderBy: { name: "asc" } }),
+      prisma.issue.findMany({ include: { venue: true, restroom: { select: restroomLabelSelect } }, orderBy: [{ venueId: "asc" }, { restroomId: "asc" }, { year: "desc" }], take: 100 }),
       prisma.ad.findMany({ orderBy: { createdAt: "desc" }, take: 8 }),
       prisma.stalltalkCampaignHistory.findMany({ orderBy: { createdAt: "desc" }, take: 24 })
     ]);

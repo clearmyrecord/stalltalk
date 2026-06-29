@@ -1,9 +1,39 @@
 import { prisma } from "@/lib/prisma";
 
 export type RestroomTypeFields = {
+  id?: string | null;
+  name?: string | null;
   restroomType?: string | null;
   customTypeLabel?: string | null;
 };
+
+export const restroomBaseSelect = {
+  id: true,
+  venueId: true,
+  name: true,
+  slug: true,
+  floor: true,
+  placement: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export const restroomLabelSelect = {
+  id: true,
+  name: true,
+  slug: true,
+} as const;
+
+export function restroomTypedSelect(includeTypeColumns: boolean) {
+  return includeTypeColumns
+    ? {
+        ...restroomLabelSelect,
+        restroomType: true,
+        customTypeLabel: true,
+      }
+    : restroomLabelSelect;
+}
 
 export async function hasRestroomTypeColumns() {
   const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`

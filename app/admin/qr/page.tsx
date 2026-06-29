@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createQrCode } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
+import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
 import { normalizeQrUrl } from "@/lib/qr";
 import { getQrReporting, parseReportingRange } from "@/lib/qrReporting";
 import { DeleteQrButton } from "@/components/DeleteQrButton";
@@ -15,7 +16,7 @@ export default async function QRPage({ searchParams }: { searchParams?: Promise<
   const [publishers, venues, restrooms, distributors, report] = await Promise.all([
     prisma.publisher.findMany({ orderBy: { name: "asc" } }),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
-    prisma.restroom.findMany({ include: { venue: true }, orderBy: { name: "asc" } }),
+    prisma.restroom.findMany({ select: { ...restroomBaseSelect, venue: true }, orderBy: { name: "asc" } }),
     prisma.distributor.findMany({ orderBy: { name: "asc" } }),
     getQrReporting(range)
   ]);

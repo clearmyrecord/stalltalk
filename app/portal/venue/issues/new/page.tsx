@@ -16,6 +16,7 @@ export default async function NewVenueIssuePage() {
   const venue = user.venueId ? await prisma.venue.findUnique({ where: { id: user.venueId }, select: { id: true, name: true, slug: true, publisherId: true } }) : null;
   if (!venue) return <main className="min-h-screen bg-paper p-8 text-ink"><ProfileOnboarding title="Link your venue before creating issues" endpoint="/api/portal/venue/profile" button="Save Venue Profile" fields={[{ name: "venueName", label: "Venue name" }, { name: "address", label: "Address" }, { name: "city", label: "City" }, { name: "state", label: "State" }]} /></main>;
 
+
   try {
     const now = new Date();
     const draftIssue: VenueIssueDraft = {
@@ -41,4 +42,5 @@ export default async function NewVenueIssuePage() {
     console.error("[venue-new-issue]", error);
     return emptyState("Issue builder unavailable", "We could not load the venue issue builder data. Your venue is linked, but articles, ads, restrooms, or QR codes may still be missing or mid-migration. Please try again after your venue setup is complete.");
   }
+
 }
