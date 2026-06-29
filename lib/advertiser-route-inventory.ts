@@ -4,20 +4,57 @@ import { hasRestroomTypeColumns, restroomTypedSelect } from "./restroom-schema";
 export const QR_ROUTE_INVENTORY_MONTH = "QR_ROUTE";
 export const ROUTE_SPONSOR_SLOT_COUNT = 8;
 
-let adSlotInventoryIssueIdColumn: boolean | undefined;
+let adSlotInventoryColumns: Set<string> | undefined;
 
-export async function hasAdSlotInventoryIssueIdColumn(db: any = prisma) {
-  if (db !== prisma) return true;
-  if (adSlotInventoryIssueIdColumn !== undefined) return adSlotInventoryIssueIdColumn;
-  const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
+export async function getAdSlotInventoryColumns(db: any = prisma) {
+  if (db === prisma && adSlotInventoryColumns) return adSlotInventoryColumns;
+  const columns = await db.$queryRaw<Array<{ column_name: string }>>`
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = current_schema()
       AND table_name = 'AdSlotInventory'
-      AND column_name = 'issueId'
   `;
-  adSlotInventoryIssueIdColumn = columns.length > 0;
-  return adSlotInventoryIssueIdColumn;
+  const names: Set<string> = new Set(columns.map((column: { column_name: string }) => column.column_name));
+  if (db === prisma) adSlotInventoryColumns = names;
+  return names;
+}
+
+export async function hasAdSlotInventoryColumn(columnName: string, db: any = prisma) {
+  return (await getAdSlotInventoryColumns(db)).has(columnName);
+}
+
+export async function hasAdSlotInventoryIssueIdColumn(db: any = prisma) {
+  return hasAdSlotInventoryColumn("issueId", db);
+}
+
+type AdSlotInventoryColumnOptions = {
+  includeIssueIdColumn?: boolean;
+  includeAudienceSegmentColumn?: boolean;
+  includeEventCategoryColumn?: boolean;
+  includeLocationLabelColumn?: boolean;
+  includeGenderColumn?: boolean;
+};
+
+export function dynamicAdSlotInventoryData<T extends Record<string, any>>(row: T, columns: Set<string>) {
+  const { issueId, audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
+  return {
+    ...base,
+    ...(columns.has("issueId") ? { issueId } : {}),
+    ...(columns.has("audienceSegment") ? { audienceSegment } : {}),
+    ...(columns.has("eventCategory") ? { eventCategory } : {}),
+    ...(columns.has("locationLabel") ? { locationLabel } : {}),
+    ...(columns.has("gender") ? { gender } : {}),
+  };
+}
+
+export function adSlotInventoryColumnOptions(columns: Set<string>): AdSlotInventoryColumnOptions {
+  return {
+    includeIssueIdColumn: columns.has("issueId"),
+    includeAudienceSegmentColumn: columns.has("audienceSegment"),
+    includeEventCategoryColumn: columns.has("eventCategory"),
+    includeLocationLabelColumn: columns.has("locationLabel"),
+    includeGenderColumn: columns.has("gender"),
+  };
 }
 
 export function audienceSegmentForRoute(restroom?: { name?: string | null; restroomType?: string | null; customTypeLabel?: string | null } | null) {
@@ -30,9 +67,11 @@ export function audienceSegmentForRoute(restroom?: { name?: string | null; restr
 }
 
 export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prisma) {
-  const [includeTypeColumns, includeIssueIdColumn] = db === prisma
-    ? await Promise.all([hasRestroomTypeColumns(), hasAdSlotInventoryIssueIdColumn(db)])
-    : [true, true];
+  const [includeTypeColumns, inventoryColumns] = await Promise.all([
+    db === prisma ? hasRestroomTypeColumns() : Promise.resolve(true),
+    getAdSlotInventoryColumns(db),
+  ]);
+  const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
   const qr = await db.qrCode.findUnique({
     where: { id: qrCodeId },
     include: { venue: true, restroom: { select: restroomTypedSelect(includeTypeColumns) } },
@@ -46,8 +85,8 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
   const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
   const data = Array.from({ length: ROUTE_SPONSOR_SLOT_COUNT }, (_, index) => index + 1)
     .filter((slotNumber) => !existingSlots.has(slotNumber))
-    .map((slotNumber) => ({
-      ...(includeIssueIdColumn ? { issueId: null } : {}),
+    .map((slotNumber) => dynamicAdSlotInventoryData({
+      issueId: null,
       venueId: qr.venueId,
       restroomId: qr.restroomId,
       qrCodeId: qr.id,
@@ -57,11 +96,11 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
       locationLabel: qr.restroom?.name || qr.venue.name,
       priceCents: 5000,
       status: "OPEN" as const,
-    }));
+    }, inventoryColumns));
   if (data.length) await db.adSlotInventory.createMany({ data, skipDuplicates: true });
 }
 
-export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: { includeIssueIdColumn?: boolean } = {}) {
+export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: AdSlotInventoryColumnOptions = {}) {
   const get = (key: string) => params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
   const venue = get("venueId");
   const audience = get("audienceSegment");
@@ -73,16 +112,16 @@ export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, s
   const statuses = new Set(["OPEN", "RESERVED", "SOLD", "DISABLED"]);
   const and = [
     ...(qrRoute ? [{ OR: [{ qrCode: { qrSlug: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { qrName: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { shortUrl: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { destinationUrl: { contains: qrRoute, mode: "insensitive" as const } } }] }] : []),
-    ...(location ? [{ OR: [{ locationLabel: { contains: location, mode: "insensitive" as const } }, { venue: { name: { contains: location, mode: "insensitive" as const } } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }, { restroom: { name: { contains: location, mode: "insensitive" as const } } }, { toiletLocation: { label: { contains: location, mode: "insensitive" as const } } }] }] : []),
+    ...(location ? [{ OR: [...(options.includeLocationLabelColumn === false ? [] : [{ locationLabel: { contains: location, mode: "insensitive" as const } }]), { venue: { name: { contains: location, mode: "insensitive" as const } } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }, { restroom: { name: { contains: location, mode: "insensitive" as const } } }, { toiletLocation: { label: { contains: location, mode: "insensitive" as const } } }] }] : []),
   ];
   return {
     ...(options.includeIssueIdColumn === false ? {} : { issueId: null }),
     month: QR_ROUTE_INVENTORY_MONTH,
     qrCodeId: { not: null },
     ...(venue ? { venueId: venue } : {}),
-    ...(audience ? { audienceSegment: audience } : {}),
+    ...(audience && options.includeAudienceSegmentColumn !== false ? { audienceSegment: audience } : {}),
     ...(slotType && Number(slotType) ? { slotNumber: Number(slotType) } : {}),
-    ...(eventCategory ? { eventCategory: { contains: eventCategory, mode: "insensitive" as const } } : {}),
+    ...(eventCategory && options.includeEventCategoryColumn !== false ? { eventCategory: { contains: eventCategory, mode: "insensitive" as const } } : {}),
     ...(and.length ? { AND: and } : {}),
     ...(status && statuses.has(status) ? { status: status as any } : { status: "OPEN" as const }),
     qrCode: { is: { status: { in: ["ACTIVE", "DEPLOYED"] as any }, venue: { is: { status: "ACTIVE" as const, isActive: true } } } },
