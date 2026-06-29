@@ -26,7 +26,7 @@ export function venueQrUrl(venueSlug: string, restroom?: { id: string; slug?: st
 }
 
 export async function ensureVenueQrCodes(venueId: string) {
-  const venue = await prisma.venue.findUnique({ where: { id: venueId }, include: { restrooms: { where: { status: "ACTIVE" }, orderBy: { name: "asc" } }, qrCodes: true } });
+  const venue = await prisma.venue.findUnique({ where: { id: venueId }, select: { id: true, publisherId: true, name: true, slug: true, restrooms: { where: { status: "ACTIVE" }, select: { id: true, name: true, slug: true }, orderBy: { name: "asc" } }, qrCodes: true } });
   if (!venue) return [];
   const existing = venue.qrCodes;
   const created = [];
@@ -39,5 +39,5 @@ export async function ensureVenueQrCodes(venueId: string) {
     const slug = `venue-${qrSlugSafe(venue.slug)}-${qrSlugSafe(restroom.slug || restroom.name)}`;
     created.push(await prisma.qrCode.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: restroom.id, qrName: `${venue.name} ${restroom.name} QR`, qrSlug: slug, qrUrl: `/scan/${slug}`, shortUrl: `/q/${slug}`, destinationType: "LOCATION", destinationUrl: venueQrPath(venue.slug, restroom), qrType: "RESTROOM", status: "ACTIVE", callToAction: "Scan for this restroom's issue" } }));
   }
-  return prisma.qrCode.findMany({ where: { venueId: venue.id }, include: { restroom: true }, orderBy: [{ qrType: "asc" }, { qrName: "asc" }] });
+  return prisma.qrCode.findMany({ where: { venueId: venue.id }, orderBy: [{ qrType: "asc" }, { qrName: "asc" }] });
 }
