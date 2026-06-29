@@ -24,6 +24,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     prisma.analyticsEvent.create({ data: { publisherId: qr.publisherId, venueId: qr.venueId, restroomId: qr.restroomId, qrCodeId: qr.id, type: "SCAN", visitorId, path: qr.qrUrl, metadata: { campaignSource: qr.campaignSource, advertisementSource: qr.advertisementSource, promotionSource: qr.promotionSource, couponSource: qr.couponSource } } }),
     prisma.qrCode.update({ where: { id: qr.id }, data: { lastScanAt: new Date(), status: qr.status === "DRAFT" || qr.status === "PRINTED" ? "ACTIVE" : qr.status } })
   ]);
-  const destination = qr.destinationUrl || qr.qrUrl || (qr.venue?.slug ? `/v/${qr.venue.slug}` : "/issue");
-  return NextResponse.redirect(new URL(destination, request.url));
+  const issue = qr.venueId ? await prisma.issue.findFirst({ where: { venueId: qr.venueId, ...(qr.restroomId ? { restroomId: qr.restroomId } : {}), status: "PUBLISHED", isPublished: true, isArchived: false }, orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }] }) : null;
+  const baseDestination = qr.destinationUrl || qr.qrUrl || (qr.venue?.slug ? `/v/${qr.venue.slug}` : "/issue");
+  const destination = new URL(baseDestination, request.url);
+  destination.searchParams.set("qr", qr.qrSlug);
+  if (qr.restroomId) destination.searchParams.set("restroom", qr.restroomId);
+  if (issue) destination.searchParams.set("previewIssueId", issue.id);
+  return NextResponse.redirect(destination);
 }
