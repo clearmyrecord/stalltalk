@@ -4,6 +4,22 @@ import { hasRestroomTypeColumns, restroomTypedSelect } from "./restroom-schema";
 export const QR_ROUTE_INVENTORY_MONTH = "QR_ROUTE";
 export const ROUTE_SPONSOR_SLOT_COUNT = 8;
 
+let adSlotInventoryIssueIdColumn: boolean | undefined;
+
+export async function hasAdSlotInventoryIssueIdColumn(db: any = prisma) {
+  if (db !== prisma) return true;
+  if (adSlotInventoryIssueIdColumn !== undefined) return adSlotInventoryIssueIdColumn;
+  const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'AdSlotInventory'
+      AND column_name = 'issueId'
+  `;
+  adSlotInventoryIssueIdColumn = columns.length > 0;
+  return adSlotInventoryIssueIdColumn;
+}
+
 export function audienceSegmentForRoute(restroom?: { name?: string | null; restroomType?: string | null; customTypeLabel?: string | null } | null) {
   if (!restroom) return "ALL_RESTROOMS";
   const value = `${restroom.customTypeLabel || ""} ${restroom.restroomType || ""} ${restroom.name || ""}`.toUpperCase();
@@ -14,7 +30,9 @@ export function audienceSegmentForRoute(restroom?: { name?: string | null; restr
 }
 
 export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prisma) {
-  const includeTypeColumns = db === prisma ? await hasRestroomTypeColumns() : true;
+  const [includeTypeColumns, includeIssueIdColumn] = db === prisma
+    ? await Promise.all([hasRestroomTypeColumns(), hasAdSlotInventoryIssueIdColumn(db)])
+    : [true, true];
   const qr = await db.qrCode.findUnique({
     where: { id: qrCodeId },
     include: { venue: true, restroom: { select: restroomTypedSelect(includeTypeColumns) } },
@@ -22,14 +40,14 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
   if (!qr?.venueId || !qr.venue || qr.venue.status !== "ACTIVE" || !qr.venue.isActive || !["ACTIVE", "DEPLOYED"].includes(qr.status)) return;
 
   const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({
-    where: { issueId: null, qrCodeId: qr.id, month: QR_ROUTE_INVENTORY_MONTH },
+    where: { ...(includeIssueIdColumn ? { issueId: null } : {}), qrCodeId: qr.id, month: QR_ROUTE_INVENTORY_MONTH },
     select: { slotNumber: true },
   });
   const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
   const data = Array.from({ length: ROUTE_SPONSOR_SLOT_COUNT }, (_, index) => index + 1)
     .filter((slotNumber) => !existingSlots.has(slotNumber))
     .map((slotNumber) => ({
-      issueId: null,
+      ...(includeIssueIdColumn ? { issueId: null } : {}),
       venueId: qr.venueId,
       restroomId: qr.restroomId,
       qrCodeId: qr.id,
@@ -43,7 +61,7 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
   if (data.length) await db.adSlotInventory.createMany({ data, skipDuplicates: true });
 }
 
-export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, string | undefined>) {
+export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: { includeIssueIdColumn?: boolean } = {}) {
   const get = (key: string) => params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
   const venue = get("venueId");
   const audience = get("audienceSegment");
@@ -58,7 +76,7 @@ export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, s
     ...(location ? [{ OR: [{ locationLabel: { contains: location, mode: "insensitive" as const } }, { venue: { name: { contains: location, mode: "insensitive" as const } } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }, { restroom: { name: { contains: location, mode: "insensitive" as const } } }, { toiletLocation: { label: { contains: location, mode: "insensitive" as const } } }] }] : []),
   ];
   return {
-    issueId: null,
+    ...(options.includeIssueIdColumn === false ? {} : { issueId: null }),
     month: QR_ROUTE_INVENTORY_MONTH,
     qrCodeId: { not: null },
     ...(venue ? { venueId: venue } : {}),

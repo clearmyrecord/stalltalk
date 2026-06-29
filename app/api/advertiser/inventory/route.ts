@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import {
   ensureQrRouteAdInventory,
+  hasAdSlotInventoryIssueIdColumn,
   qrRouteInventoryWhere,
 } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
@@ -33,9 +34,10 @@ export async function GET(request: NextRequest) {
     take: 300,
   });
 
+  const includeIssueIdColumn = await hasAdSlotInventoryIssueIdColumn();
   await Promise.all(qrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
 
-  const baseWhere = qrRouteInventoryWhere(request.nextUrl.searchParams);
+  const baseWhere = qrRouteInventoryWhere(request.nextUrl.searchParams, { includeIssueIdColumn });
 
   const where =
     user.role === "ADMIN" &&
@@ -43,12 +45,25 @@ export async function GET(request: NextRequest) {
       ? baseWhere
       : {
           ...baseWhere,
-          status: "AVAILABLE",
+          status: "OPEN",
         };
 
   const inventory = await prisma.adSlotInventory.findMany({
     where,
-    include: {
+    select: {
+      id: true,
+      venueId: true,
+      restroomId: true,
+      qrCodeId: true,
+      slotNumber: true,
+      month: true,
+      audienceSegment: true,
+      eventCategory: true,
+      locationLabel: true,
+      startsAt: true,
+      endsAt: true,
+      priceCents: true,
+      status: true,
       venue: {
         select: {
           id: true,
@@ -72,17 +87,19 @@ export async function GET(request: NextRequest) {
           status: true,
         },
       },
-      issue: {
-        select: {
-          id: true,
-          title: true,
-          month: true,
-          year: true,
-          issueNumber: true,
-          status: true,
-          isPublished: true,
+      ...(includeIssueIdColumn ? {
+        issue: {
+          select: {
+            id: true,
+            title: true,
+            month: true,
+            year: true,
+            issueNumber: true,
+            status: true,
+            isPublished: true,
+          },
         },
-      },
+      } : {}),
     },
     orderBy: [
       { venue: { name: "asc" } },

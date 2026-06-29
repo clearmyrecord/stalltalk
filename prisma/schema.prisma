@@ -899,6 +899,7 @@ model AdSlotInventory {
 
   @@unique([issueId, venueId, restroomId, qrCodeId, slotNumber, month])
   @@index([issueId, status])
+  @@index([issueId, month, qrCodeId, status])
   @@index([audienceSegment])
   @@index([status, month])
 }

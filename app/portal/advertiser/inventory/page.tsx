@@ -4,7 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { ensureQrRouteAdInventory, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
+import { ensureQrRouteAdInventory, hasAdSlotInventoryIssueIdColumn, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -53,13 +53,23 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
     select: { id: true },
     take: 300,
   });
+  const includeIssueIdColumn = await hasAdSlotInventoryIssueIdColumn();
   await Promise.all(routeQrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
 
-  const where = qrRouteInventoryWhere(filters);
+  const where = qrRouteInventoryWhere(filters, { includeIssueIdColumn });
   const [inventory, venues, issues, scanCounts, events] = await Promise.all([
     prisma.adSlotInventory.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        venueId: true,
+        restroomId: true,
+        qrCodeId: true,
+        slotNumber: true,
+        audienceSegment: true,
+        locationLabel: true,
+        priceCents: true,
+        status: true,
         venue: true,
         restroom: { select: restroomLabelSelect },
         qrCode: true,
