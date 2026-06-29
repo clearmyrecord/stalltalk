@@ -1,5 +1,6 @@
 import { AdScope, ContentBlockType, PrismaClient } from "@prisma/client";
 import { hashPassword } from "../lib/passwords";
+import { dynamicAdSlotInventoryData, getAdSlotInventoryColumns, safeAdSlotInventoryCreateMany } from "../lib/advertiser-route-inventory";
 
 const prisma = new PrismaClient();
 
@@ -85,7 +86,13 @@ async function main() {
   }
 
   const toiletLocation = await prisma.toiletLocation.create({ data: { venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, name: "Casino Floor Men’s QR", label: "MGM Casino QR #001", placement: "Sink wall QR sticker" } });
-  await prisma.adSlotInventory.createMany({ data: Array.from({ length: 4 }, (_, index) => ({ venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, toiletLocationId: toiletLocation.id, slotNumber: index + 1, month: "2026-07", priceCents: 5000, status: "OPEN" })) });
+  const inventoryColumns = await getAdSlotInventoryColumns();
+  await safeAdSlotInventoryCreateMany(
+    prisma,
+    Array.from({ length: 4 }, (_, index) =>
+      dynamicAdSlotInventoryData({ venueId: venue.id, restroomId: restroom.id, qrCodeId: qrCode.id, toiletLocationId: toiletLocation.id, slotNumber: index + 1, month: "2026-07", priceCents: 5000, status: "OPEN" }, inventoryColumns)
+    )
+  );
 
   const categories = await Promise.all(["Funny", "Facts", "Entertainment", "Deals"].map((name) => prisma.category.create({ data: { publisherId: publisher.id, name, slug: name.toLowerCase(), color: name === "Deals" ? "#ff2d2d" : "#ffd400" } })));
   const articles = await Promise.all(

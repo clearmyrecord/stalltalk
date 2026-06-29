@@ -6,6 +6,32 @@ export const ROUTE_SPONSOR_SLOT_COUNT = 8;
 
 let adSlotInventoryColumns: Set<string> | undefined;
 
+const OPTIONAL_AD_SLOT_INVENTORY_COLUMNS = ["issueId", "audienceSegment", "eventCategory", "locationLabel", "gender"] as const;
+
+export function isOptionalAdSlotInventoryColumnError(error: unknown) {
+  const err = error as { code?: string; meta?: { column?: string; modelName?: string }; message?: string };
+  if (err?.code !== "P2022") return false;
+  const column = err.meta?.column || err.message || "";
+  return OPTIONAL_AD_SLOT_INVENTORY_COLUMNS.some((name) => column.includes(name));
+}
+
+export function logOptionalAdSlotInventoryColumnError(context: string, error: unknown) {
+  console.warn(`${context}: optional AdSlotInventory column is missing; continuing without crashing.`, error);
+}
+
+export async function safeAdSlotInventoryCreateMany(db: any, data: Array<Record<string, any>>) {
+  if (!data.length) return;
+  try {
+    await db.adSlotInventory.createMany({ data, skipDuplicates: true });
+  } catch (error) {
+    if (isOptionalAdSlotInventoryColumnError(error)) {
+      logOptionalAdSlotInventoryColumnError("adSlotInventory.createMany", error);
+      return;
+    }
+    throw error;
+  }
+}
+
 export async function getAdSlotInventoryColumns(db: any = prisma) {
   if (db === prisma && adSlotInventoryColumns) return adSlotInventoryColumns;
   const columns = await db.$queryRaw<Array<{ column_name: string }>>`
@@ -27,7 +53,7 @@ export async function hasAdSlotInventoryIssueIdColumn(db: any = prisma) {
   return hasAdSlotInventoryColumn("issueId", db);
 }
 
-type AdSlotInventoryColumnOptions = {
+export type AdSlotInventoryColumnOptions = {
   includeIssueIdColumn?: boolean;
   includeAudienceSegmentColumn?: boolean;
   includeEventCategoryColumn?: boolean;
@@ -97,7 +123,7 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
       priceCents: 5000,
       status: "OPEN" as const,
     }, inventoryColumns));
-  if (data.length) await db.adSlotInventory.createMany({ data, skipDuplicates: true });
+  await safeAdSlotInventoryCreateMany(db, data);
 }
 
 export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: AdSlotInventoryColumnOptions = {}) {
