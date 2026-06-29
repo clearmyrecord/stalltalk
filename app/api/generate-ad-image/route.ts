@@ -91,7 +91,8 @@ function validateBrief(body: Record<string, unknown>) {
     return "JSON body must be an object.";
   if (!safe(body.businessName, "")) return "Business name is required.";
   if (!safe(body.offer, "")) return "Offer / promotion is required.";
-  if (!safe(body.creativeBrief || body.brief, "")) return "Creative brief is required to generate an ad.";
+  if (!safe(body.creativeBrief || body.brief, ""))
+    return "Creative brief is required to generate an ad.";
   return "";
 }
 
@@ -143,41 +144,47 @@ function buildPrompt(body: Record<string, unknown>, adSize: AdSize) {
     body.category || body.businessCategory,
     "local business",
   );
-  const subheadline = safe(body.subheadline || body.generatedSubheadline, copy.subheadline);
-  const websiteOrPhone = [safe(body.website || body.targetUrl, ""), safe(body.phone, "")]
+  const subheadline = safe(
+    body.subheadline || body.generatedSubheadline,
+    copy.subheadline,
+  );
+  const websiteOrPhone = [
+    safe(body.website || body.targetUrl, ""),
+    safe(body.phone, ""),
+  ]
     .filter(Boolean)
     .join(" / ");
   const creativeBrief = safe(body.creativeBrief || body.brief, "");
   const size = sizeMap[adSize];
   const promptUsed = [
-      "You are creating a finished editorial magazine advertisement for Potty Favor.",
-      "",
-      `Business:\n${copy.businessName}`,
-      "",
-      `Category:\n${category}`,
-      "",
-      `Offer:\n${copy.offer}`,
-      "",
-      `Subheadline:\n${subheadline}`,
-      "",
-      `Coupon:\n${copy.couponCode || "none"}`,
-      "",
-      `CTA:\n${copy.ctaText}`,
-      "",
-      `Website/Phone:\n${websiteOrPhone || "none"}`,
-      "",
-      `Creative Brief:\n${creativeBrief}`,
-      "",
-      "Create the ad exactly according to the Creative Brief.",
-      "The Creative Brief controls the visual concept, scene, mood, objects, setting, people, style, and composition.",
-      "Include the business name, offer, coupon, and CTA in the finished ad image.",
-      "Use a premium Las Vegas hospitality magazine style.",
-      "Keep text readable.",
-      "Keep all important content inside safe margins.",
-      "Do not ignore the brief.",
-      "Do not create unrelated generic artwork.",
-      `Design for ${size.apiSize} (${size.cssSafeArea}).`,
-    ].join("\n");
+    "You are creating a finished editorial magazine advertisement for Potty Favor.",
+    "",
+    `Business:\n${copy.businessName}`,
+    "",
+    `Category:\n${category}`,
+    "",
+    `Offer:\n${copy.offer}`,
+    "",
+    `Subheadline:\n${subheadline}`,
+    "",
+    `Coupon:\n${copy.couponCode || "none"}`,
+    "",
+    `CTA:\n${copy.ctaText}`,
+    "",
+    `Website/Phone:\n${websiteOrPhone || "none"}`,
+    "",
+    `Creative Brief:\n${creativeBrief}`,
+    "",
+    "Create the ad exactly according to the Creative Brief.",
+    "The Creative Brief controls the visual concept, scene, mood, objects, setting, people, style, and composition.",
+    "Include the business name, offer, coupon, and CTA in the finished ad image.",
+    "Use a premium Las Vegas hospitality magazine style.",
+    "Keep text readable.",
+    "Keep all important content inside safe margins.",
+    "Do not ignore the brief.",
+    "Do not create unrelated generic artwork.",
+    `Design for ${size.apiSize} (${size.cssSafeArea}).`,
+  ].join("\n");
 
   return {
     ...copy,
@@ -243,7 +250,10 @@ async function saveGeneratedCreative(
   );
   const requestedVersion = Number(body.versionNumber || 0);
   const latest = await prisma.stalltalkCampaignHistory.findFirst({
-    where: { parentCampaignId },
+    where: {
+      parentCampaignId,
+      ...(advertiserId ? { advertiserId } : {}),
+    },
     orderBy: { versionNumber: "desc" },
     select: { versionNumber: true },
   });
@@ -370,8 +380,18 @@ export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {
     body = await request.json();
-    if (user?.role === "ADVERTISER")
-      body = { ...body, advertiserId: user.advertiserId || "" };
+    if (user?.role === "ADVERTISER") {
+      if (!user.advertiserId)
+        return json(
+          {
+            error: "Advertiser profile required.",
+            diagnostic: diagnostic({ errorType: "missing_advertiser_profile" }),
+          },
+          request,
+          403,
+        );
+      body = { ...body, advertiserId: user.advertiserId };
+    }
   } catch (error) {
     const message =
       error instanceof Error
