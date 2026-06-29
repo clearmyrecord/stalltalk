@@ -33,6 +33,33 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
         },
       ]),
   );
+  const activeIssueCampaignSlots = new Map<number, ServedAd>(
+    issue.id
+      ? (
+          await prisma.adCampaignPlacement.findMany({
+            where: {
+              inventory: { issueId: issue.id },
+              campaign: {
+                status: "ACTIVE",
+                approvalStatus: "APPROVED",
+                ad: { isNot: null },
+              },
+            },
+            include: { inventory: true, campaign: { include: { ad: true } } },
+            orderBy: { createdAt: "asc" },
+          })
+        )
+          .filter((placement) => placement.campaign.ad && isActive(placement.campaign.ad, now))
+          .map((placement) => [
+            placement.inventory.slotNumber,
+            {
+              ...placement.campaign.ad!,
+              source: placement.campaign.ad!.scope,
+              slotNumber: placement.inventory.slotNumber,
+            },
+          ])
+      : [],
+  );
   const ads = await prisma.ad.findMany({
     where: {
       publisherId: issue.publisherId,
@@ -63,6 +90,8 @@ export async function getServedAds(issue: Context): Promise<ServedAd[]> {
     const slotNumber = index + 1;
     const manual = activeManualSlots.get(slotNumber);
     if (manual) return manual;
+    const issueCampaign = activeIssueCampaignSlots.get(slotNumber);
+    if (issueCampaign) return issueCampaign;
     if (!deduped.length) return null;
     const ad = deduped[rotationIndex % deduped.length];
     rotationIndex += 1;

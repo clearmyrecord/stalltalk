@@ -563,6 +563,7 @@ model Issue {
   importedEvents Event[]
   qrScans        QrScan[]
   currentQrCodes QrCode[]            @relation("CurrentIssueQr")
+  adSlotInventories AdSlotInventory[]
 
   @@index([publisherId])
   @@index([defaultIssueId])
@@ -873,11 +874,15 @@ model ToiletLocation {
 model AdSlotInventory {
   id                 String                @id @default(cuid())
   venueId            String
+  issueId            String?
   restroomId         String?
   qrCodeId           String?
   toiletLocationId   String?
   slotNumber         Int
   month              String
+  audienceSegment    String                @default("ALL_RESTROOMS")
+  eventCategory      String?
+  locationLabel      String?
   startsAt           DateTime?
   endsAt             DateTime?
   priceCents         Int                   @default(5000)
@@ -885,13 +890,16 @@ model AdSlotInventory {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   venue              Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  issue              Issue?                @relation(fields: [issueId], references: [id], onDelete: Cascade)
   restroom           Restroom?             @relation(fields: [restroomId], references: [id], onDelete: SetNull)
   qrCode             QrCode?               @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
   toiletLocation     ToiletLocation?       @relation(fields: [toiletLocationId], references: [id], onDelete: SetNull)
   campaigns          AdCampaign[]
   campaignPlacements AdCampaignPlacement[]
 
-  @@unique([venueId, restroomId, qrCodeId, slotNumber, month])
+  @@unique([issueId, venueId, restroomId, qrCodeId, slotNumber, month])
+  @@index([issueId, status])
+  @@index([audienceSegment])
   @@index([status, month])
 }
 
