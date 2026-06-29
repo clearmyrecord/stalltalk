@@ -4,7 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { ensureQrRouteAdInventory, adSlotInventoryColumnOptions, getAdSlotInventoryColumns, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -48,18 +48,11 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
 
   const filters = await searchParams;
   const range = dateRange(filters);
-  const routeQrs = await prisma.qrCode.findMany({
-    where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } },
-    select: { id: true },
-    take: 300,
-  });
   const inventoryColumns = await getAdSlotInventoryColumns();
   const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
-  await Promise.all(routeQrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
 
   const where = qrRouteInventoryWhere(filters, inventoryColumnOptions);
-  const [inventory, venues, issues, scanCounts, events] = await Promise.all([
-    prisma.adSlotInventory.findMany({
+  const inventoryQuery = prisma.adSlotInventory.findMany({
       where,
       select: {
         id: true,
@@ -78,7 +71,16 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
       },
       orderBy: [{ venue: { name: "asc" } }, { qrCode: { qrSlug: "asc" } }, { slotNumber: "asc" }],
       take: 150,
-    }),
+    }).catch((error) => {
+      if (isOptionalAdSlotInventoryColumnError(error)) {
+        logOptionalAdSlotInventoryColumnError("advertiser inventory page query", error);
+        return [];
+      }
+      throw error;
+    });
+
+  const [inventory, venues, issues, scanCounts, events] = await Promise.all([
+    inventoryQuery,
     prisma.venue.findMany({
       where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } },
       select: { id: true, name: true },

@@ -5,6 +5,8 @@ import {
   adSlotInventoryColumnOptions,
   getAdSlotInventoryColumns,
   qrRouteInventoryWhere,
+  isOptionalAdSlotInventoryColumnError,
+  logOptionalAdSlotInventoryColumnError,
 } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
@@ -37,7 +39,15 @@ export async function GET(request: NextRequest) {
 
   const inventoryColumns = await getAdSlotInventoryColumns();
   const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
-  await Promise.all(qrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
+  try {
+    await Promise.all(qrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
+  } catch (error) {
+    if (isOptionalAdSlotInventoryColumnError(error)) {
+      logOptionalAdSlotInventoryColumnError("advertiser inventory API generation", error);
+    } else {
+      console.error("advertiser inventory API generation failed", error);
+    }
+  }
 
   const baseWhere = qrRouteInventoryWhere(request.nextUrl.searchParams, inventoryColumnOptions);
 

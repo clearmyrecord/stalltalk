@@ -1,4 +1,4 @@
-import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, getAdSlotInventoryColumns } from "./advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, getAdSlotInventoryColumns, safeAdSlotInventoryCreateMany } from "./advertiser-route-inventory";
 import { prisma } from "./prisma";
 
 export const SPONSOR_SLOT_COUNT = 8;
@@ -45,7 +45,7 @@ export async function ensureIssueAdInventory(issueId: string, db: any = prisma) 
       priceCents: 5000,
       status: "OPEN" as const,
     }, inventoryColumns));
-  if (data.length) await db.adSlotInventory.createMany({ data, skipDuplicates: true });
+  await safeAdSlotInventoryCreateMany(db, data);
 }
 
 export function publishedIssueInventoryWhere(params: URLSearchParams | Record<string, string | undefined>) {
