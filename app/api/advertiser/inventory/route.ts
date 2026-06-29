@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { publishedIssueInventoryWhere } from "@/lib/issue-inventory";
+import { hasRestroomTypeColumns, restroomTypedSelect } from "@/lib/restroom-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,12 @@ export async function GET(request: NextRequest) {
         ...(request.nextUrl.searchParams.get("includeUnavailable") === "true" ? { status: undefined } : {}),
       }
     : publishedIssueInventoryWhere(request.nextUrl.searchParams);
+  const includeTypeColumns = await hasRestroomTypeColumns();
   const inventory = await prisma.adSlotInventory.findMany({
     where,
     include: {
       venue: { select: { id: true, name: true, city: true, state: true, venueType: true } },
-      restroom: { select: { id: true, name: true, restroomType: true, customTypeLabel: true } },
+      restroom: { select: restroomTypedSelect(includeTypeColumns) },
       issue: { select: { id: true, title: true, month: true, year: true, issueNumber: true, status: true, isPublished: true } },
     },
     orderBy: [{ month: "asc" }, { venue: { name: "asc" } }, { slotNumber: "asc" }],

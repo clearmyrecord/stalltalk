@@ -20,12 +20,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const userAgent = request.headers.get("user-agent") || "";
   const parsed = ua(userAgent);
   const visitorId = url.searchParams.get("visitor") || request.headers.get("x-vercel-id") || `${parsed.deviceType}-${Date.now()}`;
+  const issue = qr.issueId
+    ? await prisma.issue.findFirst({ where: { id: qr.issueId, status: "PUBLISHED", isPublished: true, isArchived: false } })
+    : qr.venueId
+      ? await prisma.issue.findFirst({ where: { venueId: qr.venueId, ...(qr.restroomId ? { restroomId: qr.restroomId } : { restroomId: null }), status: "PUBLISHED", isPublished: true, isArchived: false }, orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }] }) || (qr.restroomId ? await prisma.issue.findFirst({ where: { venueId: qr.venueId, restroomId: null, status: "PUBLISHED", isPublished: true, isArchived: false }, orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }] }) : null)
+      : null;
   await prisma.$transaction([
-    prisma.qrScan.create({ data: { qrCodeId: qr.id, publisherId: qr.publisherId, venueId: qr.venueId, restroomId: qr.restroomId, visitorId, sessionId: url.searchParams.get("session"), ...parsed, city: url.searchParams.get("city"), state: url.searchParams.get("state") || qr.venue?.state, country: url.searchParams.get("country") || "US", referralSource: request.headers.get("referer"), campaignSource: url.searchParams.get("utm_source") || qr.campaignSource, advertisementSource: url.searchParams.get("ad_source") || qr.advertisementSource, promotionSource: url.searchParams.get("promo_source") || qr.promotionSource, couponSource: url.searchParams.get("coupon_source") || qr.couponSource, metadata: { url: request.url } } }),
-    prisma.analyticsEvent.create({ data: { publisherId: qr.publisherId, venueId: qr.venueId, restroomId: qr.restroomId, qrCodeId: qr.id, type: "SCAN", visitorId, path: qr.qrUrl, metadata: { campaignSource: qr.campaignSource, advertisementSource: qr.advertisementSource, promotionSource: qr.promotionSource, couponSource: qr.couponSource } } }),
+    prisma.qrScan.create({ data: { qrCodeId: qr.id, publisherId: qr.publisherId, venueId: qr.venueId, restroomId: qr.restroomId, issueId: issue?.id, visitorId, sessionId: url.searchParams.get("session"), ...parsed, city: url.searchParams.get("city"), state: url.searchParams.get("state") || qr.venue?.state, country: url.searchParams.get("country") || "US", referralSource: request.headers.get("referer"), campaignSource: url.searchParams.get("utm_source") || qr.campaignSource, advertisementSource: url.searchParams.get("ad_source") || qr.advertisementSource, promotionSource: url.searchParams.get("promo_source") || qr.promotionSource, couponSource: url.searchParams.get("coupon_source") || qr.couponSource, metadata: { url: request.url } } }),
+    prisma.analyticsEvent.create({ data: { publisherId: qr.publisherId, venueId: qr.venueId, restroomId: qr.restroomId, qrCodeId: qr.id, issueId: issue?.id, type: "SCAN", visitorId, path: qr.qrUrl, metadata: { campaignSource: qr.campaignSource, advertisementSource: qr.advertisementSource, promotionSource: qr.promotionSource, couponSource: qr.couponSource } } }),
     prisma.qrCode.update({ where: { id: qr.id }, data: { lastScanAt: new Date(), status: qr.status === "DRAFT" || qr.status === "PRINTED" ? "ACTIVE" : qr.status } })
   ]);
-  const issue = qr.venueId ? await prisma.issue.findFirst({ where: { venueId: qr.venueId, ...(qr.restroomId ? { restroomId: qr.restroomId } : {}), status: "PUBLISHED", isPublished: true, isArchived: false }, orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }] }) : null;
   const baseDestination = qr.destinationUrl || qr.qrUrl || (qr.venue?.slug ? `/v/${qr.venue.slug}` : "/issue");
   const destination = new URL(baseDestination, request.url);
   destination.searchParams.set("qr", qr.qrSlug);
