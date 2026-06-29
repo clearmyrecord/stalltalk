@@ -386,12 +386,16 @@ export async function createVenueIssue(formData: FormData) {
   const year = intValue(formData, "year", now.getFullYear());
   const title = text(formData, "title", `${month} ${year} Venue Issue`);
   const slug = `${slugify(title)}-${Date.now()}`;
-  const issue = await prisma.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}/issue/${slug}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
-  await saveContentBlocks(issue.id, formData);
-  await saveAdSlots(issue.id, formData);
+  const issue = await prisma.$transaction(async (tx) => {
+    const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}/issue/${slug}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
+    await saveContentBlocks(created.id, formData, tx);
+    await saveAdSlots(created.id, formData, tx);
+    return created;
+  });
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/issue/${venue.slug}`);
+  revalidatePath(`/issue/${issue.slug}`);
   redirect(`/portal/venue/issues/${issue.id}/edit?saved=1`);
 }
 
@@ -418,6 +422,7 @@ export async function updateVenueIssue(id: string, formData: FormData) {
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/portal/venue/issues/${id}/edit`);
   revalidatePath(`/issue/${venue.slug}`);
+  revalidatePath(`/issue/${existing.slug}`);
 }
 
 export async function setVenueIssueStatus(id: string, status: IssueStatus) {
@@ -431,6 +436,7 @@ export async function setVenueIssueStatus(id: string, status: IssueStatus) {
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/portal/venue/issues/${id}/edit`);
+  revalidatePath(`/issue/${issue.slug}`);
 }
 
 
