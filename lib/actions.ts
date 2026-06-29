@@ -668,8 +668,11 @@ export async function createAdvertiserCampaign(formData: FormData) {
   const inventory = await prisma.adSlotInventory.findMany({
     where: {
       id: { in: placements },
-      issue: { status: "PUBLISHED", isPublished: true, isArchived: false },
       status: "OPEN",
+      OR: [
+        { issue: { status: "PUBLISHED", isPublished: true, isArchived: false } },
+        { issueId: null, qrCode: { status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } } },
+      ],
     }
   });
   if (inventory.length !== placements.length) throw new Error("One or more selected placements are no longer available.");
@@ -714,7 +717,8 @@ export async function createAdvertiserCampaign(formData: FormData) {
       creatives: { create: [{ advertiserId, kind: text(formData, "creativeKind", "IMAGE") as any, imageUrl: nullableText(formData, "creativeUrl"), headline: text(formData, "headline"), body: text(formData, "body"), callToAction: text(formData, "ctaText", "Learn More"), destinationUrl: text(formData, "targetUrl", "#"), approvalStatus: "SUBMITTED" as any }] }
     }
   });
-  await prisma.adSlotInventory.updateMany({ where: { id: { in: placements } }, data: { status: "RESERVED" } });
+  const issueScopedInventoryIds = inventory.filter((slot) => slot.issueId).map((slot) => slot.id);
+  if (issueScopedInventoryIds.length) await prisma.adSlotInventory.updateMany({ where: { id: { in: issueScopedInventoryIds } }, data: { status: "RESERVED" } });
 
   revalidatePath("/portal/advertiser");
   revalidatePath("/admin/dashboard");
