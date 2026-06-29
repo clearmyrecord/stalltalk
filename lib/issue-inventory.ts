@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { hasRestroomTypeColumns, restroomTypedSelect } from "./restroom-schema";
 
 export const SPONSOR_SLOT_COUNT = 8;
 
@@ -17,9 +18,10 @@ export function audienceSegmentForIssue(issue: { restroomId?: string | null; res
 }
 
 export async function ensureIssueAdInventory(issueId: string, db: any = prisma) {
+  const includeTypeColumns = db === prisma ? await hasRestroomTypeColumns() : true;
   const issue = await db.issue.findUnique({
     where: { id: issueId },
-    include: { venue: true, restroom: true, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } },
+    include: { venue: true, restroom: { select: restroomTypedSelect(includeTypeColumns) }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } },
   });
   if (!issue || !issue.venueId || issue.status !== "PUBLISHED" || !issue.isPublished || issue.isArchived) return;
   const month = issueInventoryMonth(issue);
@@ -53,14 +55,23 @@ export function publishedIssueInventoryWhere(params: URLSearchParams | Record<st
   const eventCategory = get("eventCategory");
   const location = get("location");
   const available = get("availableOnly") !== "false";
+  const status = get("status");
+  const qrRoute = get("qrRoute");
+  const slotType = get("slotType");
+  const and = [
+    ...(qrRoute ? [{ OR: [{ qrCode: { qrSlug: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { qrName: { contains: qrRoute, mode: "insensitive" as const } } }, { restroom: { slug: { contains: qrRoute, mode: "insensitive" as const } } }, { restroom: { name: { contains: qrRoute, mode: "insensitive" as const } } }] }] : []),
+    ...(location ? [{ OR: [{ locationLabel: { contains: location, mode: "insensitive" as const } }, { venue: { name: { contains: location, mode: "insensitive" as const } } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }, { toiletLocation: { label: { contains: location, mode: "insensitive" as const } } }] }] : []),
+  ];
+  const statuses = new Set(["OPEN", "RESERVED", "SOLD", "DISABLED"]);
   return {
     ...(venue ? { venueId: venue } : {}),
     ...(issue ? { issueId: issue } : {}),
     ...(month ? { month } : year ? { month: { startsWith: `${year}-` } } : {}),
     ...(audience ? { audienceSegment: audience } : {}),
-    ...(eventCategory ? { eventCategory } : {}),
-    ...(location ? { OR: [{ locationLabel: { contains: location, mode: "insensitive" as const } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }] } : {}),
-    ...(available ? { status: "OPEN" as const } : {}),
+    ...(eventCategory ? { eventCategory: { contains: eventCategory, mode: "insensitive" as const } } : {}),
+    ...(slotType && Number(slotType) ? { slotNumber: Number(slotType) } : {}),
+    ...(and.length ? { AND: and } : {}),
+    ...(status && statuses.has(status) ? { status: status as any } : available ? { status: "OPEN" as const } : {}),
     issue: { is: { status: "PUBLISHED" as const, isPublished: true, isArchived: false } },
   };
 }

@@ -7,7 +7,7 @@ import {
 } from "@/lib/advertiser-portal";
 import { publishedIssueInventoryWhere } from "@/lib/issue-inventory";
 import { prisma } from "@/lib/prisma";
-import { restroomTypeLabel } from "@/lib/restroom-schema";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
     prisma.adCampaign.findMany({ where: { advertiserId: advertiser.id }, orderBy: { createdAt: "desc" }, take: 50, include: { placements: { include: { inventory: { include: { venue: true, issue: true } } } } } }),
     prisma.adSlotInventory.findMany({
       where: publishedIssueInventoryWhere(filters),
-      include: { venue: true, restroom: true, issue: { include: { importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } } } },
+      include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true, issue: { include: { importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } } } },
       orderBy: [{ month: "asc" }, { venue: { name: "asc" } }, { slotNumber: "asc" }],
       take: 100,
     }),
@@ -37,7 +37,7 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
         <p className="font-black uppercase tracking-[.25em] text-stallRed">Advertiser Portal</p>
         <h1 className="font-display text-6xl uppercase">Campaigns</h1>
         <p className="mt-2 font-bold">Browse published venue issue inventory, select sponsor slots, and submit campaign placements. Draft and unpublished venue issues are not shown.</p>
-        <Link href="/portal/advertiser" className="mt-4 inline-flex font-black uppercase text-stallPurple underline">Back to Advertiser Portal</Link>
+        <div className="mt-4 flex flex-wrap gap-3"><Link href="/portal/advertiser" className="font-black uppercase text-stallPurple underline">Back to Advertiser Portal</Link><Link href="/portal/advertiser/inventory" className="font-black uppercase text-stallRed underline">Browse Inventory</Link></div>
         <div className="mt-6 grid gap-3">
           {campaigns.length ? campaigns.map((campaign) => (
             <article key={campaign.id} className="rounded-xl border-2 border-ink bg-paper p-4">
@@ -71,10 +71,10 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
           <div className="grid gap-3 md:grid-cols-2">
             {inventory.map((slot) => (
               <label key={slot.id} className="rounded-xl border-2 border-ink bg-paper p-4 font-bold">
-                <input type="checkbox" name="inventoryIds" value={slot.id} className="mr-2" />
+                <input type="checkbox" name="inventoryIds" value={slot.id} defaultChecked={filters.inventoryId === slot.id} className="mr-2" />
                 <span className="font-black uppercase">Slot {slot.slotNumber} • {money(slot.priceCents)} • {slot.status}</span>
                 <span className="block">{slot.venue.name} • {slot.issue?.title} • {slot.issue?.month} {slot.issue?.year}</span>
-                <span className="block text-sm uppercase text-stallRed">{slot.audienceSegment.replaceAll("_", " ")} • {slot.restroom ? restroomTypeLabel(slot.restroom) : "All restrooms"} • {slot.locationLabel || slot.venue.city}</span>
+                <span className="block text-sm uppercase text-stallRed">{slot.audienceSegment.replaceAll("_", " ")} • {slot.restroom?.name || "All restrooms"} • {slot.qrCode?.qrSlug || slot.locationLabel || slot.venue.city}</span>
                 {slot.eventCategory || slot.issue?.importedEvents[0]?.category ? <span className="block text-sm">Category: {slot.eventCategory || slot.issue?.importedEvents[0]?.category}</span> : null}
               </label>
             ))}

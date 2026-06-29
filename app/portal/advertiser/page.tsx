@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const allowedRoles: Role[] = ["ADVERTISER", "ADMIN"] as Role[];
 const navItems = [
+  ["Browse Inventory", "/portal/advertiser/inventory"],
   ["Create AI Ad", "/portal/advertiser/ad-studio"],
   ["Upload Finished Ad", "/portal/advertiser/upload"],
   ["Campaigns", "/portal/advertiser/campaigns"],
