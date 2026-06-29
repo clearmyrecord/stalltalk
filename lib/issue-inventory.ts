@@ -19,7 +19,7 @@ export function audienceSegmentForIssue(issue: { restroomId?: string | null; res
 export async function ensureIssueAdInventory(issueId: string, db: any = prisma) {
   const issue = await db.issue.findUnique({
     where: { id: issueId },
-    include: { venue: true, restroom: true, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } },
+    include: { venue: true, restroom: { select: { id: true, name: true } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } },
   });
   if (!issue || !issue.venueId || issue.status !== "PUBLISHED" || !issue.isPublished || issue.isArchived) return;
   const month = issueInventoryMonth(issue);

@@ -452,6 +452,43 @@ export async function setVenueIssueStatus(id: string, status: IssueStatus) {
 }
 
 
+export async function assignVenueIssueToQr(issueId: string, qrCodeId: string) {
+  const user = await requireVenueManager();
+  if (!user.venueId) throw new Error("Link a venue before assigning issues.");
+  const issue = await prisma.issue.findFirst({ where: { id: issueId, venueId: user.venueId } });
+  if (!issue) throw new Error("Issue not found for your venue.");
+  const qr = await prisma.qrCode.findFirst({ where: { id: qrCodeId, venueId: user.venueId }, include: { venue: { select: { slug: true, name: true } }, restroom: { select: { id: true, name: true } } } });
+  if (!qr) throw new Error("QR route not found for your venue.");
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.issue.update({
+      where: { id: issue.id },
+      data: { status: "PUBLISHED", isPublished: true, isArchived: false, isScheduled: false, publishedAt: issue.publishedAt || now },
+    });
+    await tx.qrCode.update({ where: { id: qr.id }, data: { issueId: issue.id, status: "ACTIVE" } });
+    await ensureIssueAdInventory(issue.id, tx);
+    const inventoryMonth = `${issue.year}-${String(new Date(`${issue.month} 1, ${issue.year}`).getMonth() + 1 || 1).padStart(2, "0")}`;
+    const audienceSegment = qr.restroomId ? (qr.restroom?.name?.toLowerCase().includes("men") && !qr.restroom?.name?.toLowerCase().includes("women") ? "VENUE_MENS" : qr.restroom?.name?.toLowerCase().includes("women") ? "VENUE_WOMENS" : "SPECIFIC_RESTROOM") : "ALL_RESTROOMS";
+    await tx.adSlotInventory.createMany({
+      data: Array.from({ length: 8 }, (_, index) => ({ issueId: issue.id, venueId: user.venueId!, restroomId: qr.restroomId, qrCodeId: qr.id, slotNumber: index + 1, month: inventoryMonth, audienceSegment, locationLabel: qr.restroom?.name || qr.venue?.name || null, status: "OPEN" as const })),
+      skipDuplicates: true,
+    });
+  });
+  revalidatePath("/portal/venue/issues");
+  revalidatePath(qr.venue?.slug ? `/v/${qr.venue.slug}` : "/portal/venue/issues");
+  redirect("/portal/venue/issues?published=1");
+}
+
+export async function makeCurrentVenueIssue(issueId: string) {
+  const user = await requireVenueManager();
+  if (!user.venueId) throw new Error("Link a venue before assigning issues.");
+  const issue = await prisma.issue.findFirst({ where: { id: issueId, venueId: user.venueId } });
+  if (!issue) throw new Error("Issue not found for your venue.");
+  const venueQr = await prisma.qrCode.findFirst({ where: { venueId: user.venueId, qrType: "VENUE", restroomId: null } });
+  if (!venueQr) throw new Error("Venue QR route not found.");
+  return assignVenueIssueToQr(issueId, venueQr.id);
+}
+
 export async function recordReviewClick(formData: FormData) {
   await recordAnalytics(formData);
   redirect(text(formData, "targetUrl", "/issue"));
