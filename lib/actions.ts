@@ -13,6 +13,7 @@ import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
 import { restroomBaseSelect } from "./restroom-schema";
+import { ensureIssueAdInventory } from "./issue-inventory";
 
 function text(formData: FormData, key: string, fallback = "") {
   return String(formData.get(key) ?? fallback).trim();
@@ -259,6 +260,7 @@ async function saveNewIssue(formData: FormData): Promise<IssueSaveState> {
       const issue = await tx.issue.create({ data: await issueData(formData) });
       await saveContentBlocks(issue.id, formData, tx);
       await saveAdSlots(issue.id, formData, tx);
+      await ensureIssueAdInventory(issue.id, tx);
       return issue;
     });
     revalidateIssuePaths(issue.id);
@@ -283,6 +285,7 @@ async function saveExistingIssue(id: string, formData: FormData): Promise<IssueS
       await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
       await saveContentBlocks(id, formData, tx);
       await saveAdSlots(id, formData, tx);
+      await ensureIssueAdInventory(id, tx);
     });
     revalidateIssuePaths(id);
     const response = { ok: true, message: `Issue saved successfully. Saved issue ID: ${id}`, issueId: id, editUrl: `/admin/issues/${id}/edit` };
@@ -393,6 +396,7 @@ export async function createVenueIssue(formData: FormData) {
     const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
     await saveContentBlocks(created.id, formData, tx);
     await saveAdSlots(created.id, formData, tx);
+    await ensureIssueAdInventory(created.id, tx);
     return created;
   });
   revalidatePath("/portal/venue");
@@ -421,6 +425,7 @@ export async function updateVenueIssue(id: string, formData: FormData) {
     await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
     await saveContentBlocks(id, formData, tx);
     await saveAdSlots(id, formData, tx);
+    await ensureIssueAdInventory(id, tx);
   });
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
@@ -438,6 +443,7 @@ export async function setVenueIssueStatus(id: string, status: IssueStatus) {
   if (!issue) throw new Error("Issue not found for your venue.");
   const now = new Date();
   await prisma.issue.update({ where: { id }, data: { status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? issue.publishedAt || now : issue.publishedAt, republishedAt: issue.publishedAt && issue.status !== "PUBLISHED" && status === "PUBLISHED" ? now : issue.republishedAt } });
+  if (status === "PUBLISHED") await ensureIssueAdInventory(id);
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/portal/venue/issues/${id}/edit`);
@@ -538,13 +544,17 @@ export async function publishIssue(id: string) {
   const existing = await prisma.issue.findUniqueOrThrow({ where: { id }, select: { status: true, publishedAt: true } });
   const now = new Date();
   await prisma.issue.update({ where: { id }, data: { status: "PUBLISHED", isPublished: true, isScheduled: false, isArchived: false, publishedAt: existing.publishedAt || now, republishedAt: existing.publishedAt ? now : null } });
+  await ensureIssueAdInventory(id);
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
 
 export async function unpublishIssue(id: string) {
   await requireAdmin();
-  await prisma.issue.update({ where: { id }, data: { status: "DRAFT", isPublished: false, isScheduled: false } });
+  await prisma.$transaction(async (tx) => {
+    await tx.issue.update({ where: { id }, data: { status: "DRAFT", isPublished: false, isScheduled: false } });
+    await tx.adSlotInventory.updateMany({ where: { issueId: id, status: "OPEN" }, data: { status: "DISABLED" } });
+  });
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
@@ -618,7 +628,13 @@ export async function createAdvertiserCampaign(formData: FormData) {
   const placementCount = placements.length;
   const totalAmountCents = calculateFlightTotal(placementCount, flightMonths);
   const { startsAt, endsAt } = flightDateRange(flightStartMonth, flightMonths);
-  const inventory = await prisma.adSlotInventory.findMany({ where: { id: { in: placements } } });
+  const inventory = await prisma.adSlotInventory.findMany({
+    where: {
+      id: { in: placements },
+      issue: { status: "PUBLISHED", isPublished: true, isArchived: false },
+      status: "OPEN",
+    }
+  });
   if (inventory.length !== placements.length) throw new Error("One or more selected placements are no longer available.");
   const conflicts = await findOverlappingCampaignPlacements(inventory, flightStartMonth, flightEnd);
   if (conflicts.length) throw new Error("One or more selected placements already has a paid or active campaign during this flight.");
@@ -661,6 +677,7 @@ export async function createAdvertiserCampaign(formData: FormData) {
       creatives: { create: [{ advertiserId, kind: text(formData, "creativeKind", "IMAGE") as any, imageUrl: nullableText(formData, "creativeUrl"), headline: text(formData, "headline"), body: text(formData, "body"), callToAction: text(formData, "ctaText", "Learn More"), destinationUrl: text(formData, "targetUrl", "#"), approvalStatus: "SUBMITTED" as any }] }
     }
   });
+  await prisma.adSlotInventory.updateMany({ where: { id: { in: placements } }, data: { status: "RESERVED" } });
 
   revalidatePath("/portal/advertiser");
   revalidatePath("/admin/dashboard");
@@ -707,6 +724,7 @@ async function publishPaidCampaign(campaignId: string) {
   if (!placements.length) return;
   const ads = await Promise.all(placements.map((inventory) => prisma.ad.create({ data: { publisherId: campaign.advertiser.publisherId, advertiserId: campaign.advertiserId, businessName: campaign.businessName, title: campaign.headline, offer: campaign.body, artworkUrl: campaign.creativeUrl, ctaText: campaign.ctaText, targetUrl: campaign.targetUrl, status: "ACTIVE", scope: inventory.restroomId ? "RESTROOM" : "VENUE", venueId: inventory.venueId, restroomId: inventory.restroomId, monthlyPriceCents: campaign.pricePerPlacementMonthCents, campaignStartsAt: campaign.startsAt, campaignEndsAt: campaign.endsAt } })));
   await prisma.adCampaign.update({ where: { id: campaign.id }, data: { adId: ads[0]?.id || null, status: "ACTIVE", publishedAt: new Date() } });
+  await prisma.adSlotInventory.updateMany({ where: { id: { in: placements.map((placement) => placement.id) } }, data: { status: "SOLD" } });
 }
 
 async function requireAssignedVenue(venueId: string) {
