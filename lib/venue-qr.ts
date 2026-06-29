@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { restroomBaseSelect, restroomLabelSelect } from "@/lib/restroom-schema";
+import { restroomLabelSelect } from "@/lib/restroom-schema";
 import { locationSlug } from "@/lib/issue-routing";
 import { publicBaseUrl } from "@/lib/qr";
 
@@ -27,7 +27,7 @@ export function venueQrUrl(venueSlug: string, restroom?: { id: string; slug?: st
 }
 
 export async function ensureVenueQrCodes(venueId: string) {
-  const venue = await prisma.venue.findUnique({ where: { id: venueId }, include: { restrooms: { where: { status: "ACTIVE" }, select: restroomBaseSelect, orderBy: { name: "asc" } }, qrCodes: true } });
+  const venue = await prisma.venue.findUnique({ where: { id: venueId }, select: { id: true, publisherId: true, name: true, slug: true, restrooms: { where: { status: "ACTIVE" }, select: restroomLabelSelect, orderBy: { name: "asc" } }, qrCodes: true } });
   if (!venue) return [];
   const existing = venue.qrCodes;
   const created = [];

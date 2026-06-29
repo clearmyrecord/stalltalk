@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { updateVenueIssue } from "@/lib/actions";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { restroomBaseSelect } from "@/lib/restroom-schema";
 import { IssueEditor } from "../../IssueEditor";
 
 export default async function EditVenueIssuePage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,10 +13,10 @@ export default async function EditVenueIssuePage({ params }: { params: Promise<{
   const issue = await prisma.issue.findFirst({ where: { id, venueId: user.venueId }, include: { venue: { select: { id: true, slug: true, publisherId: true } }, contentBlocks: { orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } } });
   if (!issue?.venue) notFound();
   const [articles, ads, restrooms, qrCodes] = await Promise.all([
-    prisma.article.findMany({ where: { publisherId: issue.venue.publisherId, OR: [{ venueIds: { has: issue.venue.id } }, { venueIds: { isEmpty: true } }] }, orderBy: { updatedAt: "desc" } }),
-    prisma.ad.findMany({ where: { status: "ACTIVE", scope: { in: ["VENUE", "RESTROOM"] }, OR: [{ venueId: issue.venue.id }, { venueIds: { has: issue.venue.id } }, { restroom: { venueId: issue.venue.id } }] }, orderBy: { updatedAt: "desc" } }),
-    prisma.restroom.findMany({ where: { venueId: issue.venue.id }, select: restroomBaseSelect, orderBy: { name: "asc" } }),
-    prisma.qrCode.findMany({ where: { venueId: issue.venue.id }, orderBy: { qrName: "asc" } }),
+    prisma.article.findMany({ where: { publisherId: issue.venue.publisherId, OR: [{ venueIds: { has: issue.venue.id } }, { venueIds: { isEmpty: true } }] }, select: { id: true, title: true }, orderBy: { updatedAt: "desc" } }),
+    prisma.ad.findMany({ where: { status: "ACTIVE", scope: { in: ["VENUE", "RESTROOM"] }, OR: [{ venueId: issue.venue.id }, { venueIds: { has: issue.venue.id } }, { restroom: { venueId: issue.venue.id } }] }, select: { id: true, businessName: true, scope: true }, orderBy: { updatedAt: "desc" } }),
+    prisma.restroom.findMany({ where: { venueId: issue.venue.id, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.qrCode.findMany({ where: { venueId: issue.venue.id }, select: { id: true, qrName: true, restroomId: true }, orderBy: { qrName: "asc" } }),
   ]);
   return <main className="min-h-screen bg-paper p-8 text-ink"><Link href="/portal/venue/issues" className="font-black uppercase text-stallRed">← My Issues</Link><h1 className="mt-4 font-display text-6xl uppercase">Edit Issue</h1><IssueEditor action={updateVenueIssue.bind(null, issue.id)} issue={issue} articles={articles} ads={ads} restrooms={restrooms} qrCodes={qrCodes} /></main>;
 }

@@ -4,19 +4,25 @@ import { contentLabels } from "@/lib/format";
 import { issuePublicPath, issuePublicUrl } from "@/lib/issue-routing";
 import { PublicIssueUrlActions } from "@/components/PublicIssueUrlActions";
 
+type EditorArticle = Pick<Article, "id" | "title">;
+type EditorAd = Pick<Ad, "id" | "businessName" | "scope">;
+type EditorRestroom = { id: string; name: string };
+type EditorQrCode = Pick<QrCode, "id" | "qrName" | "restroomId">;
+
+export type VenueIssueDraft = Partial<Pick<Issue, "id" | "title" | "month" | "year" | "issueNumber" | "status" | "restroomId" | "qrCodeId" | "slug">> & { contentBlocks?: IssueContentBlock[]; adSlots?: (IssueAdSlot & { ad?: Ad })[]; venue?: { slug: string } | null };
 type VenueIssue = Issue & { contentBlocks?: IssueContentBlock[]; adSlots?: (IssueAdSlot & { ad?: Ad })[]; venue?: { slug: string } | null };
-type RestroomOption = { id: string; name: string };
 
 const CONTENT_ZONES = [
   ["mission", "MISSION"], ["funny", "HILARIOUSLY_FUNNY"], ["feature", "FEATURE_ARTICLE"], ["restaurant", "RESTAURANT_REVIEW"], ["events", "EVENT_CALENDAR"], ["deals", "LOCAL_DEALS"], ["trivia", "TRIVIA"], ["quote", "INSPIRATIONAL_QUOTES"], ["community", "WORD_OF_THE_MONTH"],
 ] as const;
 const zoneOptions = CONTENT_ZONES.map(([, type]) => ({ value: type, label: contentLabels[type as keyof typeof contentLabels] || type }));
 
-export function IssueEditor({ action, issue, articles = [], ads = [], restrooms = [], qrCodes = [] }: { action: (formData: FormData) => Promise<void>; issue?: VenueIssue; articles?: Article[]; ads?: Ad[]; restrooms?: RestroomOption[]; qrCodes?: QrCode[] }) {
+export function IssueEditor({ action, issue, articles = [], ads = [], restrooms = [], qrCodes = [] }: { action: (formData: FormData) => Promise<void>; issue?: VenueIssue | VenueIssueDraft; articles?: EditorArticle[]; ads?: EditorAd[]; restrooms?: EditorRestroom[]; qrCodes?: EditorQrCode[] }) {
   const now = new Date();
   const blocks = CONTENT_ZONES.map(([key], index) => issue?.contentBlocks?.find((block) => (block.layout as any)?.key === key) || issue?.contentBlocks?.find((block) => block.sortOrder === index + 1));
-  const previewHref = issue ? `${issuePublicPath(issue as any)}?previewIssueId=${encodeURIComponent(issue.id)}` : null;
-  const publicIssueUrl = issue?.slug || issue?.id ? issuePublicUrl(issue as any) : null;
+  const issueId = issue?.id || null;
+  const previewHref = issueId ? `${issuePublicPath(issue as any)}?previewIssueId=${encodeURIComponent(issueId)}` : null;
+  const publicIssueUrl = issueId && (issue?.slug || issue?.id) ? issuePublicUrl(issue as any) : null;
   return <form action={action} className="mt-6 grid gap-5">
     <section className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-6 shadow-brutal">
       <p className="rounded-xl bg-stallYellow p-3 font-black text-ink">Build a complete Potty Favor issue for your linked venue only. Public/global ads and admin-only data are not exposed here.</p>
@@ -56,7 +62,7 @@ export function IssueEditor({ action, issue, articles = [], ads = [], restrooms 
     <div className="flex flex-wrap gap-3">
       <button name="status" value="DRAFT" className="rounded-xl bg-ink px-5 py-3 font-black uppercase text-white">Save Draft</button>
       <button name="status" value="PUBLISHED" className="rounded-xl bg-stallRed px-5 py-3 font-black uppercase text-white">Publish Issue</button>
-      {issue ? <button name="status" value="DRAFT" className="rounded-xl border-4 border-ink bg-white px-5 py-3 font-black uppercase">Unpublish</button> : null}
+      {issueId ? <button name="status" value="DRAFT" className="rounded-xl border-4 border-ink bg-white px-5 py-3 font-black uppercase">Unpublish</button> : null}
     </div>
   </form>;
 }
