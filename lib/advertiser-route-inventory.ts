@@ -430,24 +430,36 @@ export async function ensureAssignedIssueQrRouteAdInventory(
   await safeAdSlotInventoryCreateMany(db, data);
 }
 
-export function qrRouteInventoryWhere(
+function getInventoryParam(
+  params: URLSearchParams | Record<string, string | undefined>,
+  key: string,
+) {
+  return params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
+}
+
+function monthKeyFromDate(value?: string) {
+  if (!value) return undefined;
+  const match = value.match(/^(\d{4})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}` : undefined;
+}
+
+function advertiserInventoryFilterParts(
   params: URLSearchParams | Record<string, string | undefined>,
   options: AdSlotInventoryColumnOptions = {},
 ) {
-  const get = (key: string) =>
-    params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
-
-  const venue = get("venueId");
-  const venueName = get("venueName");
-  const city = get("city");
-  const state = get("state");
-  const venueType = get("venueType");
-  const audience = get("audienceSegment");
-  const status = get("status");
-  const qrRoute = get("qrRoute");
-  const slotType = get("slotType");
-  const location = get("location");
-  const eventCategory = get("eventCategory");
+  const venue = getInventoryParam(params, "venueId");
+  const venueName = getInventoryParam(params, "venueName");
+  const city = getInventoryParam(params, "city");
+  const state = getInventoryParam(params, "state");
+  const venueType = getInventoryParam(params, "venueType");
+  const audience = getInventoryParam(params, "audienceSegment");
+  const status = getInventoryParam(params, "status");
+  const qrRoute = getInventoryParam(params, "qrRoute");
+  const slotType = getInventoryParam(params, "slotType");
+  const location = getInventoryParam(params, "location");
+  const eventCategory = getInventoryParam(params, "eventCategory");
+  const startMonth = monthKeyFromDate(getInventoryParam(params, "startDate"));
+  const endMonth = monthKeyFromDate(getInventoryParam(params, "endDate"));
   const statuses = new Set(["OPEN", "RESERVED", "SOLD", "DISABLED"]);
 
   const and = [
@@ -493,6 +505,31 @@ export function qrRouteInventoryWhere(
       : []),
   ];
 
+  const monthRange = {
+    ...(startMonth ? { gte: startMonth } : {}),
+    ...(endMonth ? { lte: endMonth } : {}),
+  };
+
+  return {
+    venue,
+    audience,
+    statusWhere: status && statuses.has(status)
+      ? { status: status as any }
+      : { status: "OPEN" as const },
+    slotType,
+    eventCategory,
+    and,
+    monthWhere: Object.keys(monthRange).length ? { month: monthRange } : {},
+  };
+}
+
+export function qrRouteInventoryWhere(
+  params: URLSearchParams | Record<string, string | undefined>,
+  options: AdSlotInventoryColumnOptions = {},
+) {
+  const { venue, audience, statusWhere, slotType, eventCategory, and } =
+    advertiserInventoryFilterParts(params, options);
+
   return {
     ...(options.includeIssueIdColumn === false ? {} : { issueId: null }),
     month: QR_ROUTE_INVENTORY_MONTH,
@@ -506,9 +543,7 @@ export function qrRouteInventoryWhere(
       ? { eventCategory: { contains: eventCategory, mode: "insensitive" as const } }
       : {}),
     ...(and.length ? { AND: and } : {}),
-    ...(status && statuses.has(status)
-      ? { status: status as any }
-      : { status: "OPEN" as const }),
+    ...statusWhere,
     qrCode: {
       is: {
         status: { in: ["ACTIVE", "DEPLOYED"] as any },
@@ -522,31 +557,28 @@ export function publishedIssueInventoryWhere(
   params: URLSearchParams | Record<string, string | undefined>,
   options: AdSlotInventoryColumnOptions = {},
 ) {
-  const get = (key: string) =>
-    params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
-
-  const venue = get("venueId");
-  const audience = get("audienceSegment");
-  const status = get("status");
-  const slotType = get("slotType");
-  const statuses = new Set(["OPEN", "RESERVED", "SOLD", "DISABLED"]);
+  const { venue, audience, statusWhere, slotType, eventCategory, and, monthWhere } =
+    advertiserInventoryFilterParts(params, options);
 
   return {
     ...(options.includeIssueIdColumn === false ? {} : { issueId: { not: null } }),
+    qrCodeId: { not: null },
     ...(venue ? { venueId: venue } : {}),
     ...(audience && options.includeAudienceSegmentColumn !== false
       ? { audienceSegment: audience }
       : {}),
     ...(slotType && Number(slotType) ? { slotNumber: Number(slotType) } : {}),
-    ...(status && statuses.has(status)
-      ? { status: status as any }
-      : { status: "OPEN" as const }),
+    ...(eventCategory && options.includeEventCategoryColumn !== false
+      ? { eventCategory: { contains: eventCategory, mode: "insensitive" as const } }
+      : {}),
+    ...(and.length ? { AND: and } : {}),
+    ...monthWhere,
+    ...statusWhere,
     issue: {
       is: {
         status: "PUBLISHED" as const,
         isPublished: true,
         isArchived: false,
-        qrCodeId: { not: null },
       },
     },
     qrCode: {
