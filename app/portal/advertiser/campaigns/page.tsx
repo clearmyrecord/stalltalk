@@ -5,7 +5,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes, getAdSlotInventoryColumns } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 
 
@@ -102,9 +102,83 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
   const advertiser = await advertiserForPortalUser(user);
   if (!user.advertiserId || !advertiser) return <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />;
   const filters = await searchParams;
+  const inventoryColumns = await getAdSlotInventoryColumns();
+  const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
+  await ensurePublishedIssueInventoryForAdvertiserRoutes();
   const [campaigns, inventory, venues] = await Promise.all([
-    advertiserCampaignRows(user.advertiserId),
-    advertiserInventoryRows(filters),
+const [campaigns, inventory, venues] = await Promise.all([
+  advertiserCampaignRows(advertiser.advertiserId),
+
+  prisma.adSlotInventory.findMany({
+    where: advertiserInventoryWhere(filters),
+    include: {
+      venue: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          state: true,
+          venueType: true,
+          slug: true,
+        },
+      },
+      restroom: {
+        select: restroomLabelSelect,
+      },
+      qrCode: {
+        select: {
+          id: true,
+          qrSlug: true,
+          shortUrl: true,
+          destinationUrl: true,
+          status: true,
+        },
+      },
+      ...(inventoryColumnOptions.includeIssueIdColumn
+        ? {
+            issue: {
+              select: {
+                id: true,
+                title: true,
+                month: true,
+                year: true,
+                issueNumber: true,
+                status: true,
+                isPublished: true,
+              },
+            },
+          }
+        : {}),
+    },
+    orderBy: [
+      { venue: { name: "asc" } },
+      { qrCode: { qrSlug: "asc" } },
+      { slotNumber: "asc" },
+    ],
+    take: 100,
+  }),
+
+  prisma.venue.findMany({
+    where: {
+      isActive: true,
+      status: "ACTIVE",
+      qrCodes: {
+        some: {
+          status: {
+            in: ["ACTIVE", "DEPLOYED"],
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  }),
+]);
     prisma.venue.findMany({ where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
@@ -147,8 +221,25 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
                 <input type="checkbox" name="inventoryIds" value={slot.id} defaultChecked={filters.inventoryId === slot.id} className="mr-2" />
                 <span className="font-black uppercase">Slot {slot.slotNumber} • {money(slot.priceCents)} • {slot.status}</span>
                 <span className="block">{slot.venue.name} • {slot.qrCode?.qrName || slot.qrCode?.qrSlug || "QR route"}</span>
-                <span className="block text-sm uppercase text-stallRed">{(slot.audienceSegment || "ALL_RESTROOMS").replaceAll("_", " ")} • {slot.restroom?.name || "All restrooms"} • {slot.qrCode?.shortUrl || slot.qrCode?.qrSlug || slot.locationLabel || slot.venue.city}</span>
-                {slot.eventCategory ? <span className="block text-sm">Category: {slot.eventCategory}</span> : null}
+<span className="block text-sm uppercase text-stallRed">
+  {((slot.audienceSegment as string | null) || "ALL_RESTROOMS").replaceAll("_", " ")}
+  {" • "}
+  {slot.restroom?.name || "All restrooms"}
+  {" • "}
+  {slot.qrCode?.shortUrl || slot.qrCode?.qrSlug || "QR route"}
+</span>
+
+{slot.eventCategory ? (
+  <span className="block text-sm">Category: {slot.eventCategory}</span>
+) : null}
+
+{"issue" in slot && slot.issue ? (
+  <span className="block text-sm">
+    {slot.issue.title || "Default issue currently serving this route"}
+  </span>
+) : (
+  <span className="block text-sm">Global fallback issue</span>
+)}
               </label>
             ))}
           </div>

@@ -199,3 +199,50 @@ export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, s
     qrCode: { is: { status: { in: ["ACTIVE", "DEPLOYED"] as any }, venue: { is: { status: "ACTIVE" as const, isActive: true } } } },
   };
 }
+
+export function publishedIssueInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: AdSlotInventoryColumnOptions = {}) {
+  const get = (key: string) => params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
+  const venue = get("venueId");
+  const audience = get("audienceSegment");
+  const status = get("status");
+  const slotType = get("slotType");
+  const statuses = new Set(["OPEN", "RESERVED", "SOLD", "DISABLED"]);
+  return {
+    ...(options.includeIssueIdColumn === false ? {} : { issueId: { not: null } }),
+    ...(venue ? { venueId: venue } : {}),
+    ...(audience && options.includeAudienceSegmentColumn !== false ? { audienceSegment: audience } : {}),
+    ...(slotType && Number(slotType) ? { slotNumber: Number(slotType) } : {}),
+    ...(status && statuses.has(status) ? { status: status as any } : { status: "OPEN" as const }),
+    issue: { is: { status: "PUBLISHED" as const, isPublished: true, isArchived: false } },
+  };
+}
+
+export function advertiserInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: AdSlotInventoryColumnOptions = {}) {
+  return options.includeIssueIdColumn === false ? qrRouteInventoryWhere(params, options) : { OR: [qrRouteInventoryWhere(params, options), publishedIssueInventoryWhere(params, options)] };
+}
+
+export async function ensurePublishedIssueInventoryForAdvertiserRoutes(db: any = prisma) {
+  const inventoryColumns = await getAdSlotInventoryColumns(db);
+  const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
+  if (!includeIssueIdColumn) return;
+  const [routes, issues] = await Promise.all([
+    db.qrCode.findMany({ where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } }, include: { venue: true, restroom: { select: { id: true, name: true, restroomType: true, customTypeLabel: true } } }, take: 300 }),
+    db.issue.findMany({ where: { status: "PUBLISHED", isPublished: true, isArchived: false }, include: { venue: true, restroom: { select: { id: true, name: true, restroomType: true } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } }, orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }], take: 500 }),
+  ]);
+  const globalIssue = issues.find((issue: any) => !issue.venueId && issue.isGlobalIssue) || issues.find((issue: any) => !issue.venueId);
+  const data: Array<Record<string, any>> = [];
+  for (const route of routes) {
+    const routeIssues = [issues.find((issue: any) => issue.qrCodeId === route.id), issues.find((issue: any) => issue.venueId === route.venueId && issue.restroomId === route.restroomId), issues.find((issue: any) => issue.venueId === route.venueId && !issue.restroomId && !issue.qrCodeId)].filter(Boolean);
+    if (!routeIssues.length && globalIssue) routeIssues.push(globalIssue);
+    for (const issue of routeIssues as any[]) {
+      const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({ where: { issueId: issue.id, qrCodeId: route.id }, select: { slotNumber: true } });
+      const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
+      const month = `${issue.year}-${String(new Date(`${issue.month} 1, ${issue.year}`).getMonth() + 1 || 1).padStart(2, "0")}`;
+      for (let slotNumber = 1; slotNumber <= ROUTE_SPONSOR_SLOT_COUNT; slotNumber += 1) {
+        if (existingSlots.has(slotNumber)) continue;
+        data.push(dynamicAdSlotInventoryData({ issueId: issue.id, venueId: route.venueId, restroomId: route.restroomId, qrCodeId: route.id, slotNumber, month, audienceSegment: audienceSegmentForRoute(route.restroom), eventCategory: issue.importedEvents?.[0]?.category || null, locationLabel: route.restroom?.name || route.venue?.name || (issue.venueId ? "Default issue currently serving this route" : "Global fallback issue"), priceCents: 5000, status: "OPEN" as const }, inventoryColumns));
+      }
+    }
+  }
+  await safeAdSlotInventoryCreateMany(db, data);
+}
