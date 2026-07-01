@@ -46,14 +46,17 @@ export async function safeAdSlotInventoryCreateMany(
 ) {
   if (!data.length) return;
 
+  const columns = await getAdSlotInventoryColumns(db);
+  const safeData = data.map((row) => dynamicAdSlotInventoryData(row, columns));
+
   try {
     const result = await db.adSlotInventory.createMany({
-      data,
+      data: safeData,
       skipDuplicates: true,
     });
 
     console.info("adSlotInventory.createMany completed", {
-      requested: data.length,
+      requested: safeData.length,
       created: result?.count ?? "unknown",
     });
   } catch (error) {
@@ -72,7 +75,7 @@ export async function safeAdSlotInventoryCreateMany(
   }
 }
 
-export async function getAdSlotInventoryColumns(db: any = prisma) {
+export async function getAdSlotInventoryColumns(db: any = prisma): Promise<Set<string>> {
   if (db === prisma && adSlotInventoryColumns) return adSlotInventoryColumns;
 
   const columns = await db.$queryRaw<Array<{ column_name: string }>>`
@@ -82,7 +85,7 @@ export async function getAdSlotInventoryColumns(db: any = prisma) {
       AND table_name = 'AdSlotInventory'
   `;
 
-  const names = new Set(columns.map((column) => column.column_name));
+  const names = new Set<string>((columns as Array<{ column_name: string }>).map((column) => column.column_name));
 
   if (db === prisma) adSlotInventoryColumns = names;
 
@@ -100,7 +103,7 @@ export async function hasAdSlotInventoryIssueIdColumn(db: any = prisma) {
   return hasAdSlotInventoryColumn("issueId", db);
 }
 
-export async function getVenueColumns(db: any = prisma) {
+export async function getVenueColumns(db: any = prisma): Promise<Set<string>> {
   if (db === prisma && venueColumns) return venueColumns;
 
   const columns = await db.$queryRaw<Array<{ column_name: string }>>`
@@ -110,7 +113,7 @@ export async function getVenueColumns(db: any = prisma) {
       AND table_name = 'Venue'
   `;
 
-  const names = new Set(columns.map((column) => column.column_name));
+  const names = new Set<string>((columns as Array<{ column_name: string }>).map((column) => column.column_name));
 
   if (db === prisma) venueColumns = names;
 
@@ -648,16 +651,17 @@ export async function ensurePublishedIssueInventoryForAdvertiserRoutes(
   );
 
   for (const route of routes) {
-    const routeIssues = issues.filter((issue: any) => {
+    const assignedVenueIssues = issues.filter((issue: any) => {
+      if (!issue.venueId || issue.venueId !== route.venueId) return false;
       if (issue.qrCodeId === route.id) return true;
       if (route.issueId && issue.id === route.issueId) return true;
-      if (issue.venueId === route.venueId) return true;
       return false;
     });
-
-    if (!routeIssues.length && globalIssue) {
-      routeIssues.push(globalIssue);
-    }
+    const routeIssues = assignedVenueIssues.length
+      ? assignedVenueIssues
+      : globalIssue
+        ? [globalIssue]
+        : [];
 
     for (const issue of routeIssues as any[]) {
       const existing: Array<{ slotNumber: number }> =
