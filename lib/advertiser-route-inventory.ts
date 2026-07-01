@@ -5,6 +5,7 @@ export const QR_ROUTE_INVENTORY_MONTH = "QR_ROUTE";
 export const ROUTE_SPONSOR_SLOT_COUNT = 8;
 
 let adSlotInventoryColumns: Set<string> | undefined;
+let venueColumns: Set<string> | undefined;
 
 const OPTIONAL_AD_SLOT_INVENTORY_COLUMNS = ["issueId", "audienceSegment", "eventCategory", "locationLabel", "gender"] as const;
 
@@ -51,6 +52,43 @@ export async function hasAdSlotInventoryColumn(columnName: string, db: any = pri
 
 export async function hasAdSlotInventoryIssueIdColumn(db: any = prisma) {
   return hasAdSlotInventoryColumn("issueId", db);
+}
+
+export async function getVenueColumns(db: any = prisma) {
+  if (db === prisma && venueColumns) return venueColumns;
+  const columns = await db.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'Venue'
+  `;
+  const names: Set<string> = new Set(columns.map((column: { column_name: string }) => column.column_name));
+  if (db === prisma) venueColumns = names;
+  return names;
+}
+
+export async function optionalVenueLocationRows(venueIds: string[], db: any = prisma) {
+  if (!venueIds.length) return new Map<string, { latitude?: number | null; longitude?: number | null; zip?: string | null }>();
+  const columns = await getVenueColumns(db);
+  const latitudeColumn = ["latitude", "lat"].find((column) => columns.has(column));
+  const longitudeColumn = ["longitude", "lng", "lon"].find((column) => columns.has(column));
+  const zipColumn = ["zip", "postalCode", "postal_code"].find((column) => columns.has(column));
+  if (!latitudeColumn && !longitudeColumn && !zipColumn) return new Map();
+  const selectParts = [
+    '"id"',
+    latitudeColumn ? `"${latitudeColumn}" AS latitude` : 'NULL AS latitude',
+    longitudeColumn ? `"${longitudeColumn}" AS longitude` : 'NULL AS longitude',
+    zipColumn ? `"${zipColumn}" AS zip` : 'NULL AS zip',
+  ];
+  const rows = await db.$queryRawUnsafe(
+    `SELECT ${selectParts.join(", ")} FROM "Venue" WHERE "id" = ANY($1)`,
+    venueIds,
+  ) as Array<{ id: string; latitude?: unknown; longitude?: unknown; zip?: string | null }>;
+  return new Map(rows.map((row: { id: string; latitude?: unknown; longitude?: unknown; zip?: string | null }) => [row.id, {
+    latitude: row.latitude == null ? null : Number(row.latitude),
+    longitude: row.longitude == null ? null : Number(row.longitude),
+    zip: row.zip || null,
+  }]));
 }
 
 export type AdSlotInventoryColumnOptions = {
@@ -129,6 +167,10 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
 export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, string | undefined>, options: AdSlotInventoryColumnOptions = {}) {
   const get = (key: string) => params instanceof URLSearchParams ? params.get(key) || undefined : params[key];
   const venue = get("venueId");
+  const venueName = get("venueName");
+  const city = get("city");
+  const state = get("state");
+  const venueType = get("venueType");
   const audience = get("audienceSegment");
   const status = get("status");
   const qrRoute = get("qrRoute");
@@ -139,6 +181,10 @@ export function qrRouteInventoryWhere(params: URLSearchParams | Record<string, s
   const and = [
     ...(qrRoute ? [{ OR: [{ qrCode: { qrSlug: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { qrName: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { shortUrl: { contains: qrRoute, mode: "insensitive" as const } } }, { qrCode: { destinationUrl: { contains: qrRoute, mode: "insensitive" as const } } }] }] : []),
     ...(location ? [{ OR: [...(options.includeLocationLabelColumn === false ? [] : [{ locationLabel: { contains: location, mode: "insensitive" as const } }]), { venue: { name: { contains: location, mode: "insensitive" as const } } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }, { restroom: { name: { contains: location, mode: "insensitive" as const } } }, { toiletLocation: { label: { contains: location, mode: "insensitive" as const } } }] }] : []),
+    ...(venueName ? [{ venue: { name: { contains: venueName, mode: "insensitive" as const } } }] : []),
+    ...(city ? [{ venue: { city: { contains: city, mode: "insensitive" as const } } }] : []),
+    ...(state ? [{ venue: { state: { contains: state, mode: "insensitive" as const } } }] : []),
+    ...(venueType ? [{ venue: { venueType: { contains: venueType, mode: "insensitive" as const } } }] : []),
   ];
   return {
     ...(options.includeIssueIdColumn === false ? {} : { issueId: null }),
