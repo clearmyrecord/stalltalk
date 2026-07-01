@@ -684,7 +684,8 @@ export async function createAdvertiserCampaign(formData: FormData) {
   const conflicts = await findOverlappingCampaignPlacements(inventory, flightStartMonth, flightEnd);
   if (conflicts.length) throw new Error("One or more selected placements already has a paid or active campaign during this flight.");
 
-  const advertiserId = user.role === "ADVERTISER" && user.advertiserId ? user.advertiserId : text(formData, "advertiserId");
+  const advertiserId = user.role === "ADVERTISER" ? user.advertiserId : text(formData, "advertiserId");
+  if (!advertiserId) throw new Error("An advertiser profile is required before saving a campaign.");
   await prisma.adCampaign.create({
     data: {
       advertiserId,
@@ -825,7 +826,7 @@ export async function updateAdvertiserCampaign(id: string, formData: FormData) {
   const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
   const existing = await prisma.adCampaign.findUnique({ where: { id } });
 
-  if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) {
+  if (!existing || (user.role === "ADVERTISER" && (!user.advertiserId || existing.advertiserId !== user.advertiserId))) {
     throw new Error("Campaign not found or not permitted.");
   }
 
@@ -878,7 +879,7 @@ async function advertiserCampaignStatus(id: string, status: any, extra: any) {
   const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
   const existing = await prisma.adCampaign.findUnique({ where: { id } });
 
-  if (!existing || (user.role === "ADVERTISER" && existing.advertiserId !== user.advertiserId)) {
+  if (!existing || (user.role === "ADVERTISER" && (!user.advertiserId || existing.advertiserId !== user.advertiserId))) {
     throw new Error("Campaign not found or not permitted.");
   }
 

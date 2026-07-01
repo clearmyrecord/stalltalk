@@ -241,9 +241,19 @@ async function saveGeneratedCreative(
   adSize: AdSize,
   creative: ReturnType<typeof buildPrompt>,
   imageUrl: string,
+  user: Awaited<ReturnType<typeof currentUser>>,
 ) {
   const publisherId = safe(body.publisherId, "");
-  const advertiserId = safe(body.advertiserId, "");
+  const advertiserId = user?.role === "ADVERTISER" ? user.advertiserId || "" : safe(body.advertiserId, "");
+  if (user?.role === "ADVERTISER" && !advertiserId) {
+    return {
+      campaignId: "",
+      parentCampaignId: "",
+      versionNumber: 0,
+      historySaved: false,
+      historyError: "Advertiser profile required.",
+    };
+  }
   const parentCampaignId = safe(
     body.parentCampaignId || body.campaignId,
     crypto.randomUUID(),
@@ -263,6 +273,21 @@ async function saveGeneratedCreative(
     body.campaignId,
     `${parentCampaignId}-v${versionNumber}`,
   );
+  if (user?.role === "ADVERTISER") {
+    const existing = await prisma.stalltalkCampaignHistory.findUnique({
+      where: { campaignId },
+      select: { advertiserId: true },
+    });
+    if (existing && existing.advertiserId !== advertiserId) {
+      return {
+        campaignId,
+        parentCampaignId,
+        versionNumber,
+        historySaved: false,
+        historyError: "Campaign not found or not permitted.",
+      };
+    }
+  }
   try {
     await prisma.stalltalkCampaignHistory.upsert({
       where: { campaignId },
@@ -558,6 +583,7 @@ export async function POST(request: Request) {
       adSize,
       creative,
       imageUrl,
+      user,
     );
 
     return json(
