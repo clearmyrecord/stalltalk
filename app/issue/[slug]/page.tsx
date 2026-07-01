@@ -152,27 +152,61 @@ async function renderVenueIssue({
     previewCandidate && (await canViewIssue(previewCandidate))
       ? previewCandidate
       : null;
+  const currentQr = qr
+    ? await prisma.qrCode.findFirst({
+        where: { qrSlug: qr, venueId: requestedVenue.id },
+        include: { restroom: { select: restroomLabelSelect } },
+      })
+    : await prisma.qrCode.findFirst({
+        where: { venueId: requestedVenue.id, qrType: "VENUE", restroomId: null },
+        include: { restroom: { select: restroomLabelSelect } },
+      });
+  const assignedIssue = currentQr?.issueId
+    ? await prisma.issue.findFirst({
+        where: {
+          id: currentQr.issueId,
+          status: "PUBLISHED",
+          isPublished: true,
+          isArchived: false,
+        },
+        include: issueInclude,
+      })
+    : null;
   const directIssue =
     previewIssue ||
+    assignedIssue ||
     (await prisma.issue.findFirst({
       where: {
         venueId: requestedVenue.id,
         status: "PUBLISHED",
+        isPublished: true,
         isArchived: false,
-        ...(qr ? { qrCode: { qrSlug: qr } } : {}),
+        ...(currentQr?.restroomId ? { restroomId: currentQr.restroomId } : { restroomId: null }),
       },
-      orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
+      orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }],
       include: issueInclude,
     }));
   const issue =
     directIssue ||
     (await prisma.issue.findFirst({
       where: {
+        venueId: requestedVenue.id,
+        restroomId: null,
         status: "PUBLISHED",
+        isPublished: true,
         isArchived: false,
-        OR: [{ venueId: null }, { venueId: requestedVenue.id }],
       },
-      orderBy: [{ year: "desc" }, { issueNumber: "desc" }],
+      orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }],
+      include: issueInclude,
+    })) ||
+    (await prisma.issue.findFirst({
+      where: {
+        venueId: null,
+        status: "PUBLISHED",
+        isPublished: true,
+        isArchived: false,
+      },
+      orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }],
       include: issueInclude,
     }));
   if (!issue)
@@ -262,7 +296,7 @@ async function renderLoadedVenueIssue({
         publisherId={renderIssue.publisherId}
         venueId={renderIssue.venueId}
         restroomId={renderIssue.restroomId}
-        qrCodeId={renderIssue.qrCodeId}
+        qrCodeId={renderIssue.qrCodeId || (directIssue as any)?.qrCodeId}
         issueId={renderIssue.id}
       />
       <ImpressionRecorder
