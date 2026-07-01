@@ -128,12 +128,12 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
     left: `${10 + (maxLongitude === minLongitude ? 40 : ((longitude - minLongitude) / (maxLongitude - minLongitude)) * 78)}%`,
   });
 
+  const globalFallbackIssue = issues.find((issue) => !issue.venueId) || null;
   const currentIssueForRoute = (slot: (typeof inventory)[number]) =>
     ("issue" in slot && slot.issue ? slot.issue : null) ||
     issues.find((issue) => issue.id === slot.qrCode?.issueId) ||
     issues.find((issue) => issue.qrCodeId === slot.qrCodeId) ||
-    issues.find((issue) => issue.venueId === slot.venueId && issue.restroomId === slot.restroomId) ||
-    issues.find((issue) => issue.venueId === slot.venueId && !issue.restroomId) ||
+    globalFallbackIssue ||
     null;
   const scansByQr = new Map(scanCounts.map((row) => [row.qrCodeId, row._count.qrCodeId]));
   const routeEvents = (qrCodeId: string, slotNumber: number) => events.filter((event) => event.qrCodeId === qrCodeId && (!event.slotNumber || event.slotNumber === slotNumber));
@@ -198,7 +198,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
                 <p className="font-black">{slot.qrCode.qrName} • {label(audienceSegment)}</p>
                 <p className="mt-1 font-bold">Stable route: <Link href={routeUrl(slot.qrCode)} className="text-stallPurple underline">{routeUrl(slot.qrCode)}</Link></p>
                 <p className="font-bold">Currently served issue: {issue ? `${issue.title} • ${issue.month} ${issue.year}` : "No current issue yet"}</p>
-                {issue ? <p className="text-sm font-black uppercase text-stallRed">{issue.venueId ? "Default issue currently serving this route" : "Global fallback issue"}</p> : null}
+                {issue ? <p className="text-sm font-black uppercase text-stallRed">{issue.venueId ? "Venue issue assigned to this permanent QR route." : "Global fallback issue currently serving this route."}</p> : null}
                 <div className="mt-3 grid gap-2 text-sm font-bold md:grid-cols-2">
                   <p>Route/location: {slot.toiletLocation?.label || locationLabel || slot.restroom?.name || "Venue-wide"}</p>
                   <p>QR slug: {slot.qrCode.qrSlug}</p>
@@ -214,7 +214,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
               </article>
             );
           })}
-          {!displayedInventory.length ? <div className="rounded-xl border-4 border-ink bg-stallYellow p-5 font-black uppercase"><p>No public QR route inventory matches these filters.</p><p className="mt-2 text-sm">Debug-safe inventory status: {activeRoutes ? `${activeRoutes} active QR route${activeRoutes === 1 ? "" : "s"} exist.` : "No active QR routes exist for public inventory."} {activeRoutes && !assignedRoutes ? "No published issue is assigned directly to an active QR route yet; a global/default fallback issue may still serve routes when configured." : ""} {activeRoutes && !inventoryRouteCount ? "No inventory rows were generated yet for those QR routes." : `${inventoryRouteCount} QR-route inventory row${inventoryRouteCount === 1 ? "" : "s"} exist before filters.`}</p></div> : null}
+          {!displayedInventory.length ? <div className="rounded-xl border-4 border-ink bg-stallYellow p-5 font-black uppercase"><p>{!activeRoutes ? "No active QR routes are available for advertiser inventory." : !assignedRoutes && !globalFallbackIssue ? "No issue is assigned to active QR routes, and no global fallback issue is published." : !inventoryRouteCount ? "No inventory rows were generated yet for the active QR routes." : "No public QR route inventory matches these filters."}</p><p className="mt-2 text-sm">Inventory status: {activeRoutes ? `${activeRoutes} active QR route${activeRoutes === 1 ? "" : "s"} exist.` : "No active QR routes."} {activeRoutes && !assignedRoutes ? "No venue-specific published issue is assigned directly to an active QR route." : ""} {globalFallbackIssue ? "Global fallback issue currently serving unassigned routes." : ""} {inventoryRouteCount ? `${inventoryRouteCount} QR-route inventory row${inventoryRouteCount === 1 ? "" : "s"} exist before filters.` : "No generated inventory rows."}</p></div> : null}
           </div>
         </section>
       </section>

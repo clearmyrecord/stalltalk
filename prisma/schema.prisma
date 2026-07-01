@@ -883,6 +883,7 @@ model AdSlotInventory {
   audienceSegment    String                @default("ALL_RESTROOMS")
   eventCategory      String?
   locationLabel      String?
+  gender             String?
   startsAt           DateTime?
   endsAt             DateTime?
   priceCents         Int                   @default(5000)
