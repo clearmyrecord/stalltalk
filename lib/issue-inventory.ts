@@ -26,9 +26,9 @@ export async function ensureIssueAdInventory(issueId: string, db: any = prisma) 
     where: { id: issueId },
     include: { venue: true, restroom: { select: { id: true, name: true } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } },
   });
-  if (!issue || !issue.venueId || issue.status !== "PUBLISHED" || !issue.isPublished || issue.isArchived) return;
+  if (!issue || !issue.venueId || !issue.qrCodeId || issue.status !== "PUBLISHED" || !issue.isPublished || issue.isArchived) return;
   const month = issueInventoryMonth(issue);
-  const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({ where: { issueId: issue.id }, select: { slotNumber: true } });
+  const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({ where: { issueId: issue.id, qrCodeId: issue.qrCodeId }, select: { slotNumber: true } });
   const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
   const data = Array.from({ length: SPONSOR_SLOT_COUNT }, (_, index) => index + 1)
     .filter((slotNumber) => !existingSlots.has(slotNumber))
@@ -66,6 +66,7 @@ export function publishedIssueInventoryWhere(params: URLSearchParams | Record<st
     ...(eventCategory ? { eventCategory } : {}),
     ...(location ? { OR: [{ locationLabel: { contains: location, mode: "insensitive" as const } }, { venue: { city: { contains: location, mode: "insensitive" as const } } }, { venue: { state: { contains: location, mode: "insensitive" as const } } }] } : {}),
     ...(available ? { status: "OPEN" as const } : {}),
-    issue: { is: { status: "PUBLISHED" as const, isPublished: true, isArchived: false } },
+    issue: { is: { status: "PUBLISHED" as const, isPublished: true, isArchived: false, qrCodeId: { not: null } } },
+    qrCode: { is: { status: { in: ["ACTIVE", "DEPLOYED"] as any }, venue: { is: { status: "ACTIVE" as const, isActive: true } } } },
   };
 }
