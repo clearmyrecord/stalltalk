@@ -100,10 +100,11 @@ export type AdSlotInventoryColumnOptions = {
 };
 
 export function dynamicAdSlotInventoryData<T extends Record<string, any>>(row: T, columns: Set<string>) {
-  const { issueId, audienceSegment: _audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
+  const { issueId, audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
   return {
     ...base,
     ...(columns.has("issueId") ? { issueId } : {}),
+    ...(columns.has("audienceSegment") ? { audienceSegment } : {}),
     ...(columns.has("eventCategory") ? { eventCategory } : {}),
     ...(columns.has("locationLabel") ? { locationLabel } : {}),
     ...(columns.has("gender") ? { gender } : {}),
@@ -212,7 +213,8 @@ export function publishedIssueInventoryWhere(params: URLSearchParams | Record<st
     ...(audience && options.includeAudienceSegmentColumn !== false ? { audienceSegment: audience } : {}),
     ...(slotType && Number(slotType) ? { slotNumber: Number(slotType) } : {}),
     ...(status && statuses.has(status) ? { status: status as any } : { status: "OPEN" as const }),
-    issue: { is: { status: "PUBLISHED" as const, isPublished: true, isArchived: false } },
+    issue: { is: { status: "PUBLISHED" as const, isPublished: true, isArchived: false, qrCodeId: { not: null } } },
+    qrCode: { is: { status: { in: ["ACTIVE", "DEPLOYED"] as any }, venue: { is: { status: "ACTIVE" as const, isActive: true } } } },
   };
 }
 
@@ -228,18 +230,16 @@ export async function ensurePublishedIssueInventoryForAdvertiserRoutes(db: any =
     db.qrCode.findMany({ where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } }, include: { venue: true, restroom: { select: { id: true, name: true, restroomType: true, customTypeLabel: true } } }, take: 300 }),
     db.issue.findMany({ where: { status: "PUBLISHED", isPublished: true, isArchived: false }, include: { venue: true, restroom: { select: { id: true, name: true, restroomType: true } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } }, orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }], take: 500 }),
   ]);
-  const globalIssue = issues.find((issue: any) => !issue.venueId && issue.isGlobalIssue) || issues.find((issue: any) => !issue.venueId);
   const data: Array<Record<string, any>> = [];
   for (const route of routes) {
-    const routeIssues = [issues.find((issue: any) => issue.qrCodeId === route.id), issues.find((issue: any) => issue.venueId === route.venueId && issue.restroomId === route.restroomId), issues.find((issue: any) => issue.venueId === route.venueId && !issue.restroomId && !issue.qrCodeId)].filter(Boolean);
-    if (!routeIssues.length && globalIssue) routeIssues.push(globalIssue);
+    const routeIssues = issues.filter((issue: any) => issue.qrCodeId === route.id || route.issueId === issue.id);
     for (const issue of routeIssues as any[]) {
       const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({ where: { issueId: issue.id, qrCodeId: route.id }, select: { slotNumber: true } });
       const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
       const month = `${issue.year}-${String(new Date(`${issue.month} 1, ${issue.year}`).getMonth() + 1 || 1).padStart(2, "0")}`;
       for (let slotNumber = 1; slotNumber <= ROUTE_SPONSOR_SLOT_COUNT; slotNumber += 1) {
         if (existingSlots.has(slotNumber)) continue;
-        data.push(dynamicAdSlotInventoryData({ issueId: issue.id, venueId: route.venueId, restroomId: route.restroomId, qrCodeId: route.id, slotNumber, month, audienceSegment: audienceSegmentForRoute(route.restroom), eventCategory: issue.importedEvents?.[0]?.category || null, locationLabel: route.restroom?.name || route.venue?.name || (issue.venueId ? "Default issue currently serving this route" : "Global fallback issue"), priceCents: 5000, status: "OPEN" as const }, inventoryColumns));
+        data.push(dynamicAdSlotInventoryData({ issueId: issue.id, venueId: route.venueId, restroomId: route.restroomId, qrCodeId: route.id, slotNumber, month, audienceSegment: audienceSegmentForRoute(route.restroom), eventCategory: issue.importedEvents?.[0]?.category || null, locationLabel: route.restroom?.name || route.venue?.name || "Assigned permanent QR route", priceCents: 5000, status: "OPEN" as const }, inventoryColumns));
       }
     }
   }

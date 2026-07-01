@@ -410,6 +410,7 @@ export async function createVenueIssue(formData: FormData) {
   const slug = `${slugify(title)}-${Date.now()}`;
   const issue = await prisma.$transaction(async (tx) => {
     const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
+    if (status === "PUBLISHED" && created.qrCodeId) await tx.qrCode.update({ where: { id: created.qrCodeId }, data: { issueId: created.id, status: "ACTIVE" } });
     await saveContentBlocks(created.id, formData, tx);
     await saveAdSlots(created.id, formData, tx);
     await safeEnsureIssueAdInventory(created.id, tx);
@@ -436,7 +437,9 @@ export async function updateVenueIssue(id: string, formData: FormData) {
   await assertVenueIssueReferences(formData, venue.id, venue.publisherId);
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.issue.update({ where: { id }, data: { restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isLocationIssue: Boolean(nullableText(formData, "restroomId")), title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
+    const updatedQrCodeId = nullableText(formData, "qrCodeId");
+    await tx.issue.update({ where: { id }, data: { restroomId: nullableText(formData, "restroomId"), qrCodeId: updatedQrCodeId, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isLocationIssue: Boolean(nullableText(formData, "restroomId")), title: text(formData, "title", existing.title), month: text(formData, "month", existing.month), year: intValue(formData, "year", existing.year), issueNumber: intValue(formData, "issueNumber", existing.issueNumber), status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? existing.publishedAt || now : existing.publishedAt, republishedAt: existing.publishedAt && existing.status !== "PUBLISHED" && status === "PUBLISHED" ? now : existing.republishedAt } });
+    if (status === "PUBLISHED" && updatedQrCodeId) await tx.qrCode.update({ where: { id: updatedQrCodeId }, data: { issueId: id, status: "ACTIVE" } });
     await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
     await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
     await saveContentBlocks(id, formData, tx);
@@ -479,7 +482,7 @@ export async function assignVenueIssueToQr(issueId: string, qrCodeId: string) {
   await prisma.$transaction(async (tx) => {
     await tx.issue.update({
       where: { id: issue.id },
-      data: { status: "PUBLISHED", isPublished: true, isArchived: false, isScheduled: false, publishedAt: issue.publishedAt || now },
+      data: { qrCodeId: qr.id, restroomId: qr.restroomId, isLocationIssue: Boolean(qr.restroomId), status: "PUBLISHED", isPublished: true, isArchived: false, isScheduled: false, publishedAt: issue.publishedAt || now },
     });
     await tx.qrCode.update({ where: { id: qr.id }, data: { issueId: issue.id, status: "ACTIVE" } });
     await safeEnsureIssueAdInventory(issue.id, tx);
@@ -504,8 +507,11 @@ export async function makeCurrentVenueIssue(issueId: string) {
   if (!user.venueId) throw new Error("Link a venue before assigning issues.");
   const issue = await prisma.issue.findFirst({ where: { id: issueId, venueId: user.venueId } });
   if (!issue) throw new Error("Issue not found for your venue.");
-  const venueQr = await prisma.qrCode.findFirst({ where: { venueId: user.venueId, qrType: "VENUE", restroomId: null } });
-  if (!venueQr) throw new Error("Venue QR route not found.");
+  const venueQr = await prisma.qrCode.findFirst({
+    where: { venueId: user.venueId, qrType: "VENUE", restroomId: null },
+    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+  });
+  if (!venueQr) throw new Error("Default All Restrooms QR route not found.");
   return assignVenueIssueToQr(issueId, venueQr.id);
 }
 
