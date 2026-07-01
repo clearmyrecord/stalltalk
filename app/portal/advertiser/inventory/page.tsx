@@ -4,7 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes, ensureQrRouteAdInventory, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, optionalVenueLocationRows } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, advertiserInventoryWhere, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, optionalVenueLocationRows } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -50,21 +50,6 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
   const range = dateRange(filters);
   const inventoryColumns = await getAdSlotInventoryColumns();
   const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
-
-  const activeQrRoutes = await prisma.qrCode.findMany({
-    where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } },
-    select: { id: true },
-    take: 300,
-  });
-  await Promise.all(activeQrRoutes.map((qr) => ensureQrRouteAdInventory(qr.id).catch((error) => {
-    if (isOptionalAdSlotInventoryColumnError(error)) logOptionalAdSlotInventoryColumnError("advertiser inventory page generation", error);
-    else throw error;
-  })));
-
-  await ensurePublishedIssueInventoryForAdvertiserRoutes().catch((error) => {
-    if (isOptionalAdSlotInventoryColumnError(error)) logOptionalAdSlotInventoryColumnError("advertiser fallback issue inventory generation", error);
-    else throw error;
-  });
 
   const where = advertiserInventoryWhere(filters, inventoryColumnOptions);
   const inventoryQuery = prisma.adSlotInventory.findMany({

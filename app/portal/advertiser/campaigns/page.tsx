@@ -5,7 +5,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes, getAdSlotInventoryColumns } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 
 
@@ -78,7 +78,7 @@ async function advertiserInventoryRows(filters: Record<string, string | undefine
   };
   try {
     return (await prisma.adSlotInventory.findMany({
-      where: qrRouteInventoryWhere(filters),
+      where: advertiserInventoryWhere(filters, adSlotInventoryColumnOptions(inventoryColumns)),
       select: select as any,
       orderBy: [{ venue: { name: "asc" } }, { qrCode: { qrSlug: "asc" } }, { slotNumber: "asc" }],
       take: 100,
@@ -102,84 +102,23 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
   const advertiser = await advertiserForPortalUser(user);
   if (!user.advertiserId || !advertiser) return <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />;
   const filters = await searchParams;
-  const inventoryColumns = await getAdSlotInventoryColumns();
-  const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
-  await ensurePublishedIssueInventoryForAdvertiserRoutes();
+  try {
+    await ensurePublishedIssueInventoryForAdvertiserRoutes();
+  } catch (error) {
+    if (isMissingColumnError(error)) {
+      console.warn("[advertiser-campaigns] Inventory generation skipped because an optional column is missing.", error);
+    } else {
+      console.error("[advertiser-campaigns] Inventory generation failed; rendering existing inventory.", error);
+    }
+  }
   const [campaigns, inventory, venues] = await Promise.all([
-const [campaigns, inventory, venues] = await Promise.all([
-  advertiserCampaignRows(advertiser.advertiserId),
-
-  prisma.adSlotInventory.findMany({
-    where: advertiserInventoryWhere(filters),
-    include: {
-      venue: {
-        select: {
-          id: true,
-          name: true,
-          city: true,
-          state: true,
-          venueType: true,
-          slug: true,
-        },
-      },
-      restroom: {
-        select: restroomLabelSelect,
-      },
-      qrCode: {
-        select: {
-          id: true,
-          qrSlug: true,
-          shortUrl: true,
-          destinationUrl: true,
-          status: true,
-        },
-      },
-      ...(inventoryColumnOptions.includeIssueIdColumn
-        ? {
-            issue: {
-              select: {
-                id: true,
-                title: true,
-                month: true,
-                year: true,
-                issueNumber: true,
-                status: true,
-                isPublished: true,
-              },
-            },
-          }
-        : {}),
-    },
-    orderBy: [
-      { venue: { name: "asc" } },
-      { qrCode: { qrSlug: "asc" } },
-      { slotNumber: "asc" },
-    ],
-    take: 100,
-  }),
-
-  prisma.venue.findMany({
-    where: {
-      isActive: true,
-      status: "ACTIVE",
-      qrCodes: {
-        some: {
-          status: {
-            in: ["ACTIVE", "DEPLOYED"],
-          },
-        },
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-    },
-    orderBy: {
-      name: "asc",
-    },
-  }),
-]);
-    prisma.venue.findMany({ where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    advertiserCampaignRows(user.advertiserId),
+    advertiserInventoryRows(filters),
+    prisma.venue.findMany({
+      where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
   return (
     <main className="min-h-screen bg-paper p-8 text-ink">

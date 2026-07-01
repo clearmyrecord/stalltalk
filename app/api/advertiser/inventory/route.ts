@@ -40,20 +40,24 @@ export async function GET(request: NextRequest) {
 
   const inventoryColumns = await getAdSlotInventoryColumns();
   const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
-  try {
-    await Promise.all(qrs.map((qr) => ensureQrRouteAdInventory(qr.id)));
-  } catch (error) {
-    if (isOptionalAdSlotInventoryColumnError(error)) {
-      logOptionalAdSlotInventoryColumnError("advertiser inventory API generation", error);
-    } else {
-      console.error("advertiser inventory API generation failed", error);
+  await Promise.all(qrs.map(async (qr) => {
+    try {
+      await ensureQrRouteAdInventory(qr.id);
+    } catch (error) {
+      if (isOptionalAdSlotInventoryColumnError(error)) {
+        logOptionalAdSlotInventoryColumnError("advertiser inventory API generation", error);
+      } else {
+        console.error("advertiser inventory API generation failed", error);
+      }
     }
-  }
+  }));
 
-  await ensurePublishedIssueInventoryForAdvertiserRoutes().catch((error) => {
+  try {
+    await ensurePublishedIssueInventoryForAdvertiserRoutes();
+  } catch (error) {
     if (isOptionalAdSlotInventoryColumnError(error)) logOptionalAdSlotInventoryColumnError("advertiser inventory API fallback issue generation", error);
     else console.error("advertiser inventory API fallback issue generation failed", error);
-  });
+  }
 
   const baseWhere = advertiserInventoryWhere(request.nextUrl.searchParams, inventoryColumnOptions);
 

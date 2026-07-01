@@ -29,7 +29,7 @@ export async function safeAdSlotInventoryCreateMany(db: any, data: Array<Record<
       logOptionalAdSlotInventoryColumnError("adSlotInventory.createMany", error);
       return;
     }
-    throw error;
+    console.error("adSlotInventory.createMany failed; continuing without generated inventory.", error);
   }
 }
 
@@ -100,11 +100,10 @@ export type AdSlotInventoryColumnOptions = {
 };
 
 export function dynamicAdSlotInventoryData<T extends Record<string, any>>(row: T, columns: Set<string>) {
-  const { issueId, audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
+  const { issueId, audienceSegment: _audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
   return {
     ...base,
     ...(columns.has("issueId") ? { issueId } : {}),
-    ...(columns.has("audienceSegment") ? { audienceSegment } : {}),
     ...(columns.has("eventCategory") ? { eventCategory } : {}),
     ...(columns.has("locationLabel") ? { locationLabel } : {}),
     ...(columns.has("gender") ? { gender } : {}),
