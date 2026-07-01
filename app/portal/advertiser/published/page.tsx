@@ -4,6 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
+import { DEFAULT_PUBLIC_ISSUE_ID } from "@/lib/default-public-issue";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -16,16 +17,46 @@ export default async function AdvertiserPublishedPage() {
       <AdvertiserProfileRequired message="Complete your advertiser profile before viewing published ads." />
     );
 
+  const currentAdvertiserId = user.advertiserId;
+  if (!currentAdvertiserId || currentAdvertiserId !== advertiser.id)
+    return (
+      <AdvertiserProfileRequired message="Complete your advertiser profile before viewing published ads." />
+    );
+
   const [ads, campaigns] = await Promise.all([
     prisma.ad.findMany({
-      where: { advertiserId: advertiser.id, status: "ACTIVE" },
+      where: {
+        advertiserId: currentAdvertiserId,
+        status: "ACTIVE",
+        scope: { not: "GLOBAL" },
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
     prisma.stalltalkCampaignHistory.findMany({
       where: {
-        advertiserId: advertiser.id,
+        advertiserId: currentAdvertiserId,
         publishStatus: "PUBLISHED",
+        defaultIssueId: null,
+        AND: [
+          {
+            OR: [
+              { targetType: null },
+              { targetType: { not: DEFAULT_PUBLIC_ISSUE_ID } },
+            ],
+          },
+          {
+            OR: [
+              { adId: null },
+              {
+                ad: {
+                  advertiserId: currentAdvertiserId,
+                  scope: { not: "GLOBAL" },
+                },
+              },
+            ],
+          },
+        ],
       },
       include: { ad: true },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],

@@ -58,7 +58,7 @@ export async function getAdvertiserAnalytics(advertiserId: string | null) {
       })
     : [];
 
-  const history = await prisma.stalltalkCampaignHistory.findMany({ where: { OR: [{ advertiserId }, { campaignId: { in: campaignHistoryIds } }, ...(adIds.length ? [{ adId: { in: adIds } }] : [])] } });
+  const history = await prisma.stalltalkCampaignHistory.findMany({ where: { advertiserId } });
 
   const rows = campaigns.map((campaign) => {
     const campaignEvents = events.filter((event) => event.adId === campaign.adId || (event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata) && String((event.metadata as Record<string, unknown>).campaignId || "") === campaign.id));
