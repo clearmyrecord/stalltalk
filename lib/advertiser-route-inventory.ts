@@ -594,14 +594,10 @@ export function advertiserInventoryWhere(
   params: URLSearchParams | Record<string, string | undefined>,
   options: AdSlotInventoryColumnOptions = {},
 ) {
-  return options.includeIssueIdColumn === false
-    ? qrRouteInventoryWhere(params, options)
-    : {
-        OR: [
-          qrRouteInventoryWhere(params, options),
-          publishedIssueInventoryWhere(params, options),
-        ],
-      };
+  // Advertisers buy the permanent QR route inventory. The purchased ad follows
+  // whichever published issue is assigned to that route during the campaign, so
+  // do not expose per-issue inventory as the default sellable product.
+  return qrRouteInventoryWhere(params, options);
 }
 
 export async function ensurePublishedIssueInventoryForAdvertiserRoutes(
