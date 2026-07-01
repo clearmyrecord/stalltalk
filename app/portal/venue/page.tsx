@@ -94,6 +94,11 @@ export default async function VenuePortalPage() {
               "Review per-issue views, QR scans, ad impressions, clicks, and activity.",
               "/portal/venue/issues/analytics",
             ],
+            [
+              "Profile",
+              "Edit venue name, address, contact details, description, and logo/image.",
+              "/portal/venue/profile",
+            ],
           ].map(([label, description, href]) => (
             <Link
               key={label}
