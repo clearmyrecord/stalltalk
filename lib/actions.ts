@@ -16,7 +16,7 @@ import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
 import { restroomBaseSelect } from "./restroom-schema";
-import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, getAdSlotInventoryColumns, safeAdSlotInventoryCreateMany } from "./advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, safeAdSlotInventoryCreateMany } from "./advertiser-route-inventory";
 import { ensureIssueAdInventory } from "./issue-inventory";
 
 function text(formData: FormData, key: string, fallback = "") {
@@ -26,6 +26,18 @@ function text(formData: FormData, key: string, fallback = "") {
 function nullableText(formData: FormData, key: string) {
   const value = text(formData, key);
   return value.length ? value : null;
+}
+
+async function safeEnsureIssueAdInventory(issueId: string, db: any = prisma) {
+  try {
+    await ensureIssueAdInventory(issueId, db);
+  } catch (error) {
+    if (isOptionalAdSlotInventoryColumnError(error)) {
+      logOptionalAdSlotInventoryColumnError("ensureIssueAdInventory", error);
+      return;
+    }
+    console.error("ensureIssueAdInventory failed; continuing without generated inventory.", error);
+  }
 }
 
 function intValue(formData: FormData, key: string, fallback = 0) {
@@ -264,7 +276,7 @@ async function saveNewIssue(formData: FormData): Promise<IssueSaveState> {
       const issue = await tx.issue.create({ data: await issueData(formData) });
       await saveContentBlocks(issue.id, formData, tx);
       await saveAdSlots(issue.id, formData, tx);
-      await ensureIssueAdInventory(issue.id, tx);
+      await safeEnsureIssueAdInventory(issue.id, tx);
       return issue;
     });
     revalidateIssuePaths(issue.id);
@@ -289,7 +301,7 @@ async function saveExistingIssue(id: string, formData: FormData): Promise<IssueS
       await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
       await saveContentBlocks(id, formData, tx);
       await saveAdSlots(id, formData, tx);
-      await ensureIssueAdInventory(id, tx);
+      await safeEnsureIssueAdInventory(id, tx);
     });
     revalidateIssuePaths(id);
     const response = { ok: true, message: `Issue saved successfully. Saved issue ID: ${id}`, issueId: id, editUrl: `/admin/issues/${id}/edit` };
@@ -400,7 +412,7 @@ export async function createVenueIssue(formData: FormData) {
     const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: status === "PUBLISHED", publishedAt: status === "PUBLISHED" ? now : null } });
     await saveContentBlocks(created.id, formData, tx);
     await saveAdSlots(created.id, formData, tx);
-    await ensureIssueAdInventory(created.id, tx);
+    await safeEnsureIssueAdInventory(created.id, tx);
     return created;
   });
   revalidatePath("/portal/venue");
@@ -429,7 +441,7 @@ export async function updateVenueIssue(id: string, formData: FormData) {
     await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
     await saveContentBlocks(id, formData, tx);
     await saveAdSlots(id, formData, tx);
-    await ensureIssueAdInventory(id, tx);
+    await safeEnsureIssueAdInventory(id, tx);
   });
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
@@ -447,7 +459,7 @@ export async function setVenueIssueStatus(id: string, status: IssueStatus) {
   if (!issue) throw new Error("Issue not found for your venue.");
   const now = new Date();
   await prisma.issue.update({ where: { id }, data: { status, isPublished: status === "PUBLISHED", isScheduled: false, isArchived: false, publishedAt: status === "PUBLISHED" ? issue.publishedAt || now : issue.publishedAt, republishedAt: issue.publishedAt && issue.status !== "PUBLISHED" && status === "PUBLISHED" ? now : issue.republishedAt } });
-  if (status === "PUBLISHED") await ensureIssueAdInventory(id);
+  if (status === "PUBLISHED") await safeEnsureIssueAdInventory(id);
   revalidatePath("/portal/venue");
   revalidatePath("/portal/venue/issues");
   revalidatePath(`/portal/venue/issues/${id}/edit`);
@@ -470,7 +482,7 @@ export async function assignVenueIssueToQr(issueId: string, qrCodeId: string) {
       data: { status: "PUBLISHED", isPublished: true, isArchived: false, isScheduled: false, publishedAt: issue.publishedAt || now },
     });
     await tx.qrCode.update({ where: { id: qr.id }, data: { issueId: issue.id, status: "ACTIVE" } });
-    await ensureIssueAdInventory(issue.id, tx);
+    await safeEnsureIssueAdInventory(issue.id, tx);
     const inventoryColumns = await getAdSlotInventoryColumns(tx);
     const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
     if (includeIssueIdColumn) {
@@ -589,7 +601,7 @@ export async function publishIssue(id: string) {
   const existing = await prisma.issue.findUniqueOrThrow({ where: { id }, select: { status: true, publishedAt: true } });
   const now = new Date();
   await prisma.issue.update({ where: { id }, data: { status: "PUBLISHED", isPublished: true, isScheduled: false, isArchived: false, publishedAt: existing.publishedAt || now, republishedAt: existing.publishedAt ? now : null } });
-  await ensureIssueAdInventory(id);
+  await safeEnsureIssueAdInventory(id);
   revalidatePath("/admin/issues");
   revalidatePath("/issue");
 }
