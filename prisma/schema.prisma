@@ -343,8 +343,15 @@ model Venue {
   slug                     String              @unique
   city                     String
   state                    String
+  zip                      String?
   address                  String
   venueType                String              @default("venue") @map("venue_type")
+  phone                    String?
+  website                  String?
+  contactName              String?             @map("contact_name")
+  contactEmail             String?             @map("contact_email")
+  description              String?
+  logoImageUrl             String?             @map("logo_image_url")
   isActive                 Boolean             @default(true) @map("is_active")
   directPublishingApproved Boolean             @default(false)
   status                   AccountStatus       @default(ACTIVE)

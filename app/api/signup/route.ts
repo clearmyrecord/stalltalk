@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, redirectTo: "/portal/advertiser" });
     }
     if (accountType === "venue") {
-      const venue = await prisma.venue.create({ data: { publisherId: publisher.id, name: businessName, slug: await uniqueVenueSlug(businessName), address: "Pending", city: "Pending", state: "Pending", venueType: "venue" } });
+      const venue = await prisma.venue.create({ data: { publisherId: publisher.id, name: businessName, slug: await uniqueVenueSlug(businessName), address: "Pending", city: "Pending", state: "Pending", venueType: "venue", website: value(form, "website") || null, phone: value(form, "phone") || null, contactName: name, contactEmail: email } });
       const user = await prisma.user.create({ data: { email, name, role: "VENUE_MANAGER", passwordHash: hashPassword(password), venueId: venue.id } });
       await createSession(user.id);
       return NextResponse.json({ ok: true, redirectTo: "/portal/venue" });
