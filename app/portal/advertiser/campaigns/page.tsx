@@ -7,9 +7,91 @@ import {
 } from "@/lib/advertiser-portal";
 import { qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
-import { restroomLabelSelect } from "@/lib/restroom-schema";
+
 
 export const dynamic = "force-dynamic";
+
+const CAMPAIGN_DISPLAY_COLUMNS = [
+  "id",
+  "name",
+  "headline",
+  "body",
+  "status",
+  "approvalStatus",
+  "totalAmountCents",
+  "createdAt",
+] as const;
+
+function isMissingColumnError(error: unknown) {
+  return (error as { code?: string })?.code === "P2022";
+}
+
+async function tableColumns(tableName: string) {
+  const rows = await prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = ${tableName}
+  `;
+  return new Set(rows.map((row) => row.column_name));
+}
+
+async function advertiserCampaignRows(advertiserId: string) {
+  const campaignColumns = await tableColumns("AdCampaign");
+  const select = Object.fromEntries(
+    CAMPAIGN_DISPLAY_COLUMNS
+      .filter((column) => campaignColumns.has(column))
+      .map((column) => [column, true]),
+  );
+
+  if (!campaignColumns.has("advertiserId") || !campaignColumns.has("id")) return [];
+
+  try {
+    return (await prisma.adCampaign.findMany({
+      where: { advertiserId },
+      orderBy: campaignColumns.has("createdAt") ? { createdAt: "desc" } : undefined,
+      take: 50,
+      select: select as any,
+    })) as Array<Record<string, any>>;
+  } catch (error) {
+    if (isMissingColumnError(error)) {
+      console.warn("[advertiser-campaigns] Missing optional AdCampaign column; rendering empty state.", error);
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function advertiserInventoryRows(filters: Record<string, string | undefined>) {
+  const inventoryColumns = await tableColumns("AdSlotInventory");
+  const select = {
+    id: true,
+    slotNumber: true,
+    priceCents: true,
+    status: true,
+    ...(inventoryColumns.has("audienceSegment") ? { audienceSegment: true } : {}),
+    ...(inventoryColumns.has("eventCategory") ? { eventCategory: true } : {}),
+    ...(inventoryColumns.has("locationLabel") ? { locationLabel: true } : {}),
+    venue: { select: { id: true, name: true, city: true } },
+    restroom: { select: { id: true, name: true, slug: true } },
+    qrCode: { select: { id: true, qrName: true, qrSlug: true, shortUrl: true } },
+  };
+  try {
+    return (await prisma.adSlotInventory.findMany({
+      where: qrRouteInventoryWhere(filters),
+      select: select as any,
+      orderBy: [{ venue: { name: "asc" } }, { qrCode: { qrSlug: "asc" } }, { slotNumber: "asc" }],
+      take: 100,
+    })) as Array<Record<string, any>>;
+  } catch (error) {
+    if (isMissingColumnError(error)) {
+      console.warn("[advertiser-campaigns] Missing optional inventory column; rendering no inventory.", error);
+      return [];
+    }
+    throw error;
+  }
+}
+
 
 function money(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -18,16 +100,11 @@ function money(cents: number) {
 export default async function AdvertiserCampaignsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireAdvertiserPortalUser();
   const advertiser = await advertiserForPortalUser(user);
-  if (!advertiser) return <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />;
+  if (!user.advertiserId || !advertiser) return <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />;
   const filters = await searchParams;
   const [campaigns, inventory, venues] = await Promise.all([
-    prisma.adCampaign.findMany({ where: { advertiserId: advertiser.id }, orderBy: { createdAt: "desc" }, take: 50, include: { placements: { include: { inventory: { include: { venue: true, qrCode: true } } } } } }),
-    prisma.adSlotInventory.findMany({
-      where: qrRouteInventoryWhere(filters),
-      include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true },
-      orderBy: [{ venue: { name: "asc" } }, { qrCode: { qrSlug: "asc" } }, { slotNumber: "asc" }],
-      take: 100,
-    }),
+    advertiserCampaignRows(user.advertiserId),
+    advertiserInventoryRows(filters),
     prisma.venue.findMany({ where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
@@ -40,11 +117,10 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
         <div className="mt-6 grid gap-3">
           {campaigns.length ? campaigns.map((campaign) => (
             <article key={campaign.id} className="rounded-xl border-2 border-ink bg-paper p-4">
-              <p className="text-xs font-black uppercase text-stallRed">{campaign.status} • Approval {campaign.approvalStatus} • {money(campaign.totalAmountCents)}</p>
-              <h2 className="font-display text-4xl uppercase">{campaign.name}</h2>
-              <p className="font-bold">{campaign.headline}</p>
-              <p>{campaign.body}</p>
-              {campaign.placements.length ? <p className="mt-2 text-sm font-black uppercase">{campaign.placements.length} selected QR route slot(s)</p> : null}
+              <p className="text-xs font-black uppercase text-stallRed">{campaign.status || "SUBMITTED"} • Approval {campaign.approvalStatus || "SUBMITTED"} • {money(campaign.totalAmountCents || 0)}</p>
+              <h2 className="font-display text-4xl uppercase">{campaign.name || "Finished ad upload"}</h2>
+              <p className="font-bold">{campaign.headline || "Uploaded ad"}</p>
+              <p>{campaign.body || "Submitted for review."}</p>
             </article>
           )) : <p className="rounded-xl border-2 border-ink bg-stallYellow p-4 font-black uppercase">No campaigns yet.</p>}
         </div>
@@ -71,7 +147,7 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
                 <input type="checkbox" name="inventoryIds" value={slot.id} defaultChecked={filters.inventoryId === slot.id} className="mr-2" />
                 <span className="font-black uppercase">Slot {slot.slotNumber} • {money(slot.priceCents)} • {slot.status}</span>
                 <span className="block">{slot.venue.name} • {slot.qrCode?.qrName || slot.qrCode?.qrSlug || "QR route"}</span>
-                <span className="block text-sm uppercase text-stallRed">{slot.audienceSegment.replaceAll("_", " ")} • {slot.restroom?.name || "All restrooms"} • {slot.qrCode?.shortUrl || slot.qrCode?.qrSlug || slot.locationLabel || slot.venue.city}</span>
+                <span className="block text-sm uppercase text-stallRed">{(slot.audienceSegment || "ALL_RESTROOMS").replaceAll("_", " ")} • {slot.restroom?.name || "All restrooms"} • {slot.qrCode?.shortUrl || slot.qrCode?.qrSlug || slot.locationLabel || slot.venue.city}</span>
                 {slot.eventCategory ? <span className="block text-sm">Category: {slot.eventCategory}</span> : null}
               </label>
             ))}
