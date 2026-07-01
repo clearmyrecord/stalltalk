@@ -23,7 +23,8 @@ export function logOptionalAdSlotInventoryColumnError(context: string, error: un
 export async function safeAdSlotInventoryCreateMany(db: any, data: Array<Record<string, any>>) {
   if (!data.length) return;
   try {
-    await db.adSlotInventory.createMany({ data, skipDuplicates: true });
+    const result = await db.adSlotInventory.createMany({ data, skipDuplicates: true });
+    console.info("adSlotInventory.createMany completed", { requested: data.length, created: result?.count ?? "unknown" });
   } catch (error) {
     if (isOptionalAdSlotInventoryColumnError(error)) {
       logOptionalAdSlotInventoryColumnError("adSlotInventory.createMany", error);
@@ -100,10 +101,11 @@ export type AdSlotInventoryColumnOptions = {
 };
 
 export function dynamicAdSlotInventoryData<T extends Record<string, any>>(row: T, columns: Set<string>) {
-  const { issueId, audienceSegment: _audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
+  const { issueId, audienceSegment, eventCategory, locationLabel, gender, ...base } = row;
   return {
     ...base,
     ...(columns.has("issueId") ? { issueId } : {}),
+    ...(columns.has("audienceSegment") ? { audienceSegment } : {}),
     ...(columns.has("eventCategory") ? { eventCategory } : {}),
     ...(columns.has("locationLabel") ? { locationLabel } : {}),
     ...(columns.has("gender") ? { gender } : {}),
@@ -139,7 +141,10 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
     where: { id: qrCodeId },
     include: { venue: true, restroom: { select: restroomTypedSelect(includeTypeColumns) } },
   });
-  if (!qr?.venueId || !qr.venue || qr.venue.status !== "ACTIVE" || !qr.venue.isActive || !["ACTIVE", "DEPLOYED"].includes(qr.status)) return;
+  if (!qr?.venueId || !qr.venue || qr.venue.status !== "ACTIVE" || !qr.venue.isActive || !["ACTIVE", "DEPLOYED"].includes(qr.status)) {
+    console.info("ensureQrRouteAdInventory skipped inactive route", { qrCodeId, venueId: qr?.venueId, qrStatus: qr?.status, venueStatus: qr?.venue?.status, venueIsActive: qr?.venue?.isActive });
+    return;
+  }
 
   const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({
     where: { ...(includeIssueIdColumn ? { issueId: null } : {}), qrCodeId: qr.id, month: QR_ROUTE_INVENTORY_MONTH },
@@ -160,6 +165,36 @@ export async function ensureQrRouteAdInventory(qrCodeId: string, db: any = prism
       priceCents: 5000,
       status: "OPEN" as const,
     }, inventoryColumns));
+  console.info("ensureQrRouteAdInventory generated rows", { qrCodeId: qr.id, venueId: qr.venueId, issueId: null, rowsCreatedOrRequested: data.length, skippedExistingSlots: existingSlots.size });
+  await safeAdSlotInventoryCreateMany(db, data);
+}
+
+export async function ensureAssignedIssueQrRouteAdInventory(issueId: string, qrCodeId: string, db: any = prisma) {
+  const [includeTypeColumns, inventoryColumns] = await Promise.all([
+    db === prisma ? hasRestroomTypeColumns() : Promise.resolve(true),
+    getAdSlotInventoryColumns(db),
+  ]);
+  const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
+  const [issue, qr] = await Promise.all([
+    db.issue.findUnique({ where: { id: issueId } }),
+    db.qrCode.findUnique({ where: { id: qrCodeId }, include: { venue: true, restroom: { select: restroomTypedSelect(includeTypeColumns) } } }),
+  ]);
+  if (!issue || !qr?.venueId || !qr.venue || qr.venue.status !== "ACTIVE" || !qr.venue.isActive || !["ACTIVE", "DEPLOYED"].includes(qr.status)) {
+    console.info("ensureAssignedIssueQrRouteAdInventory skipped", { qrCodeId, issueId, venueId: qr?.venueId, qrStatus: qr?.status, issueStatus: issue?.status });
+    return;
+  }
+  if (!includeIssueIdColumn) {
+    console.info("ensureAssignedIssueQrRouteAdInventory falling back to route rows without issueId", { qrCodeId: qr.id, issueId: issue.id, venueId: qr.venueId });
+    await ensureQrRouteAdInventory(qr.id, db);
+    return;
+  }
+  const month = `${issue.year}-${String(new Date(`${issue.month} 1, ${issue.year}`).getMonth() + 1 || 1).padStart(2, "0")}`;
+  const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({ where: { issueId: issue.id, qrCodeId: qr.id, month }, select: { slotNumber: true } });
+  const existingSlots = new Set(existing.map((slot) => slot.slotNumber));
+  const data = Array.from({ length: ROUTE_SPONSOR_SLOT_COUNT }, (_, index) => index + 1)
+    .filter((slotNumber) => !existingSlots.has(slotNumber))
+    .map((slotNumber) => dynamicAdSlotInventoryData({ issueId: issue.id, venueId: qr.venueId, restroomId: qr.restroomId, qrCodeId: qr.id, slotNumber, month, audienceSegment: audienceSegmentForRoute(qr.restroom), locationLabel: qr.restroom?.name || qr.venue.name, priceCents: 5000, status: "OPEN" as const }, inventoryColumns));
+  console.info("ensureAssignedIssueQrRouteAdInventory generated rows", { qrCodeId: qr.id, issueId: issue.id, venueId: qr.venueId, rowsCreatedOrRequested: data.length, skippedExistingSlots: existingSlots.size });
   await safeAdSlotInventoryCreateMany(db, data);
 }
 
@@ -223,7 +258,12 @@ export function advertiserInventoryWhere(params: URLSearchParams | Record<string
 export async function ensurePublishedIssueInventoryForAdvertiserRoutes(db: any = prisma) {
   const inventoryColumns = await getAdSlotInventoryColumns(db);
   const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
-  if (!includeIssueIdColumn) return;
+  if (!includeIssueIdColumn) {
+    console.info("ensurePublishedIssueInventoryForAdvertiserRoutes using QR-route fallback rows because issueId column is unavailable");
+    const routes = await db.qrCode.findMany({ where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } }, select: { id: true }, take: 300 });
+    for (const route of routes) await ensureQrRouteAdInventory(route.id, db);
+    return;
+  }
   const [routes, issues] = await Promise.all([
     db.qrCode.findMany({ where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } }, include: { venue: true, restroom: { select: { id: true, name: true, restroomType: true, customTypeLabel: true } } }, take: 300 }),
     db.issue.findMany({ where: { status: "PUBLISHED", isPublished: true, isArchived: false }, include: { venue: true, restroom: { select: { id: true, name: true, restroomType: true } }, importedEvents: { where: { status: { in: ["APPROVED", "PUBLISHED"] } }, take: 1 } }, orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }], take: 500 }),
@@ -231,7 +271,7 @@ export async function ensurePublishedIssueInventoryForAdvertiserRoutes(db: any =
   const globalIssue = issues.find((issue: any) => !issue.venueId && issue.isGlobalIssue) || issues.find((issue: any) => !issue.venueId);
   const data: Array<Record<string, any>> = [];
   for (const route of routes) {
-    const routeIssues = [issues.find((issue: any) => issue.qrCodeId === route.id), issues.find((issue: any) => issue.venueId === route.venueId && issue.restroomId === route.restroomId), issues.find((issue: any) => issue.venueId === route.venueId && !issue.restroomId && !issue.qrCodeId)].filter(Boolean);
+    const routeIssues = [issues.find((issue: any) => issue.id === route.issueId), issues.find((issue: any) => issue.qrCodeId === route.id), issues.find((issue: any) => issue.venueId === route.venueId && issue.restroomId === route.restroomId), issues.find((issue: any) => issue.venueId === route.venueId && !issue.restroomId && !issue.qrCodeId)].filter(Boolean);
     if (!routeIssues.length && globalIssue) routeIssues.push(globalIssue);
     for (const issue of routeIssues as any[]) {
       const existing: Array<{ slotNumber: number }> = await db.adSlotInventory.findMany({ where: { issueId: issue.id, qrCodeId: route.id }, select: { slotNumber: true } });
@@ -243,5 +283,6 @@ export async function ensurePublishedIssueInventoryForAdvertiserRoutes(db: any =
       }
     }
   }
+  console.info("ensurePublishedIssueInventoryForAdvertiserRoutes generated rows", { routesChecked: routes.length, issuesChecked: issues.length, rowsCreatedOrRequested: data.length });
   await safeAdSlotInventoryCreateMany(db, data);
 }

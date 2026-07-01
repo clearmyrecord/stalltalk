@@ -4,7 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { adSlotInventoryColumnOptions, advertiserInventoryWhere, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, optionalVenueLocationRows } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, optionalVenueLocationRows } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -51,6 +51,13 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
   const inventoryColumns = await getAdSlotInventoryColumns();
   const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
 
+  try {
+    await ensurePublishedIssueInventoryForAdvertiserRoutes();
+  } catch (error) {
+    if (isOptionalAdSlotInventoryColumnError(error)) logOptionalAdSlotInventoryColumnError("advertiser inventory page generation", error);
+    else console.error("advertiser inventory page generation failed", error);
+  }
+
   const where = advertiserInventoryWhere(filters, inventoryColumnOptions);
   const inventoryQuery = prisma.adSlotInventory.findMany({
       where: where as any,
@@ -80,7 +87,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
       throw error;
     });
 
-  const [inventory, venues, issues, scanCounts, events] = await Promise.all([
+  const [inventory, venues, issues, activeRoutes, assignedRoutes, inventoryRouteCount, scanCounts, events] = await Promise.all([
     inventoryQuery,
     prisma.venue.findMany({
       where: { isActive: true, status: "ACTIVE", qrCodes: { some: { status: { in: ["ACTIVE", "DEPLOYED"] } } } },
@@ -93,6 +100,9 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
       orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }],
       take: 500,
     }),
+    prisma.qrCode.count({ where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } } }),
+    prisma.qrCode.count({ where: { venueId: { not: null }, status: { in: ["ACTIVE", "DEPLOYED"] }, issueId: { not: null }, venue: { is: { status: "ACTIVE", isActive: true } } } }),
+    prisma.adSlotInventory.count({ where: { qrCodeId: { not: null } } }),
     prisma.qrScan.groupBy({ by: ["qrCodeId"], where: { scannedAt: { gte: range.from, lte: range.to } }, _count: { qrCodeId: true } }),
     prisma.analyticsEvent.findMany({
       where: { qrCodeId: { not: null }, createdAt: { gte: range.from, lte: range.to }, type: { in: ["PAGE_VIEW", "ISSUE_VIEW", "AD_IMPRESSION", "AD_CLICK", "COUPON_REDEMPTION"] as any } },
@@ -120,6 +130,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
 
   const currentIssueForRoute = (slot: (typeof inventory)[number]) =>
     ("issue" in slot && slot.issue ? slot.issue : null) ||
+    issues.find((issue) => issue.id === slot.qrCode?.issueId) ||
     issues.find((issue) => issue.qrCodeId === slot.qrCodeId) ||
     issues.find((issue) => issue.venueId === slot.venueId && issue.restroomId === slot.restroomId) ||
     issues.find((issue) => issue.venueId === slot.venueId && !issue.restroomId) ||
@@ -203,7 +214,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
               </article>
             );
           })}
-          {!displayedInventory.length ? <p className="rounded-xl border-4 border-ink bg-stallYellow p-5 font-black uppercase">No public QR route inventory matches these filters.</p> : null}
+          {!displayedInventory.length ? <div className="rounded-xl border-4 border-ink bg-stallYellow p-5 font-black uppercase"><p>No public QR route inventory matches these filters.</p><p className="mt-2 text-sm">Debug-safe inventory status: {activeRoutes ? `${activeRoutes} active QR route${activeRoutes === 1 ? "" : "s"} exist.` : "No active QR routes exist for public inventory."} {activeRoutes && !assignedRoutes ? "No published issue is assigned directly to an active QR route yet; a global/default fallback issue may still serve routes when configured." : ""} {activeRoutes && !inventoryRouteCount ? "No inventory rows were generated yet for those QR routes." : `${inventoryRouteCount} QR-route inventory row${inventoryRouteCount === 1 ? "" : "s"} exist before filters.`}</p></div> : null}
           </div>
         </section>
       </section>
