@@ -670,14 +670,16 @@ export async function createAdvertiserCampaign(formData: FormData) {
   const placementCount = placements.length;
   const totalAmountCents = calculateFlightTotal(placementCount, flightMonths);
   const { startsAt, endsAt } = flightDateRange(flightStartMonth, flightMonths);
+  const inventoryColumns = await getAdSlotInventoryColumns();
+  const { includeIssueIdColumn } = adSlotInventoryColumnOptions(inventoryColumns);
   const inventory = await prisma.adSlotInventory.findMany({
     where: {
       id: { in: placements },
       status: "OPEN",
-      OR: [
+      ...(includeIssueIdColumn ? { OR: [
         { issue: { status: "PUBLISHED", isPublished: true, isArchived: false } },
         { issueId: null, qrCode: { status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } } },
-      ],
+      ] } : { qrCode: { status: { in: ["ACTIVE", "DEPLOYED"] }, venue: { is: { status: "ACTIVE", isActive: true } } } }),
     }
   });
   if (inventory.length !== placements.length) throw new Error("One or more selected placements are no longer available.");

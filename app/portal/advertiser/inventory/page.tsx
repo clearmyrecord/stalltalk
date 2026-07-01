@@ -4,7 +4,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { adSlotInventoryColumnOptions, ensureQrRouteAdInventory, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, optionalVenueLocationRows, qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes, ensureQrRouteAdInventory, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, optionalVenueLocationRows } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -61,15 +61,21 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
     else throw error;
   })));
 
-  const where = qrRouteInventoryWhere(filters, inventoryColumnOptions);
+  await ensurePublishedIssueInventoryForAdvertiserRoutes().catch((error) => {
+    if (isOptionalAdSlotInventoryColumnError(error)) logOptionalAdSlotInventoryColumnError("advertiser fallback issue inventory generation", error);
+    else throw error;
+  });
+
+  const where = advertiserInventoryWhere(filters, inventoryColumnOptions);
   const inventoryQuery = prisma.adSlotInventory.findMany({
-      where,
+      where: where as any,
       select: {
         id: true,
         venueId: true,
         restroomId: true,
         qrCodeId: true,
         slotNumber: true,
+        ...(inventoryColumnOptions.includeIssueIdColumn ? { issueId: true, issue: true } : {}),
         ...(inventoryColumnOptions.includeAudienceSegmentColumn ? { audienceSegment: true } : {}),
         ...(inventoryColumnOptions.includeLocationLabelColumn ? { locationLabel: true } : {}),
         priceCents: true,
@@ -97,7 +103,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
       orderBy: { name: "asc" },
     }),
     prisma.issue.findMany({
-      where: { venueId: { not: null }, status: "PUBLISHED", isPublished: true, isArchived: false },
+      where: { status: "PUBLISHED", isPublished: true, isArchived: false },
       include: { qrCode: true },
       orderBy: [{ publishedAt: "desc" }, { year: "desc" }, { issueNumber: "desc" }],
       take: 500,
@@ -128,6 +134,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
   });
 
   const currentIssueForRoute = (slot: (typeof inventory)[number]) =>
+    ("issue" in slot && slot.issue ? slot.issue : null) ||
     issues.find((issue) => issue.qrCodeId === slot.qrCodeId) ||
     issues.find((issue) => issue.venueId === slot.venueId && issue.restroomId === slot.restroomId) ||
     issues.find((issue) => issue.venueId === slot.venueId && !issue.restroomId) ||
@@ -195,6 +202,7 @@ export default async function AdvertiserInventoryPage({ searchParams }: { search
                 <p className="font-black">{slot.qrCode.qrName} • {label(audienceSegment)}</p>
                 <p className="mt-1 font-bold">Stable route: <Link href={routeUrl(slot.qrCode)} className="text-stallPurple underline">{routeUrl(slot.qrCode)}</Link></p>
                 <p className="font-bold">Currently served issue: {issue ? `${issue.title} • ${issue.month} ${issue.year}` : "No current issue yet"}</p>
+                {issue ? <p className="text-sm font-black uppercase text-stallRed">{issue.venueId ? "Default issue currently serving this route" : "Global fallback issue"}</p> : null}
                 <div className="mt-3 grid gap-2 text-sm font-bold md:grid-cols-2">
                   <p>Route/location: {slot.toiletLocation?.label || locationLabel || slot.restroom?.name || "Venue-wide"}</p>
                   <p>QR slug: {slot.qrCode.qrSlug}</p>

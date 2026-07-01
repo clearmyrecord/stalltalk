@@ -5,7 +5,7 @@ import {
   advertiserForPortalUser,
   requireAdvertiserPortalUser,
 } from "@/lib/advertiser-portal";
-import { qrRouteInventoryWhere } from "@/lib/advertiser-route-inventory";
+import { adSlotInventoryColumnOptions, advertiserInventoryWhere, ensurePublishedIssueInventoryForAdvertiserRoutes, getAdSlotInventoryColumns } from "@/lib/advertiser-route-inventory";
 import { prisma } from "@/lib/prisma";
 import { restroomLabelSelect } from "@/lib/restroom-schema";
 
@@ -20,11 +20,14 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
   const advertiser = await advertiserForPortalUser(user);
   if (!advertiser) return <AdvertiserProfileRequired message="Complete your advertiser profile before viewing campaigns." />;
   const filters = await searchParams;
+  const inventoryColumns = await getAdSlotInventoryColumns();
+  const inventoryColumnOptions = adSlotInventoryColumnOptions(inventoryColumns);
+  await ensurePublishedIssueInventoryForAdvertiserRoutes();
   const [campaigns, inventory, venues] = await Promise.all([
     prisma.adCampaign.findMany({ where: { advertiserId: advertiser.id }, orderBy: { createdAt: "desc" }, take: 50, include: { placements: { include: { inventory: { include: { venue: true, qrCode: true } } } } } }),
     prisma.adSlotInventory.findMany({
-      where: qrRouteInventoryWhere(filters),
-      include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true },
+      where: advertiserInventoryWhere(filters, inventoryColumnOptions) as any,
+      include: { venue: true, restroom: { select: restroomLabelSelect }, qrCode: true, ...(inventoryColumnOptions.includeIssueIdColumn ? { issue: true } : {}) },
       orderBy: [{ venue: { name: "asc" } }, { qrCode: { qrSlug: "asc" } }, { slotNumber: "asc" }],
       take: 100,
     }),
@@ -72,7 +75,8 @@ export default async function AdvertiserCampaignsPage({ searchParams }: { search
                 <span className="font-black uppercase">Slot {slot.slotNumber} • {money(slot.priceCents)} • {slot.status}</span>
                 <span className="block">{slot.venue.name} • {slot.qrCode?.qrName || slot.qrCode?.qrSlug || "QR route"}</span>
                 <span className="block text-sm uppercase text-stallRed">{slot.audienceSegment.replaceAll("_", " ")} • {slot.restroom?.name || "All restrooms"} • {slot.qrCode?.shortUrl || slot.qrCode?.qrSlug || slot.locationLabel || slot.venue.city}</span>
-                {slot.eventCategory ? <span className="block text-sm">Category: {slot.eventCategory}</span> : null}
+                {"eventCategory" in slot && slot.eventCategory ? <span className="block text-sm">Category: {slot.eventCategory}</span> : null}
+                {"issue" in slot && slot.issue ? <span className="block text-sm font-black uppercase text-stallRed">{slot.issue.venueId ? "Default issue currently serving this route" : "Global fallback issue"}</span> : null}
               </label>
             ))}
           </div>

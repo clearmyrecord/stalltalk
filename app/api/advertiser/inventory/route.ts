@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import {
   ensureQrRouteAdInventory,
+  ensurePublishedIssueInventoryForAdvertiserRoutes,
+  advertiserInventoryWhere,
   adSlotInventoryColumnOptions,
   getAdSlotInventoryColumns,
-  qrRouteInventoryWhere,
   isOptionalAdSlotInventoryColumnError,
   logOptionalAdSlotInventoryColumnError,
 } from "@/lib/advertiser-route-inventory";
@@ -49,7 +50,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const baseWhere = qrRouteInventoryWhere(request.nextUrl.searchParams, inventoryColumnOptions);
+  await ensurePublishedIssueInventoryForAdvertiserRoutes().catch((error) => {
+    if (isOptionalAdSlotInventoryColumnError(error)) logOptionalAdSlotInventoryColumnError("advertiser inventory API fallback issue generation", error);
+    else console.error("advertiser inventory API fallback issue generation failed", error);
+  });
+
+  const baseWhere = advertiserInventoryWhere(request.nextUrl.searchParams, inventoryColumnOptions);
 
   const where =
     user.role === "ADMIN" &&
@@ -61,7 +67,7 @@ export async function GET(request: NextRequest) {
         };
 
   const inventory = await prisma.adSlotInventory.findMany({
-    where,
+    where: where as any,
     select: {
       id: true,
       venueId: true,
