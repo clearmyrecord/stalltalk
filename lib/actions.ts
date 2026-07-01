@@ -2,6 +2,9 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus, MediaAssetType, VenueContentType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { requireAdmin, requireRole, requireVenueManager } from "./auth";
@@ -954,10 +957,21 @@ export async function submitFinishedAdvertiserAd(formData: FormData) {
   const user = await requireRole(["ADVERTISER", "ADMIN"] as any);
   const advertiserId = user.role === "ADVERTISER" ? user.advertiserId : nullableText(formData, "advertiserId");
   if (!advertiserId) throw new Error("An advertiser profile is required before submitting an ad.");
+  const advertiser = await prisma.advertiser.findUnique({ where: { id: advertiserId }, select: { id: true } });
+  if (!advertiser) throw new Error("Advertiser profile not found.");
   const businessName = text(formData, "businessName");
   const targetUrl = text(formData, "targetUrl", "#");
   const image = formData.get("creativeImage");
-  const imageName = image instanceof File ? image.name : "uploaded-ad-image";
+  const imageName = image instanceof File && image.name ? image.name : "uploaded-ad-image";
+  let creativeUrl = imageName;
+  if (image instanceof File && image.size > 0) {
+    const extension = path.extname(image.name || "").replace(/[^.a-zA-Z0-9]/g, "") || ".bin";
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "advertiser-ads", advertiserId);
+    await mkdir(uploadDir, { recursive: true });
+    const fileName = `${Date.now()}-${randomUUID()}${extension}`;
+    await writeFile(path.join(uploadDir, fileName), Buffer.from(await image.arrayBuffer()));
+    creativeUrl = `/uploads/advertiser-ads/${advertiserId}/${fileName}`;
+  }
   await prisma.adCampaign.create({
     data: {
       advertiserId,
@@ -965,13 +979,13 @@ export async function submitFinishedAdvertiserAd(formData: FormData) {
       businessName,
       headline: `${businessName} finished ad`,
       body: `Uploaded finished editorial ad image: ${imageName}`,
-      creativeUrl: imageName,
+      creativeUrl,
       targetUrl,
       ctaText: "Learn More",
       status: "SUBMITTED",
       approvalStatus: "SUBMITTED",
       submittedAt: new Date(),
-      creatives: { create: [{ advertiserId, kind: "IMAGE" as any, imageUrl: imageName, headline: `${businessName} finished ad`, body: "Finished editorial ad submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
+      creatives: { create: [{ advertiserId, kind: "IMAGE" as any, imageUrl: creativeUrl, headline: `${businessName} finished ad`, body: "Finished editorial ad submitted for review and publishing.", callToAction: "Learn More", destinationUrl: targetUrl, approvalStatus: "SUBMITTED" as any }] }
     }
   });
   revalidatePath("/portal/advertiser");
