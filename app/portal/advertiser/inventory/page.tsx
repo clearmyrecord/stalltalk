@@ -278,6 +278,7 @@ export default async function AdvertiserInventoryPage({
 
   return (
     <main className="min-h-screen bg-paper p-8 text-ink">
+        <Link href="/portal/advertiser/ai-buyer" className="mb-6 inline-flex rounded-xl border-4 border-ink bg-stallYellow px-5 py-3 font-display text-3xl uppercase shadow-brutal">Try AI Media Buyer</Link>
       <section className="mx-auto max-w-7xl">
         <p className="font-black uppercase tracking-[.25em] text-stallRed">
           Advertiser Portal

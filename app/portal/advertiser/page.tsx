@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const allowedRoles: Role[] = ["ADVERTISER", "ADMIN"] as Role[];
 const navItems = [
+  ["AI Media Buyer", "/portal/advertiser/ai-buyer"],
   ["Browse Inventory", "/portal/advertiser/inventory"],
   ["Create AI Ad", "/portal/advertiser/ad-studio"],
   ["Upload Finished Ad", "/portal/advertiser/upload"],
@@ -142,6 +143,7 @@ export default async function AdvertiserPortalPage() {
             {EMPTY_ANALYTICS_MESSAGE}
           </p>
         ) : null}
+        <section className="mt-6 rounded-2xl border-4 border-ink bg-stallYellow p-6 shadow-brutal"><p className="font-black uppercase tracking-[.25em] text-stallRed">Fastest path to publish</p><h2 className="font-display text-5xl uppercase">AI Media Buyer</h2><p className="font-bold">Generate ads, choose recommended permanent QR route inventory, pay, and publish automatically.</p><Link href="/portal/advertiser/ai-buyer" className="mt-4 inline-flex rounded-xl bg-stallRed px-5 py-3 font-black uppercase text-white">Start AI Media Buyer</Link></section>
         <nav className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {navItems.map(([item, href]) => (
             <Link

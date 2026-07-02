@@ -17,6 +17,10 @@ export async function POST(request: Request) {
     const session = event.data.object;
     if (session.payment_status !== "paid")
       return NextResponse.json({ received: true, type: event.type });
+    if (session.metadata?.flow === "ai_buyer_multi_slot_checkout") {
+      await finalizeAiBuyerMultiSlotCheckout(session);
+      return NextResponse.json({ received: true, type: event.type });
+    }
     if (session.metadata?.flow === "direct_inventory_checkout") {
       await finalizeDirectInventoryCheckout(session);
       return NextResponse.json({ received: true, type: event.type });
@@ -196,6 +200,42 @@ async function publishPaidCampaign(campaignId: string) {
       status: "ACTIVE",
       publishedAt: new Date(),
     },
+  });
+}
+
+async function finalizeAiBuyerMultiSlotCheckout(session: any) {
+  const metadata = session.metadata || {};
+  const campaignId = String(metadata.campaignId || "");
+  const advertiserId = String(metadata.advertiserId || "");
+  const adId = String(metadata.adId || "");
+  let inventoryIds: string[] = [];
+  try { inventoryIds = JSON.parse(String(metadata.inventoryIds || "[]")); } catch { inventoryIds = []; }
+  if (!campaignId || !advertiserId || !inventoryIds.length) return;
+  await prisma.$transaction(async (tx) => {
+    const campaign = await tx.adCampaign.findFirst({ where: { id: campaignId, advertiserId }, include: { advertiser: true } });
+    if (!campaign) return;
+    const openInventory = await tx.adSlotInventory.findMany({ where: { id: { in: inventoryIds }, status: "OPEN" } });
+    for (const slot of openInventory) {
+      await tx.adSlotInventory.updateMany({ where: { id: slot.id, status: "OPEN" }, data: { status: "SOLD" } });
+      await tx.adCampaignPlacement.upsert({ where: { campaignId_inventoryId: { campaignId, inventoryId: slot.id } }, update: {}, create: { campaignId, inventoryId: slot.id } });
+    }
+    if (adId) {
+      const first = openInventory[0];
+      await tx.ad.updateMany({ where: { id: adId, advertiserId }, data: { status: "ACTIVE", venueId: first?.venueId, restroomId: first?.restroomId, scope: first?.restroomId ? "RESTROOM" : first?.venueId ? "VENUE" : "GLOBAL", campaignStartsAt: first?.startsAt, campaignEndsAt: first?.endsAt } });
+    }
+    await tx.adCampaign.update({
+      where: { id: campaignId },
+      data: {
+        adId: adId || campaign.adId, inventoryId: openInventory[0]?.id || campaign.inventoryId,
+        status: openInventory.length ? "ACTIVE" : "REJECTED", approvalStatus: openInventory.length ? "APPROVED" : "REJECTED",
+        paidAt: new Date(), publishedAt: openInventory.length ? new Date() : null, approvedAt: campaign.approvedAt || new Date(),
+        placementCount: openInventory.length || campaign.placementCount, locationCount: openInventory.length || campaign.locationCount, stripeSessionId: session.id,
+        rejectionReason: openInventory.length ? null : "Selected AI Buyer inventory was no longer open when payment completed.",
+      },
+    });
+    await tx.payment.updateMany({ where: { stripeSessionId: session.id }, data: { status: "SUCCEEDED", stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null } });
+    const skipped = inventoryIds.filter((id) => !openInventory.some((slot) => slot.id === id));
+    if (skipped.length) console.warn("[ai-buyer-webhook] skipped unavailable inventory", { campaignId, skipped });
   });
 }
 

@@ -15,7 +15,11 @@ async function parseCheckoutRequest(request: Request) {
   return {
     campaignId: String(data.campaignId || ""),
     inventoryId: String(data.inventoryId || ""),
+    inventoryIds: Array.isArray((data as any).inventoryIds) ? (data as any).inventoryIds.map(String) : [],
     adId: String(data.adId || ""),
+    flow: String((data as any).flow || ""),
+    concept: (data as any).concept,
+    brief: (data as any).brief,
   };
 }
 
@@ -26,7 +30,7 @@ export async function POST(request: Request) {
   if (user.role !== "ADMIN" && user.role !== "ADVERTISER")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { campaignId, inventoryId, adId } = await parseCheckoutRequest(request);
+  const { campaignId, inventoryId, inventoryIds, adId, flow, concept, brief } = await parseCheckoutRequest(request);
   const stripeStatus = stripeEnvStatus();
   if (!stripeStatus.isConfigured)
     return NextResponse.json(
@@ -37,6 +41,8 @@ export async function POST(request: Request) {
       { status: 503 },
     );
 
+  if (flow === "ai_buyer" || inventoryIds.length)
+    return startAiBuyerCheckout({ request, user, inventoryIds, concept, brief });
   if (inventoryId)
     return startDirectInventoryCheckout({
       request,
@@ -46,6 +52,77 @@ export async function POST(request: Request) {
       requestedCampaignId: campaignId,
     });
   return startCampaignCheckout({ request, user, campaignId });
+}
+
+async function startAiBuyerCheckout({
+  request,
+  user,
+  inventoryIds,
+  concept,
+  brief,
+}: {
+  request: Request;
+  user: NonNullable<Awaited<ReturnType<typeof currentUser>>>;
+  inventoryIds: string[];
+  concept: any;
+  brief: any;
+}) {
+  if (user.role !== "ADVERTISER" || !user.advertiserId)
+    return NextResponse.json({ error: "Advertiser profile required." }, { status: 403 });
+  if (!inventoryIds.length)
+    return NextResponse.json({ error: "Select at least one inventory slot." }, { status: 400 });
+  const advertiser = await prisma.advertiser.findUnique({ where: { id: user.advertiserId } });
+  if (!advertiser) return NextResponse.json({ error: "Advertiser profile not found." }, { status: 404 });
+  const inventory = await prisma.adSlotInventory.findMany({
+    where: { id: { in: inventoryIds }, status: "OPEN" },
+    include: { venue: true },
+  });
+  if (inventory.length !== inventoryIds.length)
+    return NextResponse.json({ error: "One or more sponsor slots are no longer available." }, { status: 409 });
+  const amount = inventory.reduce((sum, slot) => sum + (slot.priceCents || PRICE_PER_PLACEMENT_MONTH_CENTS), 0);
+  const ad = await prisma.ad.create({
+    data: {
+      publisherId: advertiser.publisherId, advertiserId: advertiser.id,
+      businessName: String(brief?.businessName || advertiser.name),
+      title: String(concept?.headline || `${advertiser.name} sponsor ad`),
+      offer: String(concept?.offer || brief?.offer || "Local offer"),
+      ctaText: String(concept?.cta || "Learn More"),
+      targetUrl: String(brief?.website || "#"),
+      promptUsed: String(brief?.prompt || ""),
+      creativeBrief: JSON.stringify({ brief, concept }),
+      generatedHeadline: String(concept?.headline || ""),
+      generatedSubheadline: String(concept?.body || ""),
+      status: "PAUSED",
+      monthlyPriceCents: amount,
+      campaignStartsAt: inventory[0]?.startsAt, campaignEndsAt: inventory[0]?.endsAt,
+    },
+  });
+  const campaign = await prisma.adCampaign.create({
+    data: {
+      advertiserId: advertiser.id, adId: ad.id, inventoryId: inventory[0]?.id,
+      name: `AI Media Buyer - ${brief?.businessName || advertiser.name}`,
+      businessName: String(brief?.businessName || advertiser.name),
+      headline: String(concept?.headline || ad.title), body: String(concept?.body || ad.offer),
+      description: String(brief?.prompt || "AI Media Buyer campaign"), creativeBrief: JSON.stringify({ brief, concept }),
+      targetUrl: String(brief?.website || "#"), ctaText: String(concept?.cta || "Learn More"),
+      status: "PAYMENT_PENDING", approvalStatus: "APPROVED", approvedAt: new Date(),
+      priceCents: amount, totalAmountCents: amount, budgetCents: Math.round(Number(brief?.budget || 0) * 100),
+      pricePerPlacementMonthCents: Math.round(amount / Math.max(1, inventory.length)), placementCount: inventory.length, locationCount: inventory.length,
+      flightStartMonth: inventory[0]?.month || new Date().toISOString().slice(0, 7), flightEndMonth: inventory[0]?.month || new Date().toISOString().slice(0, 7),
+      startsAt: inventory[0]?.startsAt, endsAt: inventory[0]?.endsAt,
+    },
+  });
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [{ price_data: { currency: "usd", unit_amount: amount, product_data: { name: `Potty Favor AI Media Buyer (${inventory.length} slots)` } }, quantity: 1 }],
+    customer_email: advertiser.contactEmail || user.email,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/portal/advertiser/ai-buyer/success?campaignId=${campaign.id}`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/portal/advertiser/ai-buyer?stripe=cancel`,
+    metadata: { flow: "ai_buyer_multi_slot_checkout", advertiserId: advertiser.id, userId: user.id, campaignId: campaign.id, adId: ad.id, inventoryIds: JSON.stringify(inventory.map((slot) => slot.id)), totalSlots: String(inventory.length) },
+  });
+  await prisma.payment.create({ data: { campaignId: campaign.id, advertiserId: advertiser.id, amountCents: amount, status: "PENDING", stripeSessionId: session.id } });
+  await prisma.adCampaign.update({ where: { id: campaign.id }, data: { stripeSessionId: session.id } });
+  return NextResponse.json({ url: session.url });
 }
 
 async function startDirectInventoryCheckout({
