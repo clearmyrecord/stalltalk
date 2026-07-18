@@ -10,7 +10,7 @@ export default async function EditVenueIssuePage({ params }: { params: Promise<{
   const user = await currentUser();
   if (!user) redirect("/signin?error=admin_required");
   if (!user.venueId) redirect("/portal/venue/issues");
-  const issue = await prisma.issue.findFirst({ where: { id, venueId: user.venueId }, include: { venue: { select: { id: true, slug: true, publisherId: true } }, contentBlocks: { orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } } } });
+  const issue = await prisma.issue.findFirst({ where: { id, venueId: user.venueId }, include: { venue: { select: { id: true, slug: true, publisherId: true, timeZone: true } }, contentBlocks: { orderBy: { sortOrder: "asc" } }, adSlots: { include: { ad: true }, orderBy: { slotNumber: "asc" } }, issueTargets: { orderBy: { publishAt: "asc" } } } });
   if (!issue?.venue) notFound();
   const [articles, ads, restrooms, qrCodes] = await Promise.all([
     prisma.article.findMany({ where: { publisherId: issue.venue.publisherId, OR: [{ venueIds: { has: issue.venue.id } }, { venueIds: { isEmpty: true } }] }, select: { id: true, title: true }, orderBy: { updatedAt: "desc" } }),
@@ -18,5 +18,5 @@ export default async function EditVenueIssuePage({ params }: { params: Promise<{
     prisma.restroom.findMany({ where: { venueId: issue.venue.id, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.qrCode.findMany({ where: { venueId: issue.venue.id }, select: { id: true, qrName: true, restroomId: true }, orderBy: { qrName: "asc" } }),
   ]);
-  return <main className="min-h-screen bg-paper p-8 text-ink"><Link href="/portal/venue/issues" className="font-black uppercase text-stallRed">← My Issues</Link><h1 className="mt-4 font-display text-6xl uppercase">Edit Issue</h1><IssueEditor action={updateVenueIssue.bind(null, issue.id)} issue={issue} articles={articles} ads={ads} restrooms={restrooms} qrCodes={qrCodes} /></main>;
+  return <main className="min-h-screen bg-paper p-8 text-ink"><Link href="/portal/venue/issues" className="font-black uppercase text-stallRed">← My Issues</Link><h1 className="mt-4 font-display text-6xl uppercase">Edit Issue</h1><IssueEditor action={updateVenueIssue.bind(null, issue.id)} issue={issue} articles={articles} ads={ads} restrooms={restrooms} qrCodes={qrCodes} timeZone={issue.venue.timeZone} /></main>;
 }

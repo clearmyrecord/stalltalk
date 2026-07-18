@@ -218,6 +218,20 @@ enum QrLifecycleAction {
   RETIRE
 }
 
+enum QrPlacementType {
+  STALL
+  MIRROR
+  URINAL
+  ENTRANCE
+  OTHER
+}
+
+enum IssueTargetType {
+  VENUE
+  RESTROOM
+  QR_PLACEMENT
+}
+
 enum StripeSubscriptionStatus {
   TRIALING
   ACTIVE
@@ -341,8 +355,10 @@ model Venue {
   defaultIssueId           String?
   name                     String
   slug                     String              @unique
+  publicToken              String              @unique @default(uuid())
   city                     String
   state                    String
+  timeZone                 String              @default("America/Los_Angeles")
   zip                      String?
   address                  String
   venueType                String              @default("venue") @map("venue_type")
@@ -363,6 +379,7 @@ model Venue {
   restrooms                Restroom[]
   issues                   Issue[]
   qrCodes                  QrCode[]
+  issueTargets             IssueTarget[]
   qrScans                  QrScan[]
   ads                      Ad[]
   events                   AnalyticsEvent[]
@@ -394,6 +411,7 @@ model Restroom {
   events            AnalyticsEvent[]
   toiletLocations   ToiletLocation[]
   adSlotInventories AdSlotInventory[]
+  issueTargets      IssueTarget[]
 
   @@index([venueId, restroomType])
 }
@@ -407,6 +425,10 @@ model QrCode {
   assignedDistributorId String?
   qrName                String             @map("qr_name")
   qrSlug                String             @unique @map("qr_slug")
+  publicToken           String             @unique @default(uuid()) @map("public_token")
+  internalLabel         String?            @map("internal_label")
+  placementType         QrPlacementType    @default(OTHER) @map("placement_type")
+  isActive              Boolean            @default(true) @map("is_active")
   qrUrl                 String             @map("qr_url")
   destinationType       QrDestinationType  @default(GLOBAL)
   destinationUrl        String?
@@ -432,6 +454,7 @@ model QrCode {
   assignedDistributor   Distributor?       @relation(fields: [assignedDistributorId], references: [id], onDelete: SetNull)
   issues                Issue[]
   currentIssues         Issue[]            @relation("CurrentIssueQr")
+  issueTargets          IssueTarget[]
   scans                 QrScan[]
   lifecycleEvents       QrLifecycleEvent[]
   events                AnalyticsEvent[]
@@ -564,12 +587,13 @@ model Issue {
   restroom     Restroom?     @relation(fields: [restroomId], references: [id], onDelete: SetNull)
   qrCode       QrCode?       @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
 
-  contentBlocks  IssueContentBlock[]
-  adSlots        IssueAdSlot[]
-  events         AnalyticsEvent[]
-  importedEvents Event[]
-  qrScans        QrScan[]
-  currentQrCodes QrCode[]            @relation("CurrentIssueQr")
+  contentBlocks     IssueContentBlock[]
+  adSlots           IssueAdSlot[]
+  events            AnalyticsEvent[]
+  importedEvents    Event[]
+  qrScans           QrScan[]
+  issueTargets      IssueTarget[]
+  currentQrCodes    QrCode[]            @relation("CurrentIssueQr")
   adSlotInventories AdSlotInventory[]
 
   @@index([publisherId])
@@ -592,7 +616,10 @@ model IssueContentBlock {
   defaultIssueId String?
   articleId      String?
   type           ContentBlockType
+  sectionType    ContentBlockType @default(ARTICLE)
   title          String
+  headline       String           @default("")
+  isVisible      Boolean          @default(true)
   body           String
   imageUrl       String?
   layout         Json?
@@ -827,6 +854,31 @@ model QrScan {
   @@index([qrCodeId, scannedAt])
   @@index([venueId, scannedAt])
   @@map("qr_scans")
+}
+
+model IssueTarget {
+  id          String          @id @default(cuid())
+  issueId     String
+  venueId     String
+  restroomId  String?
+  qrCodeId    String?
+  targetType  IssueTargetType
+  isLive      Boolean         @default(false)
+  publishAt   DateTime?
+  unpublishAt DateTime?
+  canceledAt  DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  issue       Issue           @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  venue       Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  restroom    Restroom?       @relation(fields: [restroomId], references: [id], onDelete: Cascade)
+  qrCode      QrCode?         @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@index([venueId, targetType, publishAt])
+  @@index([qrCodeId, targetType, publishAt])
+  @@index([restroomId, targetType, publishAt])
 }
 
 model QrLifecycleEvent {

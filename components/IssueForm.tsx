@@ -1,109 +1,45 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import type { Ad, Article, Issue, IssueAdSlot, IssueContentBlock, Publisher, QrCode, Venue } from "@prisma/client";
 import { createIssueAction, updateIssueAction, type IssueSaveState } from "@/lib/actions";
 import { contentLabels } from "@/lib/format";
 import { SPONSOR_PLACEMENTS } from "@/lib/sponsor-placements";
 
-type IssueWithBlocks = Issue & { contentBlocks: IssueContentBlock[]; adSlots: IssueAdSlot[] };
-type RestroomOption = { id: string; name: string };
+type IssueWithBlocks = Issue & { contentBlocks: IssueContentBlock[]; adSlots: IssueAdSlot[]; issueTargets?: any[] };
+type RestroomOption = { id: string; name: string; venueId?: string };
 
+type Section = { key: string; id?: string; type: string; headline: string; articleId: string; title: string; body: string; imageUrl: string; venueIds: string[]; isVisible: boolean };
 const initialState: IssueSaveState = { ok: false, message: "" };
-const CONTENT_ZONES = [
-  ["mission", "MISSION"],
-  ["funny", "HILARIOUSLY_FUNNY"],
-  ["feature", "FEATURE_ARTICLE"],
-  ["restaurant", "RESTAURANT_REVIEW"],
-  ["events", "EVENT_CALENDAR"],
-  ["deals", "LOCAL_DEALS"],
-  ["trivia", "TRIVIA"],
-  ["quote", "INSPIRATIONAL_QUOTES"],
-  ["community", "WORD_OF_THE_MONTH"],
-] as const;
+const CONTENT_ZONES = [["mission", "MISSION"], ["funny", "HILARIOUSLY_FUNNY"], ["feature", "FEATURE_ARTICLE"], ["restaurant", "RESTAURANT_REVIEW"], ["events", "EVENT_CALENDAR"], ["deals", "LOCAL_DEALS"], ["trivia", "TRIVIA"], ["quote", "INSPIRATIONAL_QUOTES"], ["community", "WORD_OF_THE_MONTH"]] as const;
 const zoneOptions = CONTENT_ZONES.map(([, type]) => ({ value: type, label: contentLabels[type as keyof typeof contentLabels] }));
 
 export function IssueForm({ publishers, venues, restrooms, qrCodes, articles, ads, issue }: { publishers: Publisher[]; venues: Venue[]; restrooms: RestroomOption[]; qrCodes: QrCode[]; articles: Article[]; ads: Ad[]; issue?: IssueWithBlocks }) {
   const action = issue ? updateIssueAction.bind(null, issue.id) : createIssueAction;
   const [state, formAction, pending] = useActionState(action, initialState);
-  const blocks = CONTENT_ZONES.map(([key], index) => issue?.contentBlocks.find((block) => (block.layout as any)?.key === key) || issue?.contentBlocks.find((block) => block.sortOrder === index + 1));
+  const [sections, setSections] = useState<Section[]>(() => initialSections(issue));
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const currentAudience = useMemo(() => issue?.issueTargets?.some(t => t.targetType === "QR_PLACEMENT") ? "QRS" : issue?.issueTargets?.some(t => t.targetType === "RESTROOM") ? "RESTROOMS" : issue?.issueTargets?.some(t => t.targetType === "VENUE") || issue?.venueId ? "VENUE" : "", [issue]);
+  const [audience, setAudience] = useState(currentAudience);
+  useEffect(() => { if (state.message) console.log("[issue-save-client-response]", state); }, [state]);
+  const move = (from: number, to: number) => setSections((items) => { const next = [...items]; const [item] = next.splice(from, 1); next.splice(Math.max(0, Math.min(to, next.length)), 0, item); return next; });
+  const duplicate = (index: number) => setSections((items) => { const next = [...items]; next.splice(index + 1, 0, { ...items[index], id: undefined, key: `${items[index].key}-copy-${Date.now()}`, headline: `${items[index].headline} Copy` }); return next; });
+  const update = (index: number, patch: Partial<Section>) => setSections((items) => items.map((item, i) => i === index ? { ...item, ...patch } : item));
 
-  useEffect(() => {
-    if (!state.message) return;
-    console.log("[issue-save-client-response]", state);
-  }, [state]);
-
-  return <form action={formAction} className="mt-6 grid gap-5" onSubmit={(event) => {
-    const formData = new FormData(event.currentTarget);
-    const selectedTypes = CONTENT_ZONES.map((_, index) => String(formData.get(`blockType${index + 1}`) || "")).filter(Boolean);
-    if (new Set(selectedTypes).size !== selectedTypes.length) {
-      event.preventDefault();
-      alert("Content type already assigned.");
-      return;
-    }
-    if (process.env.NODE_ENV !== "production") console.log("[issue-save-client-payload]", Object.fromEntries(formData.entries()));
-  }}>
+  return <form action={formAction} className="mt-6 grid gap-5" onSubmit={(event) => { const fd = new FormData(event.currentTarget); if (fd.get("status") === "PUBLISHED" && !fd.get("audience")) { event.preventDefault(); alert("Choose a Publishing Audience before publishing."); } else if (fd.get("status") === "PUBLISHED" && !window.confirm("Publish this issue and replace current live assignments for the selected audience? Old issues remain archived and direct URLs keep working.")) event.preventDefault(); }}>
     {issue ? <input type="hidden" name="updatedAt" value={issue.updatedAt.toISOString()} /> : null}
-    {state.message ? <div className={`rounded-2xl border-4 border-ink p-4 font-black shadow-brutal ${state.ok ? "bg-green-100" : "bg-red-100"}`} role="status">
-      <p>{state.message}</p>
-      {state.ok && state.editUrl ? <a className="underline" href={state.editUrl}>Open saved issue</a> : null}
-    </div> : null}
-    <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-4">
-      <Select name="publisherId" label="Publisher" value={issue?.publisherId || publishers[0]?.id} options={publishers.map((p) => [p.id, p.name])} />
-      <Select name="venueId" label="Issue Scope / Venue" value={issue?.venueId} options={[["", "Global Issue — all venues"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} />
-      <Select name="restroomId" label="Location / Restroom" value={issue?.restroomId || ""} options={[["", "Venue-wide issue"], ...restrooms.map((r) => [r.id, r.name] as [string, string])]} />
-      <Select name="qrCodeId" label="Dynamic QR destination" value={issue?.qrCodeId || ""} options={[["", "No QR"], ...qrCodes.map((q) => [q.id, `${q.qrName} (${q.qrSlug})`] as [string, string])]} />
-      <Field name="title" label="Issue Title" value={issue?.title || "Potty Favor"} />
-      <Field name="slug" label="Issue slug (auto: venue/location + month + year)" value={(issue as any)?.slug || ""} />
-      <Field name="publicUrl" label="Public URL preview" value={(issue as any)?.publicUrl || "Auto-generated after save"} />
-      <Field name="month" label="Month" value={issue?.month || "June"} />
-      <Field name="year" label="Year" value={String(issue?.year || new Date().getFullYear())} />
-      <Field name="issueNumber" label="Issue #" value={String(issue?.issueNumber || 1)} />
-      <label className="grid gap-1 font-black uppercase">Status<select name="status" defaultValue={issue?.status || "DRAFT"} className="rounded border-2 border-ink p-3"><option>DRAFT</option><option>SCHEDULED</option><option>PUBLISHED</option><option>ARCHIVED</option></select></label>
-    </div>
-
-    <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3">
-      <div className="md:col-span-3">
-        <h2 className="font-display text-5xl uppercase">Publishing Schedule</h2>
-        <p className="font-bold">Schedule next month’s issue without exposing raw Schedule ISO.</p>
-      </div>
-      <Field name="publishDate" label="Publish Date" type="date" value={dateValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} />
-      <Field name="publishTime" label="Publish Time" type="time" value={timeValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} />
-      <Field name="timezone" label="Timezone" value={(issue as any)?.timezone || "America/Los_Angeles"} />
-      <Check name="autoPublish" label="Auto Publish" checked={(issue as any)?.isScheduled || issue?.status === "SCHEDULED"} />
-      <Check name="replaceDefaultOnPublish" label="Replace Default Global Issue" checked={(issue as any)?.replaceDefaultOnPublish ?? true} />
-      <Check name="archivePreviousOnPublish" label="Archive Previous Issue" checked={(issue as any)?.archivePreviousOnPublish ?? true} />
-    </div>
-
-    <div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal">
-      <h2 className="font-display text-5xl uppercase">Venue-aware layout editor</h2>
-      <p className="mb-4 font-bold">Leave venue assignment empty for global network content, or choose one/multiple venues for venue-only articles, events, reviews, announcements, and coupons.</p>
-      <div className="grid gap-4 md:grid-cols-2">{blocks.map((block, i) => { const [layoutKey, defaultType] = CONTENT_ZONES[i]; return <div key={layoutKey} className="grid gap-3 rounded-xl border-2 border-ink bg-white p-3">
-        <p className="font-display text-3xl uppercase">Drop Zone {i + 1}</p>
-        <input type="hidden" name={`blockLayoutKey${i + 1}`} value={layoutKey} />
-        <select name={`blockType${i + 1}`} defaultValue={block?.type || defaultType} className="rounded border-2 border-ink p-2 font-black">{zoneOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
-        <select name={`blockArticle${i + 1}`} defaultValue={block?.articleId || ""} className="rounded border-2 border-ink p-2"><option value="">No linked article</option>{articles.map((article) => <option key={article.id} value={article.id}>{article.title}</option>)}</select>
-        <VenueMultiSelect name={`blockVenueIds${i + 1}`} venues={venues} selected={block?.venueIds || []} />
-        <input name={`blockTitle${i + 1}`} defaultValue={block?.title} placeholder="Title" className="rounded border-2 border-ink p-2" />
-        <textarea name={`blockBody${i + 1}`} defaultValue={block?.body} placeholder="Body" rows={4} className="rounded border-2 border-ink p-2" />
-        <input name={`blockImage${i + 1}`} defaultValue={block?.imageUrl || ""} placeholder="Image URL optional" className="rounded border-2 border-ink p-2" />
-      </div>})}</div>
-    </div>
-
-    <div className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal">
-      <h2 className="font-display text-5xl uppercase">Assign 8 Premium Sponsor Panels</h2>
-      <p className="mb-3 font-bold">Ads can be global, city, venue, or restroom scoped. Venue ads may target one or multiple venues from the ad editor.</p>
-      <div className="grid gap-3 md:grid-cols-4">{SPONSOR_PLACEMENTS.map((placement) => <label key={placement.number} className="grid gap-1 font-black uppercase">{placement.label}<select name={`slot${placement.number}`} defaultValue={issue?.adSlots.find((slot) => slot.slotNumber === placement.number)?.adId || ""} className="rounded border-2 border-ink p-3"><option value="">Auto serve</option>{ads.map((ad) => <option key={ad.id} value={ad.id}>{ad.businessName} • {ad.scope}</option>)}</select></label>)}</div>
-    </div>
-    <button disabled={pending} className="rounded-2xl border-4 border-ink bg-stallRed px-6 py-4 font-black uppercase text-white shadow-brutal disabled:opacity-60">{pending ? "Saving…" : "Save Issue"}</button>
-  </form>;
+    {state.message ? <div className={`rounded-2xl border-4 border-ink p-4 font-black shadow-brutal ${state.ok ? "bg-green-100" : "bg-red-100"}`} role="status"><p>{state.message}</p>{state.ok && state.editUrl ? <a className="underline" href={state.editUrl}>Open saved issue</a> : null}</div> : null}
+    <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-4"><Select name="publisherId" label="Publisher" value={issue?.publisherId || publishers[0]?.id} options={publishers.map((p) => [p.id, p.name])} /><Select name="venueId" label="Issue Venue" value={issue?.venueId} options={[["", "Global / Evergreen"], ...venues.map((v) => [v.id, `${v.name} — ${v.city}`] as [string, string])]} /><Field name="title" label="Issue Title" value={issue?.title || "Potty Favor"} /><Field name="slug" label="Direct issue slug" value={(issue as any)?.slug || ""} /><Field name="publicUrl" label="Archive URL preview" value={(issue as any)?.publicUrl || "Auto-generated after save"} /><Field name="month" label="Month" value={issue?.month || "June"} /><Field name="year" label="Year" value={String(issue?.year || new Date().getFullYear())} /><Field name="issueNumber" label="Issue #" value={String(issue?.issueNumber || 1)} /><label className="grid gap-1 font-black uppercase">Status<select name="status" defaultValue={issue?.status || "DRAFT"} className="rounded border-2 border-ink p-3"><option>DRAFT</option><option>SCHEDULED</option><option>PUBLISHED</option><option>ARCHIVED</option></select></label></div>
+    <div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal"><h2 className="font-display text-5xl uppercase">Publishing Audience</h2><p className="mb-4 font-bold">Permanent QR URLs never change. Publishing updates the live issue behind venue, restroom, or QR-placement targets using QR → restroom → venue priority.</p><div className="grid gap-3 md:grid-cols-3">{[["VENUE","Entire venue"],["RESTROOMS","Selected restrooms"],["QRS","Selected QR placements"]].map(([value,label]) => <label key={value} className="rounded-xl border-2 border-ink bg-white p-3 font-black uppercase"><input type="radio" name="audience" value={value} defaultChecked={audience===value} onChange={() => setAudience(value)} className="mr-2" />{label}</label>)}</div>{audience === "RESTROOMS" ? <Multi name="targetRestroomIds" options={restrooms.map(r => [r.id, r.name])} selected={(issue?.issueTargets||[]).filter(t=>t.restroomId).map(t=>t.restroomId)} /> : null}{audience === "QRS" ? <Multi name="targetQrCodeIds" options={qrCodes.map(q => [q.id, `${(q as any).internalLabel || q.qrName} (${(q as any).placementType || q.qrType}) • /q/${(q as any).publicToken || q.qrSlug}`])} selected={(issue?.issueTargets||[]).filter(t=>t.qrCodeId).map(t=>t.qrCodeId)} /> : null}</div>
+    <div className="grid gap-4 rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal md:grid-cols-3"><div className="md:col-span-3"><h2 className="font-display text-5xl uppercase">Publishing Schedule</h2></div><label className="grid gap-1 font-black uppercase">Publish Mode<select name="publishMode" defaultValue={(issue as any)?.isScheduled ? "later" : "now"} className="rounded border-2 border-ink p-3"><option value="now">Publish now</option><option value="later">Schedule for later</option></select></label><Field name="publishDate" label="Publication Date" type="date" value={dateValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} /><Field name="publishTime" label="Publication Time" type="time" value={timeValue((issue as any)?.scheduledPublishAt || issue?.scheduledAt)} /><Field name="unpublishDate" label="Optional End Date" type="date" value={dateValue((issue as any)?.issueTargets?.[0]?.unpublishAt)} /><Field name="unpublishTime" label="Optional End Time" type="time" value={timeValue((issue as any)?.issueTargets?.[0]?.unpublishAt)} /><Field name="timezone" label="Timezone (IANA)" value={(issue as any)?.timezone || "America/Los_Angeles"} /></div>
+    <div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal"><h2 className="font-display text-5xl uppercase">Issue Sections</h2><p className="mb-4 font-bold">Drag cards with the handle, use keyboard arrows while focused, or use Move Up/Down. Position is saved automatically by displayed order.</p><div className="grid gap-4">{sections.map((section, i) => <div key={section.key} draggable onDragStart={() => setDragIndex(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragIndex !== null) move(dragIndex, i); setDragIndex(null); }} className="grid gap-3 rounded-xl border-4 border-ink bg-white p-3 shadow-brutal"><div className="flex flex-wrap items-center gap-2"><button type="button" aria-label={`Drag section ${i+1}`} onKeyDown={(e) => { if (e.key === "ArrowUp") move(i, i-1); if (e.key === "ArrowDown") move(i, i+1); }} className="cursor-grab rounded border-2 border-ink bg-paper px-3 py-2 font-black">↕ Drag</button><p className="font-display text-3xl uppercase">Section {i + 1}</p><button type="button" onClick={() => move(i, i-1)} disabled={i===0} className="rounded bg-ink px-2 py-1 text-xs font-black uppercase text-white disabled:opacity-40">Move up</button><button type="button" onClick={() => move(i, i+1)} disabled={i===sections.length-1} className="rounded bg-ink px-2 py-1 text-xs font-black uppercase text-white disabled:opacity-40">Move down</button><button type="button" onClick={() => duplicate(i)} className="rounded bg-stallYellow px-2 py-1 text-xs font-black uppercase">Duplicate</button><button type="button" onClick={() => setSections(sections.filter((_, x)=>x!==i))} className="rounded bg-stallRed px-2 py-1 text-xs font-black uppercase text-white">Delete</button><label className="ml-auto font-black uppercase"><input type="checkbox" checked={section.isVisible} onChange={(e)=>update(i,{isVisible:e.target.checked})} className="mr-2" />Visible</label></div><input type="hidden" name={`blockLayoutKey${i + 1}`} value={section.key} /><input type="hidden" name={`blockVisible${i + 1}`} value={section.isVisible ? "on" : "off"} /><select name={`blockType${i + 1}`} value={section.type} onChange={(e)=>update(i,{type:e.target.value})} className="rounded border-2 border-ink p-2 font-black">{zoneOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><input name={`blockHeadline${i + 1}`} value={section.headline} onChange={(e)=>update(i,{headline:e.target.value})} placeholder="Public headline" className="rounded border-2 border-ink p-2 font-black" /><select name={`blockArticle${i + 1}`} value={section.articleId} onChange={(e)=>update(i,{articleId:e.target.value})} className="rounded border-2 border-ink p-2"><option value="">No linked article</option>{articles.map((article) => <option key={article.id} value={article.id}>{article.title}</option>)}</select><VenueMultiSelect name={`blockVenueIds${i + 1}`} venues={venues} selected={section.venueIds} /><textarea name={`blockBody${i + 1}`} value={section.body} onChange={(e)=>update(i,{body:e.target.value})} placeholder="Body" rows={4} className="rounded border-2 border-ink p-2" /><input name={`blockImage${i + 1}`} value={section.imageUrl} onChange={(e)=>update(i,{imageUrl:e.target.value})} placeholder="Image URL optional" className="rounded border-2 border-ink p-2" /></div>)}</div></div>
+    <div className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><h2 className="font-display text-5xl uppercase">Assign 8 Premium Sponsor Panels</h2><div className="grid gap-3 md:grid-cols-4">{SPONSOR_PLACEMENTS.map((placement) => <label key={placement.number} className="grid gap-1 font-black uppercase">{placement.label}<select name={`slot${placement.number}`} defaultValue={issue?.adSlots.find((slot) => slot.slotNumber === placement.number)?.adId || ""} className="rounded border-2 border-ink p-3"><option value="">Auto serve</option>{ads.map((ad) => <option key={ad.id} value={ad.id}>{ad.businessName} • {ad.scope}</option>)}</select></label>)}</div></div><button disabled={pending} className="rounded-2xl border-4 border-ink bg-stallRed px-6 py-4 font-black uppercase text-white shadow-brutal disabled:opacity-60">{pending ? "Saving…" : "Save Issue"}</button></form>;
 }
-
-function VenueMultiSelect({ name, venues, selected }: { name: string; venues: Venue[]; selected: string[] }) {
-  return <label className="grid gap-1 font-black uppercase">Venue targeting<span className="text-xs normal-case">No selection = global</span><select name={name} multiple defaultValue={selected} className="min-h-28 rounded border-2 border-ink p-2 normal-case">{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>;
-}
+function initialSections(issue?: IssueWithBlocks) { const existing = issue?.contentBlocks?.length ? issue.contentBlocks : []; return (existing.length ? existing : CONTENT_ZONES.map(([key,type], i) => ({ layout:{key}, type, sortOrder:i+1, title:"", body:"", articleId:"", imageUrl:"", venueIds:[], isVisible:true } as any))).sort((a:any,b:any)=>(a.sortOrder||0)-(b.sortOrder||0)).map((b:any,i:number) => ({ key: b.layout?.key || `slot-${i+1}`, id: b.id, type: b.sectionType || b.type || CONTENT_ZONES[i]?.[1] || "ARTICLE", headline: b.headline || b.title || "", title: b.title || "", articleId: b.articleId || "", body: b.body || "", imageUrl: b.imageUrl || "", venueIds: b.venueIds || [], isVisible: b.isVisible !== false })); }
+function VenueMultiSelect({ name, venues, selected }: { name: string; venues: Venue[]; selected: string[] }) { return <label className="grid gap-1 font-black uppercase">Venue targeting<span className="text-xs normal-case">No selection = global</span><select name={name} multiple defaultValue={selected} className="min-h-20 rounded border-2 border-ink p-2 normal-case">{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>; }
+function Multi({ name, options, selected }: { name: string; options: Array<[string,string]>; selected: string[] }) { return <select name={name} multiple defaultValue={selected} className="mt-4 min-h-40 w-full rounded border-2 border-ink bg-white p-3 font-bold">{options.map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select>; }
 function dateValue(value?: Date | string | null) { if (!value) return ""; return new Date(value).toISOString().slice(0, 10); }
 function timeValue(value?: Date | string | null) { if (!value) return ""; return new Date(value).toISOString().slice(11, 16); }
-function Check({ name, label, checked }: { name: string; label: string; checked: boolean }) { return <label className="flex items-center gap-3 rounded-xl border-2 border-ink p-3 font-black uppercase"><input type="checkbox" name={name} defaultChecked={checked} className="h-5 w-5" />{label}<input type="hidden" name={name} value="off" /></label>; }
+function Check({ name, label, checked }: { name: string; label: string; checked: boolean }) { return <label className="flex items-center gap-3 rounded-xl border-2 border-ink p-3 font-black uppercase"><input type="hidden" name={name} value="off" /><input type="checkbox" name={name} defaultChecked={checked} className="h-5 w-5" />{label}</label>; }
 function Field({ name, label, value, type = "text" }: { name: string; label: string; value: string; type?: string }) { return <label className="grid gap-1 font-black uppercase">{label}<input type={type} name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3 font-bold normal-case" /></label>; }
 function Select({ name, label, value, options }: { name: string; label: string; value?: string | null; options: Array<[string, string]> }) { return <label className="grid gap-1 font-black uppercase">{label}<select name={name} defaultValue={value || ""} className="rounded border-2 border-ink p-3">{options.map(([id, label]) => <option key={id || label} value={id}>{label}</option>)}</select></label>; }
