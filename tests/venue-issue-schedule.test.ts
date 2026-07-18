@@ -1,21 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolvePermanentQr } from "../lib/permanent-qr-routing";
-import { zonedDateTimeToUtc, computeIssueState, formatInVenueTime } from "../lib/venue-issue-schedule";
+import { resolveVenueEditorial } from "../lib/editorial-resolution";
+import { permanentQrPath } from "../lib/venue-qr";
+import { readFileSync } from "node:fs";
+import {
+  zonedDateTimeToUtc,
+  computeIssueState,
+  formatInVenueTime,
+} from "../lib/venue-issue-schedule";
 
-const venue = { id: "venue1", slug: "pt-taverns-horizon", publicToken: "pt-taverns-horizon", isActive: true, publisherId: "pub1", timeZone: "America/Los_Angeles" };
+const venue = { id: "venue1", slug: "pt-taverns-horizon", publicToken: "pt-taverns-horizon", isActive: true, publisherId: "pub1", timeZone: "America/Los_Angeles", contentMode: "VENUE_CUSTOM" };
 const restroom = { id: "rest1", venueId: venue.id, name: "Men's" };
 const qr = { id: "qr1", qrSlug: "stall-one", publicToken: "stall-one", slug: "stall-one", venueId: venue.id, restroomId: restroom.id, isActive: true, venue, restroom };
-const issue = (id: string, title = id, status = "PUBLISHED", isPublished = true, isArchived = false) => ({ id, title, slug: id, status, isPublished, isArchived, venueId: venue.id });
+const issue = (id: string, title = id, status = "PUBLISHED", isPublished = true, isArchived = false, patch: any = {}) => ({ id, title, slug: id, status, isPublished, isArchived, venueId: venue.id, editorialScope: "VENUE", ...patch });
 
 function mockDb(targets: any[]) {
   const findTarget = (where: any) => targets
     .filter((t) => (!where.qrCodeId || t.qrCodeId === where.qrCodeId) && (!where.restroomId || t.restroomId === where.restroomId) && (!where.venueId || t.venueId === where.venueId) && t.targetType === where.targetType && !t.canceledAt && t.issue.isPublished && !t.issue.isArchived && ["PUBLISHED", "SCHEDULED"].includes(t.issue.status) && t.publishAt <= where.publishAt.lte && (!t.unpublishAt || t.unpublishAt > where.OR[1].unpublishAt.gt))
     .sort((a, b) => b.publishAt.getTime() - a.publishAt.getTime() || b.issueId.localeCompare(a.issueId))[0] || null;
   return {
-    qrCode: { findFirst: async () => qr },
+    qrCode: { findFirst: async ({ where }: any) => where.OR?.some((cond: any) => cond.publicToken === qr.publicToken || cond.qrSlug === qr.qrSlug || cond.slug === qr.slug) ? qr : null },
     venue: { findFirst: async () => venue },
-    issue: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => {
+      const candidates = targets.map((t) => t.issue).filter((i) => (!where.venueId || i.venueId === where.venueId) && (!where.editorialScope || i.editorialScope === where.editorialScope) && i.isPublished && !i.isArchived && ["PUBLISHED", "SCHEDULED"].includes(i.status) && (!where.publishedAt?.lte || (i.publishedAt && i.publishedAt <= where.publishedAt.lte)));
+      return candidates.sort((a, b) => (b.publishedAt?.getTime?.() || 0) - (a.publishedAt?.getTime?.() || 0) || b.id.localeCompare(a.id))[0] || null;
+    } },
     issueTarget: { findFirst: async ({ where }: any) => { const row = findTarget(where); return row ? { ...row, issue: row.issue } : null; } },
   };
 }
@@ -123,7 +133,7 @@ test("publishIssueTargets allows future scheduled records without flipping isLiv
 test("legacy restroom-published issues still resolve when no IssueTarget exists", async () => {
   const legacy = issue("legacy-restroom");
   const db = {
-    qrCode: { findFirst: async () => qr },
+    qrCode: { findFirst: async ({ where }: any) => where.OR?.some((cond: any) => cond.publicToken === qr.publicToken || cond.qrSlug === qr.qrSlug || cond.slug === qr.slug) ? qr : null },
     issueTarget: { findFirst: async () => null },
     issue: { findFirst: async ({ where }: any) => where.restroomId === restroom.id ? legacy : null },
   };
@@ -172,4 +182,119 @@ test("publishIssueTargets rejects cross-venue and publisher-incompatible issue t
   });
   await assert.rejects(() => publishIssueTargets("issue1", { venueId: venue.id, restroomIds: [], qrCodeIds: [] }, baseDb({ venueId: "other" }, {}) as any), /different venue/);
   await assert.rejects(() => publishIssueTargets("issue1", { venueId: venue.id, restroomIds: [], qrCodeIds: [] }, baseDb({}, { publisherId: "other-pub" }) as any), /publisher/);
+});
+
+test("PUBLIC mode serves current public issue and ignores venue custom until switched", async () => {
+  const publicVenue = { ...venue, contentMode: "PUBLIC" };
+  const publicIssue = issue("public", "Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const customIssue = issue("custom", "Custom", "PUBLISHED", true, false, { publishedAt: new Date("2026-07-02T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => publicVenue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.editorialScope === "PUBLIC_NETWORK" ? publicIssue : customIssue },
+  };
+  const resolved = await resolvePermanentQr(publicVenue.slug, db as any, new Date("2026-07-03T00:00:00Z"));
+  assert.equal(resolved?.issue?.id, "public");
+  assert.equal(resolved?.editorialSource, "PUBLIC_NETWORK");
+});
+
+test("VENUE_CUSTOM falls back to public issue when no venue issue qualifies", async () => {
+  const publicIssue = issue("public-fallback", "Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => venue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.editorialScope === "PUBLIC_NETWORK" ? publicIssue : null },
+  };
+  const resolved = await resolvePermanentQr(venue.slug, db as any, new Date("2026-07-03T00:00:00Z"));
+  assert.equal(resolved?.issue?.id, "public-fallback");
+  assert.equal(resolved?.resolvedPriority, "PUBLIC_FALLBACK");
+});
+
+test("direct QR and restroom targets override PUBLIC mode", async () => {
+  const publicVenue = { ...venue, contentMode: "PUBLIC" };
+  const target = { issueId: "qr", venueId: venue.id, restroomId: restroom.id, qrCodeId: qr.id, targetType: "QR_PLACEMENT", publishAt: new Date("2026-07-01T00:00:00Z"), issue: issue("qr") };
+  const db = mockDb([target]);
+  db.qrCode.findFirst = async () => ({ ...qr, venue: publicVenue, restroom });
+  const resolved = await resolvePermanentQr(qr.publicToken, db as any, new Date("2026-07-02T00:00:00Z"));
+  assert.equal(resolved?.issue?.id, "qr");
+  assert.equal(resolved?.resolvedPriority, "QR_PLACEMENT");
+});
+
+test("mode switch changes content without changing QR route token", async () => {
+  const publicIssue = issue("public-route", "Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const customIssue = issue("custom-route", "Custom", "PUBLISHED", true, false, { publishedAt: new Date("2026-07-02T00:00:00Z") });
+  const dbFor = (mode: string) => ({
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => ({ ...venue, contentMode: mode }) },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.editorialScope === "PUBLIC_NETWORK" ? publicIssue : customIssue },
+  });
+  assert.equal((await resolvePermanentQr(venue.publicToken, dbFor("PUBLIC") as any))?.issue?.id, "public-route");
+  assert.equal((await resolvePermanentQr(venue.publicToken, dbFor("VENUE_CUSTOM") as any))?.issue?.id, "custom-route");
+  assert.equal(venue.publicToken, "pt-taverns-horizon");
+});
+
+
+test("future public issue does not display early and transitions exactly at scheduledPublishAt", async () => {
+  const current = issue("current-public", "Current Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: false, publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const next = issue("next-public", "Next Public", "SCHEDULED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: true, publishedAt: new Date("2026-07-01T00:00:00Z"), scheduledPublishAt: new Date("2026-08-01T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => ({ ...venue, contentMode: "PUBLIC" }) },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async () => [current, next], findFirst: async () => null },
+  };
+  assert.equal((await resolvePermanentQr(venue.publicToken, db as any, new Date("2026-07-31T23:59:59Z")))?.issue?.id, "current-public");
+  assert.equal((await resolvePermanentQr(venue.publicToken, db as any, new Date("2026-08-01T00:00:00Z")))?.issue?.id, "next-public");
+});
+
+test("copied permanent QR route honors PUBLIC mode", async () => {
+  const publicIssue = issue("copied-public", "Copied Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: false, publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const copiedQr = { ...qr, shortUrl: "/q/stall-one", venue: { ...venue, contentMode: "PUBLIC" } };
+  const db = {
+    qrCode: { findFirst: async ({ where }: any) => where.OR?.some((cond: any) => cond.publicToken === copiedQr.publicToken || cond.qrSlug === copiedQr.qrSlug || cond.slug === copiedQr.slug) ? copiedQr : null },
+    venue: { findFirst: async () => copiedQr.venue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async () => [publicIssue], findFirst: async () => null },
+  };
+  assert.equal(permanentQrPath(copiedQr, copiedQr.venue), "/q/stall-one");
+  assert.equal((await resolvePermanentQr("stall-one", db as any, new Date("2026-07-02T00:00:00Z")))?.issue?.id, "copied-public");
+});
+
+test("copied permanent QR route honors VENUE_CUSTOM mode", async () => {
+  const customIssue = issue("copied-custom", "Copied Custom", "PUBLISHED", true, false, { isScheduled: false, publishedAt: new Date("2026-07-02T00:00:00Z") });
+  const copiedQr = { ...qr, shortUrl: "/q/stall-one", venue: { ...venue, contentMode: "VENUE_CUSTOM" } };
+  const db = {
+    qrCode: { findFirst: async () => copiedQr },
+    venue: { findFirst: async () => copiedQr.venue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async ({ where }: any) => where.editorialScope === "VENUE" ? [customIssue] : [], findFirst: async () => null },
+  };
+  assert.equal(permanentQrPath(copiedQr, copiedQr.venue), "/q/stall-one");
+  assert.equal((await resolvePermanentQr("stall-one", db as any, new Date("2026-07-03T00:00:00Z")))?.issue?.id, "copied-custom");
+});
+
+test("dashboard and QR route use the same canonical resolver result", async () => {
+  const publicIssue = issue("dashboard-public", "Dashboard Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: false, publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => ({ ...venue, contentMode: "PUBLIC" }) },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async () => [publicIssue], findFirst: async () => null },
+  };
+  const qrResolved = await resolvePermanentQr(venue.publicToken, db as any, new Date("2026-07-02T00:00:00Z"));
+  const dashboardResolved = await resolveVenueEditorial({ ...venue, contentMode: "PUBLIC" }, db as any, new Date("2026-07-02T00:00:00Z"));
+  assert.equal(qrResolved?.issue?.id, dashboardResolved.issue?.id);
+});
+
+test("content mode authorization and inventory preservation are enforced in server action source", () => {
+  const actions = readFileSync(new URL("../lib/actions.ts", import.meta.url), "utf8");
+  const modeAction = actions.slice(actions.indexOf("export async function updateVenueContentMode"), actions.indexOf("export async function recordReviewClick"));
+  assert.match(modeAction, /requireRole\(\["VENUE_MANAGER", "ADMIN"\]\)/);
+  assert.match(modeAction, /user\.role !== "ADMIN" && user\.venueId !== venueId/);
+  assert.doesNotMatch(modeAction, /adSlotInventory|issueAdSlot|deleteMany/);
+  const venueUpdate = actions.slice(actions.indexOf("export async function updateVenueIssue"), actions.indexOf("export async function setVenueIssueStatus"));
+  assert.doesNotMatch(venueUpdate, /issueAdSlot\.deleteMany/);
 });

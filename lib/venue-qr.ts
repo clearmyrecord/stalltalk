@@ -30,6 +30,17 @@ export function venueQrUrl(venueSlug: string, restroom?: { id: string; slug?: st
   return `${publicBaseUrl()}${venueQrPath(venueSlug, restroom)}`;
 }
 
+export function permanentQrPath(qr: { publicToken?: string | null; qrSlug?: string | null; shortUrl?: string | null } | null | undefined, venue?: { publicToken?: string | null; slug?: string | null } | null) {
+  const rawShort = qr?.shortUrl || "";
+  if (rawShort.startsWith("/q/")) return rawShort;
+  const token = qr?.publicToken || qr?.qrSlug || venue?.publicToken || venue?.slug;
+  return `/q/${token}`;
+}
+
+export function permanentQrUrl(qr: { publicToken?: string | null; qrSlug?: string | null; shortUrl?: string | null } | null | undefined, venue?: { publicToken?: string | null; slug?: string | null } | null) {
+  return `${publicBaseUrl()}${permanentQrPath(qr, venue)}`;
+}
+
 export async function ensureVenueQrCodes(venueId: string) {
   const venue = await prisma.venue.findUnique({ where: { id: venueId }, select: { id: true, publisherId: true, name: true, slug: true, restrooms: { where: { status: "ACTIVE" }, select: { ...restroomLabelSelect, restroomType: true }, orderBy: { name: "asc" } }, qrCodes: true } });
   if (!venue) return [];

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueStatus, MediaAssetType, VenueContentType } from "@prisma/client";
+import type { AdScope, AdStatus, AnalyticsEventType, ContentBlockType, IssueEditorialScope, IssueStatus, MediaAssetType, VenueContentMode, VenueContentType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { requireAdmin, requireRole, requireVenueManager } from "./auth";
 import { slugify } from "./format";
@@ -348,7 +348,8 @@ async function issueData(formData: FormData, existing?: { status: IssueStatus; p
   const publishMode = text(formData, "publishMode", status === "SCHEDULED" ? "later" : "now");
   const isScheduled = publishMode === "later" && Boolean(scheduledAt);
   const isPublic = status === "PUBLISHED" || isScheduled;
-  return { publisherId, venueId, restroomId, qrCodeId: null, title, slug, publicUrl: `${publicBaseUrl()}${publicPath}`, isGlobalIssue: !venueId && !restroomId, isVenueIssue: Boolean(venueId) && !restroomId, isLocationIssue: Boolean(venueId && restroomId), month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: isPublic, isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: isPublic ? firstPublishedAt || now : firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
+  const editorialScope: IssueEditorialScope = !venueId && !restroomId ? "PUBLIC_NETWORK" : "VENUE";
+  return { publisherId, venueId, restroomId, qrCodeId: null, editorialScope, title, slug, publicUrl: `${publicBaseUrl()}${publicPath}`, isGlobalIssue: !venueId && !restroomId, isVenueIssue: Boolean(venueId) && !restroomId, isLocationIssue: Boolean(venueId && restroomId), month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: isPublic, isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: isPublic ? firstPublishedAt || now : firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
 }
 
 function logIssueSavePayload(mode: "create" | "update", formData: FormData, issueId?: string) {
@@ -460,10 +461,10 @@ export async function createVenueIssue(formData: FormData) {
   const title = text(formData, "title", `${month} ${year} Venue Issue`);
   const slug = `${slugify(title)}-${Date.now()}`;
   const issue = await prisma.$transaction(async (tx) => {
-    const created = await tx.issue.create({ data: { publisherId: venue.publisherId, venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: willPublish, isScheduled: status === "SCHEDULED", scheduledPublishAt: venueTargetSchedule(formData, venue.timeZone).publishAt, scheduledAt: venueTargetSchedule(formData, venue.timeZone).publishAt, timezone: venue.timeZone, publishedAt: willPublish ? now : null } });
+    const created = await tx.issue.create({ data: { publisherId: venue.publisherId, editorialScope: "VENUE", venueId: venue.id, restroomId: nullableText(formData, "restroomId"), qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${venueQrPath(venue.slug)}`, isGlobalIssue: false, isVenueIssue: true, isLocationIssue: Boolean(nullableText(formData, "restroomId")), month, year, issueNumber: intValue(formData, "issueNumber", 1), status, isPublished: willPublish, isScheduled: status === "SCHEDULED", scheduledPublishAt: venueTargetSchedule(formData, venue.timeZone).publishAt, scheduledAt: venueTargetSchedule(formData, venue.timeZone).publishAt, timezone: venue.timeZone, publishedAt: willPublish ? now : null } });
     if (willPublish) await publishIssueTargets(created.id, venueIssueTargets(formData, venue.id, venue.timeZone), tx);
     await saveContentBlocks(created.id, formData, tx);
-    await saveAdSlots(created.id, formData, tx);
+    // Venue users may edit editorial content only; marketplace sponsor placements resolve independently.
     await safeEnsureIssueAdInventory(created.id, tx);
     return created;
   });
@@ -495,9 +496,8 @@ export async function updateVenueIssue(id: string, formData: FormData) {
     if (willPublish) await publishIssueTargets(id, venueIssueTargets(formData, venue.id, venue.timeZone), tx);
     else await tx.issueTarget.updateMany({ where: { issueId: id }, data: { canceledAt: now } });
     await tx.issueContentBlock.deleteMany({ where: { issueId: id } });
-    await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
     await saveContentBlocks(id, formData, tx);
-    await saveAdSlots(id, formData, tx);
+    // Venue users may edit editorial content only; marketplace sponsor placements resolve independently.
     await safeEnsureIssueAdInventory(id, tx);
   });
   revalidatePath("/portal/venue");
@@ -559,6 +559,19 @@ export async function makeCurrentVenueIssue(issueId: string) {
   });
   if (!venueQr) throw new Error("Default All Restrooms QR route not found.");
   return assignVenueIssueToQr(issueId, venueQr.id);
+}
+
+export async function updateVenueContentMode(venueId: string, mode: VenueContentMode) {
+  const user = await requireRole(["VENUE_MANAGER", "ADMIN"]);
+  if (!(["PUBLIC", "VENUE_CUSTOM"] as string[]).includes(mode)) throw new Error("Unsupported content mode.");
+  if (user.role !== "ADMIN" && user.venueId !== venueId) throw new Error("You cannot change another venue's QR content mode.");
+  const venue = await prisma.venue.findUnique({ where: { id: venueId }, select: { id: true, slug: true } });
+  if (!venue) throw new Error("Venue not found.");
+  await prisma.venue.update({ where: { id: venueId }, data: { contentMode: mode } });
+  revalidatePath("/portal/venue/issues");
+  revalidatePath("/admin/venues");
+  revalidatePath(`/v/${venue.slug}`);
+  redirect(user.role === "ADMIN" ? "/admin/venues?contentMode=updated" : "/portal/venue/issues?saved=1");
 }
 
 export async function recordReviewClick(formData: FormData) {
