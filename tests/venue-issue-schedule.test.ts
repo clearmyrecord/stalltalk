@@ -298,3 +298,19 @@ test("content mode authorization and inventory preservation are enforced in serv
   const venueUpdate = actions.slice(actions.indexOf("export async function updateVenueIssue"), actions.indexOf("export async function setVenueIssueStatus"));
   assert.doesNotMatch(venueUpdate, /issueAdSlot\.deleteMany/);
 });
+
+test("venue dashboard selects venue-level QR and renders the permanent /q route", async () => {
+  const pageSource = readFileSync(new URL("../app/portal/venue/page.tsx", import.meta.url), "utf8");
+  const { selectDashboardVenueQr, dashboardPermanentVenueQrUrl } = await import("../lib/venue-dashboard-qr");
+  const restroomQr = { id: "restroom-qr", qrSlug: "restroom-route", qrType: "RESTROOM", restroomId: "rest1" };
+  const fallbackNoRestroomQr = { id: "old-wide", qrSlug: "old-wide", qrType: "RESTROOM", restroomId: null };
+  const venueLevelQr = { id: "venue-qr", qrSlug: "venue-slug-route", publicToken: "venue-token-route", shortUrl: "/q/venue-stable", qrType: "VENUE", restroomId: null };
+  const selected = selectDashboardVenueQr([restroomQr, fallbackNoRestroomQr, venueLevelQr]);
+
+  assert.equal(selected?.id, "venue-qr");
+  assert.match(dashboardPermanentVenueQrUrl(selected, venue), /\/q\/venue-stable$/);
+  assert.doesNotMatch(dashboardPermanentVenueQrUrl(selected, venue), /\/v\//);
+  assert.match(pageSource, /Your Permanent Venue QR/);
+  assert.match(pageSource, /qrSvgDataUrl\(permanentVenueQrUrl/);
+  assert.match(pageSource, /<PublicIssueUrlActions[^>]+openLabel="Open QR Route"/);
+});

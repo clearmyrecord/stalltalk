@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { signOutAction } from "@/lib/actions";
 import { authEnvStatus, currentUser, dashboardForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PublicIssueUrlActions } from "@/components/PublicIssueUrlActions";
 import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
+import { qrSvgDataUrl } from "@/lib/qr";
+import { ensureVenueQrCodes } from "@/lib/venue-qr";
+import { dashboardPermanentVenueQrUrl, selectDashboardVenueQr } from "@/lib/venue-dashboard-qr";
 import { formatInVenueTime } from "@/lib/venue-issue-schedule";
 import { resolveNextScheduledIssue, resolveVenueEditorial } from "@/lib/editorial-resolution";
 
@@ -22,6 +26,8 @@ export default async function VenuePortalPage() {
           select: {
             id: true,
             name: true,
+            slug: true,
+            publicToken: true,
             restrooms: { select: { id: true } },
             qrCodes: { select: { id: true } },
             events: { select: { id: true } },
@@ -30,6 +36,12 @@ export default async function VenuePortalPage() {
           },
         })
       : null;
+    let venueQr = venue ? await findVenueLevelQr(venue.id) : null;
+    if (venue && !venueQr) {
+      await ensureVenueQrCodes(venue.id);
+      venueQr = await findVenueLevelQr(venue.id);
+    }
+    const permanentVenueQrUrl = venue ? dashboardPermanentVenueQrUrl(venueQr, venue) : null;
     const now = new Date();
     const [resolvedEditorial, nextVenueIssue, nextPublicIssue] = venue ? await Promise.all([
       resolveVenueEditorial(venue, prisma, now),
@@ -88,6 +100,7 @@ export default async function VenuePortalPage() {
             </div>
           ))}
         </section>
+        {venue && venueQr && permanentVenueQrUrl ? <section className="mt-6 rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal" aria-labelledby="permanent-venue-qr-heading"><div className="grid gap-5 lg:grid-cols-[320px_1fr]"><div className="rounded-xl border-4 border-ink bg-white p-4"><img src={qrSvgDataUrl(permanentVenueQrUrl, 512)} alt={`Scannable permanent QR code for ${venue.name}`} className="mx-auto h-64 w-64 bg-white" /></div><div className="grid content-center gap-3"><p className="font-black uppercase tracking-[.25em] text-stallRed">Your Permanent Venue QR</p><h2 id="permanent-venue-qr-heading" className="font-display text-5xl uppercase">Print this QR once</h2><p className="font-bold">This venue-level QR stays on the stable /q route while Public mode, My Venue Issue mode, and scheduled issue transitions change the content behind it.</p><label className="grid gap-2 font-black uppercase">Permanent URL<input readOnly value={permanentVenueQrUrl} className="w-full rounded-lg border-4 border-ink bg-white p-3 font-mono text-sm normal-case" /></label><PublicIssueUrlActions url={permanentVenueQrUrl} qrSlug={venueQr.qrSlug} copyLabel="Copy QR Link" openLabel="Open QR Route" /></div></div></section> : null}
         {venue ? <section className="mt-6 grid gap-4 md:grid-cols-2"><div className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">Currently displayed issue</p><p className="font-display text-4xl uppercase">{resolvedEditorial?.issue?.title || "Evergreen landing page"}</p><p className="font-bold">Why: {resolvedEditorial?.reason}</p></div><div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">Next scheduled issue</p><p className="font-display text-4xl uppercase">{nextIssue?.title || "Nothing scheduled"}</p><p className="font-bold">Starts {formatInVenueTime(nextIssue?.scheduledPublishAt, venue.timeZone)}</p></div></section> : null}
         <section className="mt-6 grid gap-4 md:grid-cols-3">
           {[
@@ -158,4 +171,18 @@ function WrongPortal({ role }: { role: any }) {
       </section>
     </main>
   );
+}
+
+
+async function findVenueLevelQr(venueId: string) {
+  const qrCodes = await prisma.qrCode.findMany({
+    where: {
+      venueId,
+      restroomId: null,
+      isActive: true,
+      status: "ACTIVE",
+    },
+    orderBy: [{ qrType: "desc" }, { createdAt: "asc" }],
+  });
+  return selectDashboardVenueQr(qrCodes);
 }
