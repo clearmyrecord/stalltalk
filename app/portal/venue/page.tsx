@@ -7,7 +7,7 @@ import { PublicIssueUrlActions } from "@/components/PublicIssueUrlActions";
 import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
 import { qrSvgDataUrl } from "@/lib/qr";
 import { ensureVenueQrCodes } from "@/lib/venue-qr";
-import { dashboardPermanentVenueQrUrl, selectDashboardVenueQr } from "@/lib/venue-dashboard-qr";
+import { dashboardPermanentVenueQrUrl, getDashboardVenueQr } from "@/lib/venue-dashboard-qr";
 import { formatInVenueTime } from "@/lib/venue-issue-schedule";
 import { resolveNextScheduledIssue, resolveVenueEditorial } from "@/lib/editorial-resolution";
 
@@ -36,11 +36,7 @@ export default async function VenuePortalPage() {
           },
         })
       : null;
-    let venueQr = venue ? await findVenueLevelQr(venue.id) : null;
-    if (venue && !venueQr) {
-      await ensureVenueQrCodes(venue.id);
-      venueQr = await findVenueLevelQr(venue.id);
-    }
+    const venueQr = venue ? await getDashboardVenueQr(venue.id, prisma, ensureVenueQrCodes) : null;
     const permanentVenueQrUrl = venue ? dashboardPermanentVenueQrUrl(venueQr, venue) : null;
     const now = new Date();
     const [resolvedEditorial, nextVenueIssue, nextPublicIssue] = venue ? await Promise.all([
@@ -171,18 +167,4 @@ function WrongPortal({ role }: { role: any }) {
       </section>
     </main>
   );
-}
-
-
-async function findVenueLevelQr(venueId: string) {
-  const qrCodes = await prisma.qrCode.findMany({
-    where: {
-      venueId,
-      restroomId: null,
-      isActive: true,
-      status: "ACTIVE",
-    },
-    orderBy: [{ qrType: "desc" }, { createdAt: "asc" }],
-  });
-  return selectDashboardVenueQr(qrCodes);
 }

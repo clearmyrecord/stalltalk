@@ -314,3 +314,43 @@ test("venue dashboard selects venue-level QR and renders the permanent /q route"
   assert.match(pageSource, /qrSvgDataUrl\(permanentVenueQrUrl/);
   assert.match(pageSource, /<PublicIssueUrlActions[^>]+openLabel="Open QR Route"/);
 });
+
+test("venue dashboard reuses and reactivates an existing inactive venue QR instead of duplicating it", async () => {
+  const { getDashboardVenueQr, dashboardPermanentVenueQrUrl } = await import("../lib/venue-dashboard-qr");
+  const inactiveVenueQr = {
+    id: "inactive-venue-qr",
+    qrSlug: "preserved-slug",
+    publicToken: "preserved-token",
+    shortUrl: "/q/preserved-route",
+    qrType: "VENUE",
+    restroomId: null,
+    isActive: false,
+    status: "RETIRED",
+    scanHistoryMarker: "keep-scans",
+    assignmentMarker: "keep-assignments",
+  };
+  const state = { rows: [inactiveVenueQr], ensureCalls: 0, updates: [] as any[] };
+  const db = {
+    qrCode: {
+      findMany: async ({ where }: any) => state.rows.filter((row: any) => row.venueId === where.venueId || !row.venueId).filter((row: any) => row.restroomId === where.restroomId).filter((row: any) => !where.isActive || row.isActive === where.isActive).filter((row: any) => !where.status || row.status === where.status),
+      update: async ({ where, data }: any) => {
+        state.updates.push({ where, data });
+        const index = state.rows.findIndex((row) => row.id === where.id);
+        state.rows[index] = { ...state.rows[index], ...data };
+        return state.rows[index];
+      },
+    },
+  };
+
+  const selected = await getDashboardVenueQr(venue.id, db as any, async () => { state.ensureCalls += 1; });
+
+  assert.equal(selected?.id, inactiveVenueQr.id);
+  assert.equal(selected?.qrSlug, "preserved-slug");
+  assert.equal(selected?.publicToken, "preserved-token");
+  assert.equal((selected as any).scanHistoryMarker, "keep-scans");
+  assert.equal((selected as any).assignmentMarker, "keep-assignments");
+  assert.deepEqual(state.updates, [{ where: { id: inactiveVenueQr.id }, data: { isActive: true, status: "ACTIVE" } }]);
+  assert.equal(state.ensureCalls, 0);
+  assert.equal(state.rows.length, 1);
+  assert.match(dashboardPermanentVenueQrUrl(selected, venue), /\/q\/preserved-route$/);
+});
