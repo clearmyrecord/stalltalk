@@ -4,6 +4,7 @@ import { signOutAction } from "@/lib/actions";
 import { authEnvStatus, currentUser, dashboardForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileOnboarding } from "@/components/portal/ProfileOnboarding";
+import { formatInVenueTime, scheduledTargetWhere, targetOrderBy } from "@/lib/venue-issue-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,17 @@ export default async function VenuePortalPage() {
             restrooms: { select: { id: true } },
             qrCodes: { select: { id: true } },
             events: { select: { id: true } },
+            timeZone: true,
           },
         })
       : null;
+    const now = new Date();
+    const liveNext = venue ? await Promise.all([
+      prisma.issueTarget.findFirst({ where: { venueId: venue.id, targetType: "VENUE", ...scheduledTargetWhere(now) }, include: { issue: { select: { title: true, slug: true } } }, orderBy: targetOrderBy() }),
+      prisma.issueTarget.findFirst({ where: { venueId: venue.id, targetType: "VENUE", publishAt: { gt: now }, canceledAt: null, issue: { isPublished: true, isArchived: false } }, include: { issue: { select: { title: true, slug: true } } }, orderBy: [{ publishAt: "asc" }, { issueId: "asc" }] }),
+    ]) : [null, null] as const;
+    const liveTarget = liveNext[0] as any;
+    const nextTarget = liveNext[1] as any;
     if (user?.role === "VENUE_MANAGER" && !venue) {
       return (
         <main className="min-h-screen bg-paper p-8 text-ink">
@@ -77,6 +86,7 @@ export default async function VenuePortalPage() {
             </div>
           ))}
         </section>
+        {venue ? <section className="mt-6 grid gap-4 md:grid-cols-2"><div className="rounded-2xl border-4 border-ink bg-white p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">Currently live issue</p><p className="font-display text-4xl uppercase">{liveTarget?.issue.title || "Evergreen landing page"}</p><p className="font-bold">Since {formatInVenueTime(liveTarget?.publishAt, venue.timeZone)}</p></div><div className="rounded-2xl border-4 border-ink bg-stallYellow p-5 shadow-brutal"><p className="font-black uppercase text-stallRed">Next scheduled issue</p><p className="font-display text-4xl uppercase">{nextTarget?.issue.title || "Nothing scheduled"}</p><p className="font-bold">Starts {formatInVenueTime(nextTarget?.publishAt, venue.timeZone)}</p></div></section> : null}
         <section className="mt-6 grid gap-4 md:grid-cols-3">
           {[
             [

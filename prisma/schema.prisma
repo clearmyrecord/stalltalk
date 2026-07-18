@@ -358,6 +358,7 @@ model Venue {
   publicToken              String              @unique @default(uuid())
   city                     String
   state                    String
+  timeZone                 String              @default("America/Los_Angeles")
   zip                      String?
   address                  String
   venueType                String              @default("venue") @map("venue_type")
@@ -863,6 +864,9 @@ model IssueTarget {
   qrCodeId    String?
   targetType  IssueTargetType
   isLive      Boolean         @default(false)
+  publishAt   DateTime?
+  unpublishAt DateTime?
+  canceledAt  DateTime?
   publishedAt DateTime?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -872,7 +876,9 @@ model IssueTarget {
   qrCode      QrCode?         @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
 
   @@index([issueId])
-  @@index([venueId, targetType, isLive])
+  @@index([venueId, targetType, publishAt])
+  @@index([qrCodeId, targetType, publishAt])
+  @@index([restroomId, targetType, publishAt])
 }
 
 model QrLifecycleEvent {
