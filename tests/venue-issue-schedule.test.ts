@@ -68,3 +68,45 @@ test("computed states include draft, scheduled, live, ended, and canceled", () =
   assert.equal(computeIssueState({ status: "PUBLISHED", isPublished: true, issueTargets: [{ publishAt: new Date("2026-07-01T00:00:00Z"), unpublishAt: new Date("2026-07-10T00:00:00Z") }] }, now), "Ended");
   assert.equal(computeIssueState({ status: "PUBLISHED", isPublished: true, issueTargets: [{ canceledAt: now }] }, now), "Canceled");
 });
+import { htmlCheckboxValue, normalizeSectionPositions } from "../lib/form-utils";
+import { publishIssueTargets } from "../lib/permanent-qr-routing";
+
+test("unchecked Active checkbox is false because omitted FormData is not defaulted on", () => {
+  const unchecked = new FormData();
+  assert.equal(htmlCheckboxValue(unchecked, "isActive"), false);
+  const checked = new FormData();
+  checked.set("isActive", "on");
+  assert.equal(htmlCheckboxValue(checked, "isActive"), true);
+});
+
+test("venue portal blockSortOrder fields are honored then normalized", () => {
+  const normalized = normalizeSectionPositions([
+    { id: "a", requestedSortOrder: 20 },
+    { id: "b", requestedSortOrder: 10 },
+    { id: "c", requestedSortOrder: 10 },
+  ]);
+  assert.deepEqual(normalized.map((b) => [b.id, b.sortOrder]), [["b", 1], ["c", 2], ["a", 3]]);
+});
+
+test("publishIssueTargets allows future scheduled records without flipping isLive and infers target venue from QR/restroom targets", async () => {
+  const created: any[] = [];
+  const mock = {
+    issue: { findUnique: async () => ({ id: "issue1", venueId: null, publisherId: "pub1" }) },
+    restroom: { findMany: async () => [{ id: restroom.id, venueId: venue.id }] },
+    qrCode: { findMany: async () => [{ id: qr.id, venueId: venue.id, restroomId: restroom.id }] },
+    issueTarget: { updateMany: async () => { throw new Error("isLive rows should not be switched for schedules"); }, createMany: async ({ data }: any) => { created.push(...data); } },
+  };
+  await publishIssueTargets("issue1", { restroomIds: [restroom.id], qrCodeIds: [], publishAt: new Date("2026-09-01T00:00:00Z") }, mock as any);
+  await publishIssueTargets("issue1", { restroomIds: [], qrCodeIds: [qr.id], publishAt: new Date("2026-10-01T00:00:00Z") }, mock as any);
+  assert.deepEqual(created.map((row) => [row.venueId, row.restroomId, row.qrCodeId || null, row.isLive]), [[venue.id, restroom.id, null, false], [venue.id, restroom.id, qr.id, false]]);
+});
+
+test("legacy restroom-published issues still resolve when no IssueTarget exists", async () => {
+  const legacy = issue("legacy-restroom");
+  const db = {
+    qrCode: { findFirst: async () => qr },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.restroomId === restroom.id ? legacy : null },
+  };
+  assert.equal((await resolvePermanentQr(qr.publicToken, db as any, new Date("2026-07-15T00:00:00Z")))?.issue?.id, "legacy-restroom");
+});

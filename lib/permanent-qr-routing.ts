@@ -25,7 +25,12 @@ async function issueForPlacement(qr: { id: string; venueId: string | null; restr
     const restroom = await db.issueTarget.findFirst({ where: { restroomId: qr.restroomId, targetType: "RESTROOM", ...scheduledTargetWhere(now) }, include: { issue: true }, orderBy: targetOrderBy() });
     if (restroom?.issue) return restroom.issue;
   }
-  return qr.venueId ? venueIssue(qr.venueId, db, now) : null;
+  if (!qr.venueId) return null;
+  if (qr.restroomId) {
+    const legacyRestroom = await db.issue.findFirst({ where: { venueId: qr.venueId, restroomId: qr.restroomId, ...liveIssue, publishedAt: { lte: now } }, orderBy: [{ publishedAt: "desc" }, { id: "desc" }] });
+    if (legacyRestroom) return legacyRestroom;
+  }
+  return venueIssue(qr.venueId, db, now);
 }
 
 async function venueIssue(venueId: string, db: Db, now: Date) {
