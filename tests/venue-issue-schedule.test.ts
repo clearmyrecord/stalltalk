@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolvePermanentQr } from "../lib/permanent-qr-routing";
+import { resolveVenueEditorial } from "../lib/editorial-resolution";
+import { permanentQrPath } from "../lib/venue-qr";
+import { readFileSync } from "node:fs";
 import { zonedDateTimeToUtc, computeIssueState } from "../lib/venue-issue-schedule";
 
 const venue = { id: "venue1", slug: "pt-taverns-horizon", publicToken: "pt-taverns-horizon", isActive: true, publisherId: "pub1", timeZone: "America/Los_Angeles", contentMode: "VENUE_CUSTOM" };
@@ -209,4 +212,67 @@ test("mode switch changes content without changing QR route token", async () => 
   assert.equal((await resolvePermanentQr(venue.publicToken, dbFor("PUBLIC") as any))?.issue?.id, "public-route");
   assert.equal((await resolvePermanentQr(venue.publicToken, dbFor("VENUE_CUSTOM") as any))?.issue?.id, "custom-route");
   assert.equal(venue.publicToken, "pt-taverns-horizon");
+});
+
+
+test("future public issue does not display early and transitions exactly at scheduledPublishAt", async () => {
+  const current = issue("current-public", "Current Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: false, publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const next = issue("next-public", "Next Public", "SCHEDULED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: true, publishedAt: new Date("2026-07-01T00:00:00Z"), scheduledPublishAt: new Date("2026-08-01T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => ({ ...venue, contentMode: "PUBLIC" }) },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async () => [current, next], findFirst: async () => null },
+  };
+  assert.equal((await resolvePermanentQr(venue.publicToken, db as any, new Date("2026-07-31T23:59:59Z")))?.issue?.id, "current-public");
+  assert.equal((await resolvePermanentQr(venue.publicToken, db as any, new Date("2026-08-01T00:00:00Z")))?.issue?.id, "next-public");
+});
+
+test("copied permanent QR route honors PUBLIC mode", async () => {
+  const publicIssue = issue("copied-public", "Copied Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: false, publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const copiedQr = { ...qr, shortUrl: "/q/stall-one", venue: { ...venue, contentMode: "PUBLIC" } };
+  const db = {
+    qrCode: { findFirst: async ({ where }: any) => where.OR?.some((cond: any) => cond.publicToken === copiedQr.publicToken || cond.qrSlug === copiedQr.qrSlug || cond.slug === copiedQr.slug) ? copiedQr : null },
+    venue: { findFirst: async () => copiedQr.venue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async () => [publicIssue], findFirst: async () => null },
+  };
+  assert.equal(permanentQrPath(copiedQr, copiedQr.venue), "/q/stall-one");
+  assert.equal((await resolvePermanentQr("stall-one", db as any, new Date("2026-07-02T00:00:00Z")))?.issue?.id, "copied-public");
+});
+
+test("copied permanent QR route honors VENUE_CUSTOM mode", async () => {
+  const customIssue = issue("copied-custom", "Copied Custom", "PUBLISHED", true, false, { isScheduled: false, publishedAt: new Date("2026-07-02T00:00:00Z") });
+  const copiedQr = { ...qr, shortUrl: "/q/stall-one", venue: { ...venue, contentMode: "VENUE_CUSTOM" } };
+  const db = {
+    qrCode: { findFirst: async () => copiedQr },
+    venue: { findFirst: async () => copiedQr.venue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async ({ where }: any) => where.editorialScope === "VENUE" ? [customIssue] : [], findFirst: async () => null },
+  };
+  assert.equal(permanentQrPath(copiedQr, copiedQr.venue), "/q/stall-one");
+  assert.equal((await resolvePermanentQr("stall-one", db as any, new Date("2026-07-03T00:00:00Z")))?.issue?.id, "copied-custom");
+});
+
+test("dashboard and QR route use the same canonical resolver result", async () => {
+  const publicIssue = issue("dashboard-public", "Dashboard Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", isScheduled: false, publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => ({ ...venue, contentMode: "PUBLIC" }) },
+    issueTarget: { findFirst: async () => null },
+    issue: { findMany: async () => [publicIssue], findFirst: async () => null },
+  };
+  const qrResolved = await resolvePermanentQr(venue.publicToken, db as any, new Date("2026-07-02T00:00:00Z"));
+  const dashboardResolved = await resolveVenueEditorial({ ...venue, contentMode: "PUBLIC" }, db as any, new Date("2026-07-02T00:00:00Z"));
+  assert.equal(qrResolved?.issue?.id, dashboardResolved.issue?.id);
+});
+
+test("content mode authorization and inventory preservation are enforced in server action source", () => {
+  const actions = readFileSync(new URL("../lib/actions.ts", import.meta.url), "utf8");
+  const modeAction = actions.slice(actions.indexOf("export async function updateVenueContentMode"), actions.indexOf("export async function recordReviewClick"));
+  assert.match(modeAction, /requireRole\(\["VENUE_MANAGER", "ADMIN"\]\)/);
+  assert.match(modeAction, /user\.role !== "ADMIN" && user\.venueId !== venueId/);
+  assert.doesNotMatch(modeAction, /adSlotInventory|issueAdSlot|deleteMany/);
+  const venueUpdate = actions.slice(actions.indexOf("export async function updateVenueIssue"), actions.indexOf("export async function setVenueIssueStatus"));
+  assert.doesNotMatch(venueUpdate, /issueAdSlot\.deleteMany/);
 });
