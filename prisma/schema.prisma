@@ -96,6 +96,16 @@ enum IssueStatus {
   ARCHIVED
 }
 
+enum VenueContentMode {
+  PUBLIC
+  VENUE_CUSTOM
+}
+
+enum IssueEditorialScope {
+  PUBLIC_NETWORK
+  VENUE
+}
+
 enum EventStatus {
   DRAFT
   PENDING_REVIEW
@@ -356,6 +366,7 @@ model Venue {
   name                     String
   slug                     String              @unique
   publicToken              String              @unique @default(uuid())
+  contentMode              VenueContentMode    @default(PUBLIC)
   city                     String
   state                    String
   timeZone                 String              @default("America/Los_Angeles")
@@ -389,6 +400,8 @@ model Venue {
   venueContentDrafts       VenueContentDraft[]
   mediaAssets              VenueMediaAsset[]
   restaurantReviews        RestaurantReview[]
+
+  @@index([contentMode])
 }
 
 model Restroom {
@@ -551,35 +564,36 @@ model DefaultIssue {
 }
 
 model Issue {
-  id                       String      @id @default(cuid())
+  id                       String              @id @default(cuid())
   publisherId              String?
   defaultIssueId           String?
   venueId                  String?
   restroomId               String?
   qrCodeId                 String?
   title                    String
-  slug                     String?     @unique
+  slug                     String?             @unique
   publicUrl                String?
-  isGlobalIssue            Boolean     @default(false)
-  isVenueIssue             Boolean     @default(false)
-  isLocationIssue          Boolean     @default(false)
+  editorialScope           IssueEditorialScope @default(VENUE)
+  isGlobalIssue            Boolean             @default(false)
+  isVenueIssue             Boolean             @default(false)
+  isLocationIssue          Boolean             @default(false)
   month                    String
   year                     Int
   issueNumber              Int
-  status                   IssueStatus @default(DRAFT)
+  status                   IssueStatus         @default(DRAFT)
   scheduledAt              DateTime?
   scheduledPublishAt       DateTime?
-  timezone                 String?     @default("America/Los_Angeles")
-  isScheduled              Boolean     @default(false)
-  isPublished              Boolean     @default(false)
-  isArchived               Boolean     @default(false)
-  replaceDefaultOnPublish  Boolean     @default(true)
-  archivePreviousOnPublish Boolean     @default(true)
+  timezone                 String?             @default("America/Los_Angeles")
+  isScheduled              Boolean             @default(false)
+  isPublished              Boolean             @default(false)
+  isArchived               Boolean             @default(false)
+  replaceDefaultOnPublish  Boolean             @default(true)
+  archivePreviousOnPublish Boolean             @default(true)
   publishedAt              DateTime?
   republishedAt            DateTime?
   archivedAt               DateTime?
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
 
   publisher    Publisher?    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
   defaultIssue DefaultIssue? @relation(fields: [defaultIssueId], references: [id], onDelete: SetNull)
@@ -603,6 +617,7 @@ model Issue {
   @@index([qrCodeId])
   @@index([slug])
   @@index([status])
+  @@index([editorialScope, status, publishedAt])
   @@index([isScheduled, scheduledPublishAt])
   @@index([isPublished, isArchived])
   @@index([status, year, issueNumber])

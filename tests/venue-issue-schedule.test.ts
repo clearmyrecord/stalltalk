@@ -3,19 +3,22 @@ import assert from "node:assert/strict";
 import { resolvePermanentQr } from "../lib/permanent-qr-routing";
 import { zonedDateTimeToUtc, computeIssueState } from "../lib/venue-issue-schedule";
 
-const venue = { id: "venue1", slug: "pt-taverns-horizon", publicToken: "pt-taverns-horizon", isActive: true, publisherId: "pub1", timeZone: "America/Los_Angeles" };
+const venue = { id: "venue1", slug: "pt-taverns-horizon", publicToken: "pt-taverns-horizon", isActive: true, publisherId: "pub1", timeZone: "America/Los_Angeles", contentMode: "VENUE_CUSTOM" };
 const restroom = { id: "rest1", venueId: venue.id, name: "Men's" };
 const qr = { id: "qr1", qrSlug: "stall-one", publicToken: "stall-one", slug: "stall-one", venueId: venue.id, restroomId: restroom.id, isActive: true, venue, restroom };
-const issue = (id: string, title = id, status = "PUBLISHED", isPublished = true, isArchived = false) => ({ id, title, slug: id, status, isPublished, isArchived, venueId: venue.id });
+const issue = (id: string, title = id, status = "PUBLISHED", isPublished = true, isArchived = false, patch: any = {}) => ({ id, title, slug: id, status, isPublished, isArchived, venueId: venue.id, editorialScope: "VENUE", ...patch });
 
 function mockDb(targets: any[]) {
   const findTarget = (where: any) => targets
     .filter((t) => (!where.qrCodeId || t.qrCodeId === where.qrCodeId) && (!where.restroomId || t.restroomId === where.restroomId) && (!where.venueId || t.venueId === where.venueId) && t.targetType === where.targetType && !t.canceledAt && t.issue.isPublished && !t.issue.isArchived && ["PUBLISHED", "SCHEDULED"].includes(t.issue.status) && t.publishAt <= where.publishAt.lte && (!t.unpublishAt || t.unpublishAt > where.OR[1].unpublishAt.gt))
     .sort((a, b) => b.publishAt.getTime() - a.publishAt.getTime() || b.issueId.localeCompare(a.issueId))[0] || null;
   return {
-    qrCode: { findFirst: async () => qr },
+    qrCode: { findFirst: async ({ where }: any) => where.OR?.some((cond: any) => cond.publicToken === qr.publicToken || cond.qrSlug === qr.qrSlug || cond.slug === qr.slug) ? qr : null },
     venue: { findFirst: async () => venue },
-    issue: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => {
+      const candidates = targets.map((t) => t.issue).filter((i) => (!where.venueId || i.venueId === where.venueId) && (!where.editorialScope || i.editorialScope === where.editorialScope) && i.isPublished && !i.isArchived && ["PUBLISHED", "SCHEDULED"].includes(i.status) && (!where.publishedAt?.lte || (i.publishedAt && i.publishedAt <= where.publishedAt.lte)));
+      return candidates.sort((a, b) => (b.publishedAt?.getTime?.() || 0) - (a.publishedAt?.getTime?.() || 0) || b.id.localeCompare(a.id))[0] || null;
+    } },
     issueTarget: { findFirst: async ({ where }: any) => { const row = findTarget(where); return row ? { ...row, issue: row.issue } : null; } },
   };
 }
@@ -105,7 +108,7 @@ test("publishIssueTargets allows future scheduled records without flipping isLiv
 test("legacy restroom-published issues still resolve when no IssueTarget exists", async () => {
   const legacy = issue("legacy-restroom");
   const db = {
-    qrCode: { findFirst: async () => qr },
+    qrCode: { findFirst: async ({ where }: any) => where.OR?.some((cond: any) => cond.publicToken === qr.publicToken || cond.qrSlug === qr.qrSlug || cond.slug === qr.slug) ? qr : null },
     issueTarget: { findFirst: async () => null },
     issue: { findFirst: async ({ where }: any) => where.restroomId === restroom.id ? legacy : null },
   };
@@ -154,4 +157,56 @@ test("publishIssueTargets rejects cross-venue and publisher-incompatible issue t
   });
   await assert.rejects(() => publishIssueTargets("issue1", { venueId: venue.id, restroomIds: [], qrCodeIds: [] }, baseDb({ venueId: "other" }, {}) as any), /different venue/);
   await assert.rejects(() => publishIssueTargets("issue1", { venueId: venue.id, restroomIds: [], qrCodeIds: [] }, baseDb({}, { publisherId: "other-pub" }) as any), /publisher/);
+});
+
+test("PUBLIC mode serves current public issue and ignores venue custom until switched", async () => {
+  const publicVenue = { ...venue, contentMode: "PUBLIC" };
+  const publicIssue = issue("public", "Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const customIssue = issue("custom", "Custom", "PUBLISHED", true, false, { publishedAt: new Date("2026-07-02T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => publicVenue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.editorialScope === "PUBLIC_NETWORK" ? publicIssue : customIssue },
+  };
+  const resolved = await resolvePermanentQr(publicVenue.slug, db as any, new Date("2026-07-03T00:00:00Z"));
+  assert.equal(resolved?.issue?.id, "public");
+  assert.equal(resolved?.editorialSource, "PUBLIC_NETWORK");
+});
+
+test("VENUE_CUSTOM falls back to public issue when no venue issue qualifies", async () => {
+  const publicIssue = issue("public-fallback", "Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const db = {
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => venue },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.editorialScope === "PUBLIC_NETWORK" ? publicIssue : null },
+  };
+  const resolved = await resolvePermanentQr(venue.slug, db as any, new Date("2026-07-03T00:00:00Z"));
+  assert.equal(resolved?.issue?.id, "public-fallback");
+  assert.equal(resolved?.resolvedPriority, "PUBLIC_FALLBACK");
+});
+
+test("direct QR and restroom targets override PUBLIC mode", async () => {
+  const publicVenue = { ...venue, contentMode: "PUBLIC" };
+  const target = { issueId: "qr", venueId: venue.id, restroomId: restroom.id, qrCodeId: qr.id, targetType: "QR_PLACEMENT", publishAt: new Date("2026-07-01T00:00:00Z"), issue: issue("qr") };
+  const db = mockDb([target]);
+  db.qrCode.findFirst = async () => ({ ...qr, venue: publicVenue, restroom });
+  const resolved = await resolvePermanentQr(qr.publicToken, db as any, new Date("2026-07-02T00:00:00Z"));
+  assert.equal(resolved?.issue?.id, "qr");
+  assert.equal(resolved?.resolvedPriority, "QR_PLACEMENT");
+});
+
+test("mode switch changes content without changing QR route token", async () => {
+  const publicIssue = issue("public-route", "Public", "PUBLISHED", true, false, { venueId: null, editorialScope: "PUBLIC_NETWORK", publishedAt: new Date("2026-07-01T00:00:00Z") });
+  const customIssue = issue("custom-route", "Custom", "PUBLISHED", true, false, { publishedAt: new Date("2026-07-02T00:00:00Z") });
+  const dbFor = (mode: string) => ({
+    qrCode: { findFirst: async () => null },
+    venue: { findFirst: async () => ({ ...venue, contentMode: mode }) },
+    issueTarget: { findFirst: async () => null },
+    issue: { findFirst: async ({ where }: any) => where.editorialScope === "PUBLIC_NETWORK" ? publicIssue : customIssue },
+  });
+  assert.equal((await resolvePermanentQr(venue.publicToken, dbFor("PUBLIC") as any))?.issue?.id, "public-route");
+  assert.equal((await resolvePermanentQr(venue.publicToken, dbFor("VENUE_CUSTOM") as any))?.issue?.id, "custom-route");
+  assert.equal(venue.publicToken, "pt-taverns-horizon");
 });
