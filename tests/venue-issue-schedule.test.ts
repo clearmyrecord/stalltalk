@@ -354,3 +354,18 @@ test("venue dashboard reuses and reactivates an existing inactive venue QR inste
   assert.equal(state.rows.length, 1);
   assert.match(dashboardPermanentVenueQrUrl(selected, venue), /\/q\/preserved-route$/);
 });
+
+test("venue dashboard QR asset download encodes the displayed permanent /q route only", async () => {
+  const { qrAssetDownloadPath, validatedPermanentQrAssetUrl } = await import("../lib/qr-asset-routing");
+  const pageSource = readFileSync(new URL("../app/portal/venue/page.tsx", import.meta.url), "utf8");
+  const route = "https://pottyfavor.com/q/preserved-route";
+  const downloadPath = qrAssetDownloadPath("legacy-scan-slug", route);
+  const decodedRoute = new URL(`https://pottyfavor.com${downloadPath}`).searchParams.get("route");
+
+  assert.equal(decodedRoute, route);
+  assert.equal(validatedPermanentQrAssetUrl(decodedRoute), route);
+  assert.equal(validatedPermanentQrAssetUrl("https://pottyfavor.com/scan/legacy-scan-slug"), null);
+  assert.equal(validatedPermanentQrAssetUrl("https://pottyfavor.com/v/venue-slug"), null);
+  assert.equal(validatedPermanentQrAssetUrl("https://evil.example/q/preserved-route"), null);
+  assert.match(pageSource, /qrDownloadUrl=\{qrAssetDownloadPath\(venueQr\.qrSlug, permanentVenueQrUrl\)\}/);
+});

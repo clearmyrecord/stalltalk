@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { normalizeQrUrl, qrPngBuffer, qrStickerSvg, qrSvg } from "@/lib/qr";
 import { prisma } from "@/lib/prisma";
+import { validatedPermanentQrAssetUrl } from "@/lib/qr-asset-routing";
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const format = new URL(request.url).searchParams.get("format") || "svg";
+  const searchParams = new URL(request.url).searchParams;
+  const format = searchParams.get("format") || "svg";
   const qr = await prisma.qrCode.findUnique({ where: { qrSlug: slug }, include: { venue: true } });
   if (!qr) return NextResponse.json({ error: "QR code not found" }, { status: 404 });
-  const encodedUrl = normalizeQrUrl(qr.qrSlug, qr.qrUrl);
+  const requestedPermanentRoute = searchParams.get("route");
+  const encodedUrl = requestedPermanentRoute
+    ? validatedPermanentQrAssetUrl(requestedPermanentRoute)
+    : normalizeQrUrl(qr.qrSlug, qr.qrUrl);
+  if (!encodedUrl) return NextResponse.json({ error: "Invalid permanent QR route" }, { status: 400 });
 
   if (format === "png") {
     const png = await qrPngBuffer(encodedUrl);
