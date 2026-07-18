@@ -21,14 +21,34 @@ export function computeIssueState(issue: { status: string; isArchived?: boolean 
   return "Draft";
 }
 
-export function timeZoneAbbreviation(timeZone = "America/Los_Angeles", at = new Date()) {
-  const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" }).formatToParts(at).find((p) => p.type === "timeZoneName");
-  return part?.value || timeZone;
+const DEFAULT_VENUE_TIME_ZONE = "America/Los_Angeles";
+
+function validVenueTimeZone(timeZone = DEFAULT_VENUE_TIME_ZONE) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format();
+    return timeZone;
+  } catch {
+    return DEFAULT_VENUE_TIME_ZONE;
+  }
 }
 
-export function formatInVenueTime(date: Date | null | undefined, timeZone = "America/Los_Angeles") {
+export function timeZoneAbbreviation(timeZone = DEFAULT_VENUE_TIME_ZONE, at = new Date()) {
+  const resolvedTimeZone = validVenueTimeZone(timeZone);
+  const part = new Intl.DateTimeFormat("en-US", { timeZone: resolvedTimeZone, timeZoneName: "short" }).formatToParts(at).find((p) => p.type === "timeZoneName");
+  return part?.value || resolvedTimeZone;
+}
+
+export function formatInVenueTime(date: Date | null | undefined, timeZone = DEFAULT_VENUE_TIME_ZONE) {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("en-US", { timeZone, dateStyle: "medium", timeStyle: "short", timeZoneName: "short" }).format(date);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: validVenueTimeZone(timeZone),
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
 }
 
 export function zonedDateTimeToUtc(date: string | null, time: string | null, timeZone = "America/Los_Angeles") {

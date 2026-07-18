@@ -4,7 +4,11 @@ import { resolvePermanentQr } from "../lib/permanent-qr-routing";
 import { resolveVenueEditorial } from "../lib/editorial-resolution";
 import { permanentQrPath } from "../lib/venue-qr";
 import { readFileSync } from "node:fs";
-import { zonedDateTimeToUtc, computeIssueState } from "../lib/venue-issue-schedule";
+import {
+  zonedDateTimeToUtc,
+  computeIssueState,
+  formatInVenueTime,
+} from "../lib/venue-issue-schedule";
 
 const venue = { id: "venue1", slug: "pt-taverns-horizon", publicToken: "pt-taverns-horizon", isActive: true, publisherId: "pub1", timeZone: "America/Los_Angeles", contentMode: "VENUE_CUSTOM" };
 const restroom = { id: "rest1", venueId: venue.id, name: "Men's" };
@@ -59,6 +63,24 @@ test("QR, restroom, venue priority still applies with schedule qualification", a
     { issueId: "qr", venueId: venue.id, restroomId: restroom.id, qrCodeId: qr.id, targetType: "QR_PLACEMENT", publishAt: new Date("2026-07-03T00:00:00Z"), issue: issue("qr") },
   ];
   assert.equal((await resolvePermanentQr(qr.publicToken, mockDb(targets), now))?.issue?.id, "qr");
+});
+
+test("formatInVenueTime formats venue-local Los Angeles dates", () => {
+  assert.equal(formatInVenueTime(new Date("2026-07-15T16:30:00Z"), "America/Los_Angeles"), "Jul 15, 2026, 9:30 AM PDT");
+});
+
+test("formatInVenueTime shows PDT and PST abbreviations", () => {
+  assert.equal(formatInVenueTime(new Date("2026-07-15T16:00:00Z"), "America/Los_Angeles"), "Jul 15, 2026, 9:00 AM PDT");
+  assert.equal(formatInVenueTime(new Date("2026-01-15T17:00:00Z"), "America/Los_Angeles"), "Jan 15, 2026, 9:00 AM PST");
+});
+
+test("formatInVenueTime preserves em dash for null dates", () => {
+  assert.equal(formatInVenueTime(null, "America/Los_Angeles"), "—");
+  assert.equal(formatInVenueTime(undefined, "America/Los_Angeles"), "—");
+});
+
+test("formatInVenueTime falls back to Los Angeles for invalid venue time zones", () => {
+  assert.equal(formatInVenueTime(new Date("2026-01-15T17:00:00Z"), "Invalid/Zone"), "Jan 15, 2026, 9:00 AM PST");
 });
 
 test("venue timezone conversion handles DST transition offsets", () => {
