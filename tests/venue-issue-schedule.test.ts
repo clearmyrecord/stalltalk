@@ -298,3 +298,74 @@ test("content mode authorization and inventory preservation are enforced in serv
   const venueUpdate = actions.slice(actions.indexOf("export async function updateVenueIssue"), actions.indexOf("export async function setVenueIssueStatus"));
   assert.doesNotMatch(venueUpdate, /issueAdSlot\.deleteMany/);
 });
+
+test("venue dashboard selects venue-level QR and renders the permanent /q route", async () => {
+  const pageSource = readFileSync(new URL("../app/portal/venue/page.tsx", import.meta.url), "utf8");
+  const { selectDashboardVenueQr, dashboardPermanentVenueQrUrl } = await import("../lib/venue-dashboard-qr");
+  const restroomQr = { id: "restroom-qr", qrSlug: "restroom-route", qrType: "RESTROOM", restroomId: "rest1" };
+  const fallbackNoRestroomQr = { id: "old-wide", qrSlug: "old-wide", qrType: "RESTROOM", restroomId: null };
+  const venueLevelQr = { id: "venue-qr", qrSlug: "venue-slug-route", publicToken: "venue-token-route", shortUrl: "/q/venue-stable", qrType: "VENUE", restroomId: null };
+  const selected = selectDashboardVenueQr([restroomQr, fallbackNoRestroomQr, venueLevelQr]);
+
+  assert.equal(selected?.id, "venue-qr");
+  assert.match(dashboardPermanentVenueQrUrl(selected, venue), /\/q\/venue-stable$/);
+  assert.doesNotMatch(dashboardPermanentVenueQrUrl(selected, venue), /\/v\//);
+  assert.match(pageSource, /Your Permanent Venue QR/);
+  assert.match(pageSource, /qrSvgDataUrl\(permanentVenueQrUrl/);
+  assert.match(pageSource, /<PublicIssueUrlActions[^>]+openLabel="Open QR Route"/);
+});
+
+test("venue dashboard reuses and reactivates an existing inactive venue QR instead of duplicating it", async () => {
+  const { getDashboardVenueQr, dashboardPermanentVenueQrUrl } = await import("../lib/venue-dashboard-qr");
+  const inactiveVenueQr = {
+    id: "inactive-venue-qr",
+    qrSlug: "preserved-slug",
+    publicToken: "preserved-token",
+    shortUrl: "/q/preserved-route",
+    qrType: "VENUE",
+    restroomId: null,
+    isActive: false,
+    status: "RETIRED",
+    scanHistoryMarker: "keep-scans",
+    assignmentMarker: "keep-assignments",
+  };
+  const state = { rows: [inactiveVenueQr], ensureCalls: 0, updates: [] as any[] };
+  const db = {
+    qrCode: {
+      findMany: async ({ where }: any) => state.rows.filter((row: any) => row.venueId === where.venueId || !row.venueId).filter((row: any) => row.restroomId === where.restroomId).filter((row: any) => !where.isActive || row.isActive === where.isActive).filter((row: any) => !where.status || row.status === where.status),
+      update: async ({ where, data }: any) => {
+        state.updates.push({ where, data });
+        const index = state.rows.findIndex((row) => row.id === where.id);
+        state.rows[index] = { ...state.rows[index], ...data };
+        return state.rows[index];
+      },
+    },
+  };
+
+  const selected = await getDashboardVenueQr(venue.id, db as any, async () => { state.ensureCalls += 1; });
+
+  assert.equal(selected?.id, inactiveVenueQr.id);
+  assert.equal(selected?.qrSlug, "preserved-slug");
+  assert.equal(selected?.publicToken, "preserved-token");
+  assert.equal((selected as any).scanHistoryMarker, "keep-scans");
+  assert.equal((selected as any).assignmentMarker, "keep-assignments");
+  assert.deepEqual(state.updates, [{ where: { id: inactiveVenueQr.id }, data: { isActive: true, status: "ACTIVE" } }]);
+  assert.equal(state.ensureCalls, 0);
+  assert.equal(state.rows.length, 1);
+  assert.match(dashboardPermanentVenueQrUrl(selected, venue), /\/q\/preserved-route$/);
+});
+
+test("venue dashboard QR asset download encodes the displayed permanent /q route only", async () => {
+  const { qrAssetDownloadPath, validatedPermanentQrAssetUrl } = await import("../lib/qr-asset-routing");
+  const pageSource = readFileSync(new URL("../app/portal/venue/page.tsx", import.meta.url), "utf8");
+  const route = "https://pottyfavor.com/q/preserved-route";
+  const downloadPath = qrAssetDownloadPath("legacy-scan-slug", route);
+  const decodedRoute = new URL(`https://pottyfavor.com${downloadPath}`).searchParams.get("route");
+
+  assert.equal(decodedRoute, route);
+  assert.equal(validatedPermanentQrAssetUrl(decodedRoute), route);
+  assert.equal(validatedPermanentQrAssetUrl("https://pottyfavor.com/scan/legacy-scan-slug"), null);
+  assert.equal(validatedPermanentQrAssetUrl("https://pottyfavor.com/v/venue-slug"), null);
+  assert.equal(validatedPermanentQrAssetUrl("https://evil.example/q/preserved-route"), null);
+  assert.match(pageSource, /qrDownloadUrl=\{qrAssetDownloadPath\(venueQr\.qrSlug, permanentVenueQrUrl\)\}/);
+});
