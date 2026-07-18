@@ -46,7 +46,12 @@ export async function publishIssueTargets(issueId: string, targets: { venueId?: 
   const restrooms = targets.restroomIds.length ? await db.restroom.findMany({ where: { id: { in: targets.restroomIds } }, select: { id: true, venueId: true } }) : [];
   const venueId = targets.venueId || issue.venueId || restrooms[0]?.venueId || qrCodes[0]?.venueId;
   if (!venueId) throw new Error("Publishing requires at least one venue, restroom, or QR placement target.");
+  if (issue.venueId && issue.venueId !== venueId) throw new Error("Issue already belongs to a different venue.");
   if (restrooms.some((r: any) => r.venueId !== venueId) || qrCodes.some((q: any) => q.venueId !== venueId)) throw new Error("All publishing targets must belong to the selected issue venue.");
+  const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true, publisherId: true } });
+  if (!venue) throw new Error("Resolved venue was not found.");
+  if (issue.publisherId && venue.publisherId && issue.publisherId !== venue.publisherId) throw new Error("Issue publisher does not match the resolved venue publisher.");
+  if (!issue.venueId) await db.issue.update({ where: { id: issueId }, data: { venueId } });
   const publishAt = targets.publishAt || new Date();
   if (targets.unpublishAt && targets.unpublishAt <= publishAt) throw new Error("End time must be after publication time.");
   const rows: Prisma.IssueTargetCreateManyInput[] = [];
