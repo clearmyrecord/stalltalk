@@ -24,7 +24,7 @@ ALTER TABLE "qr_codes" ADD COLUMN IF NOT EXISTS "public_token" TEXT;
 ALTER TABLE "qr_codes" ADD COLUMN IF NOT EXISTS "internal_label" TEXT;
 ALTER TABLE "qr_codes" ADD COLUMN IF NOT EXISTS "placement_type" "QrPlacementType" NOT NULL DEFAULT 'OTHER';
 ALTER TABLE "qr_codes" ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true;
-UPDATE "qr_codes" SET "public_token" = COALESCE(NULLIF("public_token", ''), NULLIF("slug", ''), NULLIF("qr_slug", ''), NULLIF("uuid", ''), "id") WHERE "public_token" IS NULL OR "public_token" = '';
+UPDATE "qr_codes" SET "public_token" = COALESCE(NULLIF("public_token", ''), NULLIF("qr_slug", ''), NULLIF("uuid", ''), "id") WHERE "public_token" IS NULL OR "public_token" = '';
 UPDATE "qr_codes" SET "internal_label" = COALESCE(NULLIF("internal_label", ''), "qr_name", "qr_slug", "id") WHERE "internal_label" IS NULL OR "internal_label" = '';
 CREATE UNIQUE INDEX IF NOT EXISTS "qr_codes_public_token_key" ON "qr_codes"("public_token");
 ALTER TABLE "qr_codes" ALTER COLUMN "public_token" SET NOT NULL;
