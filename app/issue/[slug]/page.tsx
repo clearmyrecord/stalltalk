@@ -246,6 +246,7 @@ async function renderLoadedVenueIssue({
   renderIssue.qrCodeId = directIssue?.qrCodeId ?? issue.qrCodeId ?? null;
   renderIssue.contentBlocks = issue.contentBlocks.filter(
     (block) =>
+      (block as any).isVisible !== false &&
       (!block.article || block.article.status === "PUBLISHED") &&
       (!block.venueIds.length || block.venueIds.includes(requestedVenue.id)),
   );

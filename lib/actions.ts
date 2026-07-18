@@ -15,6 +15,7 @@ import { ensureVenueQrCodes, venueQrPath } from "./venue-qr";
 import { sponsorPlacementLabel } from "./sponsor-placements";
 import { combinePublishDateTime, issueSlug, nextMonthYear } from "./issue-scheduling";
 import { buildIssueSlug, locationSlug, qrDestinationPath } from "./issue-routing";
+import { publishIssueTargets } from "./permanent-qr-routing";
 import { restroomBaseSelect } from "./restroom-schema";
 import { adSlotInventoryColumnOptions, dynamicAdSlotInventoryData, ensureAssignedIssueQrRouteAdInventory, getAdSlotInventoryColumns, isOptionalAdSlotInventoryColumnError, logOptionalAdSlotInventoryColumnError, safeAdSlotInventoryCreateMany } from "./advertiser-route-inventory";
 import { ensureIssueAdInventory } from "./issue-inventory";
@@ -81,9 +82,9 @@ export async function createQrCode(formData: FormData) {
   const venue = venueId ? await prisma.venue.findUnique({ where: { id: venueId } }) : null;
   const restroom = restroomId ? await prisma.restroom.findUnique({ where: { id: restroomId }, select: restroomBaseSelect }) : null;
   const destinationType = (text(formData, "destinationType", restroomId ? "LOCATION" : venueId ? "VENUE" : "GLOBAL") || "GLOBAL") as any;
-  const destinationPath = qrDestinationPath({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, type: destinationType });
+  const destinationPath = `/q/${qrSlug}`;
   const qrUrl = `${publicBaseUrl()}${destinationPath}`;
-  const qrCode = await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, assignedDistributorId: nullableText(formData, "assignedDistributorId"), qrSlug, slug: qrSlug, qrName: text(formData, "qrName", qrSlug), qrUrl, destinationType, destinationUrl: qrUrl, shortUrl: qrUrl, qrType: text(formData, "qrType", restroomId ? "RESTROOM" : venueId ? "VENUE" : "GLOBAL") as any, stickerTemplate: text(formData, "stickerTemplate", "STALL_DOOR") as any, callToAction: text(formData, "callToAction", "Scan for Potty Favor"), campaignSource: nullableText(formData, "campaignSource"), advertisementSource: nullableText(formData, "advertisementSource"), promotionSource: nullableText(formData, "promotionSource"), couponSource: nullableText(formData, "couponSource"), status: venueId ? "ACTIVE" : "DRAFT" } });
+  const qrCode = await prisma.qrCode.create({ data: { publisherId: text(formData, "publisherId"), venueId, restroomId, assignedDistributorId: nullableText(formData, "assignedDistributorId"), qrSlug, slug: qrSlug, publicToken: qrSlug, internalLabel: text(formData, "internalLabel", text(formData, "qrName", qrSlug)), placementType: text(formData, "placementType", "OTHER") as any, isActive: text(formData, "isActive", "on") !== "off", qrName: text(formData, "qrName", qrSlug), qrUrl, destinationType, destinationUrl: qrUrl, shortUrl: qrUrl, qrType: text(formData, "qrType", restroomId ? "RESTROOM" : venueId ? "VENUE" : "GLOBAL") as any, stickerTemplate: text(formData, "stickerTemplate", "STALL_DOOR") as any, callToAction: text(formData, "callToAction", "Scan for Potty Favor"), campaignSource: nullableText(formData, "campaignSource"), advertisementSource: nullableText(formData, "advertisementSource"), promotionSource: nullableText(formData, "promotionSource"), couponSource: nullableText(formData, "couponSource"), status: venueId ? "ACTIVE" : "DRAFT" } });
   await prisma.qrLifecycleEvent.create({ data: { qrCodeId: qrCode.id, action: "CREATE", note: "QR created from admin registry" } });
   revalidatePath("/admin/qr");
 }
@@ -276,6 +277,7 @@ async function saveNewIssue(formData: FormData): Promise<IssueSaveState> {
       const issue = await tx.issue.create({ data: await issueData(formData) });
       await saveContentBlocks(issue.id, formData, tx);
       await saveAdSlots(issue.id, formData, tx);
+      if (issue.status === "PUBLISHED") await publishIssueTargets(issue.id, issueTargets(formData), tx);
       await safeEnsureIssueAdInventory(issue.id, tx);
       return issue;
     });
@@ -301,6 +303,7 @@ async function saveExistingIssue(id: string, formData: FormData): Promise<IssueS
       await tx.issueAdSlot.deleteMany({ where: { issueId: id } });
       await saveContentBlocks(id, formData, tx);
       await saveAdSlots(id, formData, tx);
+      if (data.status === "PUBLISHED") await publishIssueTargets(id, issueTargets(formData), tx);
       await safeEnsureIssueAdInventory(id, tx);
     });
     revalidateIssuePaths(id);
@@ -340,7 +343,7 @@ async function issueData(formData: FormData, existing?: { status: IssueStatus; p
   const slug = text(formData, "slug", generatedSlug) || generatedSlug;
   const publicPath = qrDestinationPath({ venueSlug: venue?.slug, locationSlug: restroom ? locationSlug((restroom as any).slug || restroom.name, restroom.id) : null, issueSlug: slug, type: restroomId ? "ISSUE" : venueId ? "VENUE" : "ISSUE" });
   const isScheduled = text(formData, "autoPublish") === "on" && Boolean(scheduledAt) && status !== "PUBLISHED";
-  return { publisherId, venueId, restroomId, qrCodeId: nullableText(formData, "qrCodeId"), title, slug, publicUrl: `${publicBaseUrl()}${publicPath}`, isGlobalIssue: !venueId && !restroomId, isVenueIssue: Boolean(venueId) && !restroomId, isLocationIssue: Boolean(venueId && restroomId), month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
+  return { publisherId, venueId, restroomId, qrCodeId: null, title, slug, publicUrl: `${publicBaseUrl()}${publicPath}`, isGlobalIssue: !venueId && !restroomId, isVenueIssue: Boolean(venueId) && !restroomId, isLocationIssue: Boolean(venueId && restroomId), month, year, issueNumber: intValue(formData, "issueNumber", 1), status: isScheduled ? "SCHEDULED" : status, scheduledAt, scheduledPublishAt: scheduledAt, timezone: text(formData, "timezone", "America/Los_Angeles") || "America/Los_Angeles", isScheduled, isPublished: status === "PUBLISHED", isArchived: status === "ARCHIVED", replaceDefaultOnPublish: text(formData, "replaceDefaultOnPublish", "on") !== "off", archivePreviousOnPublish: text(formData, "archivePreviousOnPublish", "on") !== "off", publishedAt: firstPublishedAt, archivedAt: status === "ARCHIVED" ? now : null, republishedAt };
 }
 
 function logIssueSavePayload(mode: "create" | "update", formData: FormData, issueId?: string) {
@@ -356,16 +359,24 @@ function issueSaveError(error: unknown): IssueSaveState {
 }
 
 async function saveContentBlocks(issueId: string, formData: FormData, db: any = prisma) {
-  const blocks = Array.from({ length: 9 }, (_, index) => {
-    const row = index + 1;
+  const blockRows = Array.from(new Set(Array.from(formData.keys()).map((key) => key.match(/^blockLayoutKey(\d+)$/)?.[1]).filter(Boolean).map(Number))).sort((a, b) => a - b);
+  const blocks = blockRows.map((row, index) => {
     const layoutKey = text(formData, `blockLayoutKey${row}`, `slot-${row}`);
-    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockTitle${row}`), body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: intValue(formData, `blockSortOrder${row}`, row), layout: { key: layoutKey, zone: `slot-${row}`, locked: false } };
+    return { issueId, articleId: nullableText(formData, `blockArticle${row}`), type: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, sectionType: text(formData, `blockType${row}`, "ARTICLE") as ContentBlockType, title: text(formData, `blockHeadline${row}`, text(formData, `blockTitle${row}`)), headline: text(formData, `blockHeadline${row}`, text(formData, `blockTitle${row}`)), isVisible: text(formData, `blockVisible${row}`, "on") !== "off", body: text(formData, `blockBody${row}`), imageUrl: nullableText(formData, `blockImage${row}`), venueIds: selectedVenueIds(formData, `blockVenueIds${row}`), sortOrder: index + 1, layout: { key: layoutKey, zone: `slot-${index + 1}`, locked: false } };
   }).filter((block) => block.title || block.body || block.articleId);
-  const types = blocks.map((block) => block.type);
-  if (new Set(types).size !== types.length) throw new Error("Content type already assigned.");
   const keys = blocks.map((block) => (block.layout as any).key).filter(Boolean);
   if (new Set(keys).size !== keys.length) throw new Error("Content type already assigned.");
   if (blocks.length) await db.issueContentBlock.createMany({ data: blocks });
+}
+
+function issueTargets(formData: FormData) {
+  const audience = text(formData, "audience", "");
+  const venueId = nullableText(formData, "venueId");
+  return {
+    venueId: audience === "VENUE" ? venueId : null,
+    restroomIds: audience === "RESTROOMS" ? formData.getAll("targetRestroomIds").map(String).filter(Boolean) : [],
+    qrCodeIds: audience === "QRS" ? formData.getAll("targetQrCodeIds").map(String).filter(Boolean) : [],
+  };
 }
 
 function selectedVenueIds(formData: FormData, key = "venueIds") {

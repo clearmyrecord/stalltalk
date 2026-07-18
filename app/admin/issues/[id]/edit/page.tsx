@@ -27,7 +27,8 @@ export default async function EditIssuePage({
               sortOrder: "asc"
             }
           },
-          adSlots: true
+          adSlots: true,
+          issueTargets: true
         }
       }),
       prisma.publisher.findMany(),
